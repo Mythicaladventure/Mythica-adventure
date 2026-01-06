@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mythica Adventure Core</title>
+    <style>
+        :root { --gold: #ffd700; --bg: #0a0a0c; --health: #ff4757; --mana: #2e86de; }
+        body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; }
+        
+        /* El Mundo (Estilo Tibia/Lawl) */
+        #game-canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+
+        /* Interfaz Pro (Estilo Grind Hero) */
+        .hud { position: absolute; top: 20px; left: 20px; pointer-events: none; }
+        .stat-bar { width: 180px; height: 14px; background: #222; border: 1px solid #444; border-radius: 3px; margin-bottom: 6px; position: relative; }
+        .fill { height: 100%; transition: width 0.4s ease; }
+        
+        /* Controles Táctiles */
+        .controls { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 70px); gap: 12px; }
+        .btn { width: 70px; height: 70px; background: rgba(20,20,25,0.85); border: 2px solid var(--gold); border-radius: 50%; 
+               display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
+        
+        #joystick { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.05); border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body>
+
+    <canvas id="game-canvas"></canvas>
+
+    <div class="hud">
+        <div style="color: var(--gold); font-size: 14px; margin-bottom: 5px; font-weight: bold;">MYTHICA ADVENTURE - LVL 1</div>
+        <div class="stat-bar"><div id="hp" class="fill" style="background: var(--health); width: 100%;"></div></div>
+        <div class="stat-bar"><div id="mp" class="fill" style="background: var(--mana); width: 100%;"></div></div>
+    </div>
+
+    <div id="joystick"></div>
+
+    <div class="controls">
+        <div class="btn" style="color: var(--health)">ATK</div>
+        <div class="btn" style="color: var(--mana)">SKILL</div>
+        <div class="btn" style="color: #2ecc71">BAG</div>
+        <div class="btn" style="color: var(--gold)">SET</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        function draw() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            // Dibujamos un suelo de rejilla (Estilo Tibia)
+            ctx.strokeStyle = "#1a1a1a";
+            for(let i=0; i<canvas.width; i+=40) {
+                ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke();
+            }
+            for(let i=0; i<canvas.height; i+=40) {
+                ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke();
+            }
+
+            // Jugador (Placeholder dorado)
+            ctx.fillStyle = "gold";
+            ctx.shadowBlur = 15; ctx.shadowColor = "gold";
+            ctx.fillRect(canvas.width/2 - 16, canvas.height/2 - 16, 32, 32);
+            
+            requestAnimationFrame(draw);
+        }
+        draw();
+    </script>
+</body>
+</html>
