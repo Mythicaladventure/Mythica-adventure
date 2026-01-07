@@ -3,292 +3,861 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mythica Online: Evolved Engine</title>
+    <title>Mythica Online - Definitive Edition</title>
     <style>
-        :root { 
-            --tibia-bg: #3c3c3c; --stone: #5a5a5a; --border: #1a1a1a;
-            --gold: #d4af37; --health: #00ff00; --mana: #3e93ff;
-            --t1: #ffffff; --t2: #fbff00; --t3: #ff9100; --t4: #ff3c00; --t5: #d400ff; --t6: #00ffff;
+        /* CONFIGURACIÓN DE COLORES TIBIA PROFESIONAL */
+        :root {
+            --bg-dark: #2a2a2a;      --panel-gray: #3c3c3c;
+            --stone-border: #1a1a1a;  --tibia-gold: #d4af37;
+            --health-bar: #00ff00;   --mana-bar: #3e93ff;
+            --text-main: #dfdfdf;    --text-shadow: 2px 2px #000;
         }
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Verdana', sans-serif; color: #e0e0e0; touch-action: none; }
+
+        body { 
+            margin: 0; background: #000; overflow: hidden; 
+            font-family: 'Verdana', sans-serif; color: var(--text-main); 
+            user-select: none; touch-action: none;
+        }
+
+        /* PANTALLA DE CREACIÓN / LOGIN */
+        #login-screen {
+            position: absolute; inset: 0; background: radial-gradient(circle, #333, #000);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000;
+        }
+        .login-panel {
+            background: var(--panel-gray); border: 4px outset #888; padding: 30px;
+            border-radius: 8px; box-shadow: 0 0 40px #000; text-align: center;
+        }
+        .input-tibia {
+            background: #111; border: 2px inset #555; padding: 12px;
+            color: var(--tibia-gold); font-weight: bold; width: 200px; margin: 15px 0;
+            text-align: center; border-radius: 4px; outline: none;
+        }
+
+        /* CAPA DE INTERFAZ DE JUEGO (HUD) */
+        #game-ui { position: absolute; inset: 0; pointer-events: none; display: none; }
         
-        /* PANTALLA DE SELECCIÓN DE CLASE */
-        #class-selection {
-            position: absolute; inset: 0; background: radial-gradient(circle, #222, #000);
-            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999;
+        /* PANEL DE STATS (DERECHA SUPERIOR) */
+        .hud-module {
+            position: absolute; pointer-events: auto; background: rgba(45,45,45,0.95);
+            border: 3px outset #666; border-radius: 4px; padding: 10px;
         }
-        .class-card {
-            width: 280px; padding: 20px; margin: 10px; background: var(--stone);
-            border: 4px outset #888; border-radius: 12px; text-align: center; cursor: pointer;
-            transition: 0.2s; box-shadow: 0 10px 20px #000;
+        #stats-panel { top: 10px; right: 10px; width: 220px; }
+        .bar { width: 100%; height: 14px; background: #111; border: 1px solid #000; margin: 5px 0; position: relative; }
+        .bar-fill { height: 100%; transition: width 0.3s ease-out; }
+        .bar-txt { 
+            position: absolute; width: 100%; text-align: center; font-size: 10px; 
+            line-height: 14px; font-weight: bold; color: #fff; text-shadow: 1px 1px #000;
         }
-        .class-card:active { transform: scale(0.95); border-style: inset; }
 
-        /* HUD TIBIA STYLE */
-        #hud {
-            position: absolute; top: 15px; right: 15px; width: 220px;
-            background: rgba(40,40,40,0.9); border: 3px outset #777; border-radius: 8px;
-            padding: 12px; z-index: 1000; display: none;
-        }
-        .bar-container { width: 100%; height: 16px; background: #111; border: 1px solid #000; margin: 5px 0; position: relative; }
-        .bar-fill { height: 100%; transition: width 0.3s; }
-        .bar-txt { position: absolute; width: 100%; text-align: center; font-size: 10px; line-height: 16px; font-weight: bold; color: #fff; text-shadow: 1px 1px #000; }
-
-        /* JOYSTICK */
-        #joy { position: absolute; bottom: 50px; left: 50px; width: 110px; height: 110px; background: rgba(0,0,0,0.2); border: 2px solid #666; border-radius: 50%; display: none; }
-        #stick { position: absolute; width: 50px; height: 50px; background: #888; border: 3px outset #aaa; border-radius: 50%; top: 27px; left: 27px; }
-
-        /* MENÚ PROFESIONAL */
-        #main-menu {
+        /* VENTANA PRINCIPAL DE MENÚ (CENTRAL) */
+        #main-window {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 92%; height: 85%; background: var(--tibia-bg); border: 5px outset #888;
-            border-radius: 15px; display: none; flex-direction: column; z-index: 2000;
-            box-shadow: 0 0 40px #000;
+            width: 95%; height: 85%; background: var(--panel-gray);
+            border: 5px outset #888; border-radius: 12px; display: none;
+            flex-direction: column; z-index: 9000; pointer-events: auto;
         }
-        .tabs { display: flex; background: #1a1a1a; height: 50px; border-radius: 10px 10px 0 0; }
-        .tab { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: #777; cursor: pointer; }
-        .tab.active { background: var(--tibia-bg); color: var(--gold); }
-        
-        .view { flex: 1; padding: 20px; overflow-y: auto; }
-        .panel-inset { background: rgba(0,0,0,0.2); border: 2px inset rgba(0,0,0,0.3); border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+        .tabs-header { display: flex; background: #1a1a1a; height: 45px; border-radius: 8px 8px 0 0; }
+        .tab { 
+            flex: 1; display: flex; align-items: center; justify-content: center; 
+            font-size: 11px; font-weight: bold; color: #777; cursor: pointer; border-right: 1px solid #333;
+        }
+        .tab.active { background: var(--panel-gray); color: var(--tibia-gold); }
+        .content-area { flex: 1; padding: 15px; overflow-y: auto; display: none; }
+        .content-area.active { display: block; }
 
-        /* BACKPACK GRID */
-        .inv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        .slot { aspect-ratio: 1/1; background: #4a4a4a; border: 2px inset #222; border-radius: 6px; }
+        /* SISTEMA DE EQUIPAMIENTO (SET) */
+        .set-container {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+            width: 210px; margin: 0 auto; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 10px;
+        }
+        .slot {
+            width: 60px; height: 60px; background: #222; border: 2px inset #444;
+            display: flex; align-items: center; justify-content: center; font-size: 9px; color: #555;
+        }
 
-        /* BOTONES DE ACCIÓN */
-        .action-btns { position: absolute; bottom: 40px; right: 40px; display: none; gap: 15px; }
-        .btn-round { width: 80px; height: 80px; border-radius: 50%; border: 5px outset #888; background: var(--stone); font-weight: bold; color: #fff; }
-        .btn-round:active { border-style: inset; transform: scale(0.95); }
+        /* CONSOLA DE BATALLA (TIBIA LOG) */
+        #battle-console {
+            background: #000; color: #0f0; font-family: monospace; font-size: 11px;
+            padding: 10px; height: 120px; border: 2px inset #555; overflow-y: auto; margin-top: 10px;
+        }
+
+        /* CONTROLES */
+        #joystick { 
+            position: absolute; bottom: 40px; left: 40px; width: 110px; height: 110px; 
+            background: rgba(0,0,0,0.2); border: 2px solid #555; border-radius: 50%; pointer-events: auto;
+        }
+        #stick { 
+            position: absolute; width: 50px; height: 50px; background: #888; 
+            border: 3px outset #aaa; border-radius: 50%; top: 27px; left: 27px; 
+        }
+        .action-btns { position: absolute; bottom: 30px; right: 30px; display: flex; gap: 15px; pointer-events: auto; }
+        .btn-tibia {
+            width: 75px; height: 75px; border-radius: 50%; border: 4px outset #888;
+            background: var(--panel-gray); color: #fff; font-weight: bold; text-shadow: 1px 1px #000;
+        }
+        .btn-tibia:active { border-style: inset; transform: scale(0.95); }
 
         canvas { display: block; image-rendering: pixelated; }
     </style>
 </head>
 <body>
 
-    <div id="class-selection">
-        <h1 style="color:var(--gold); margin-bottom:30px;">MYTHICA ONLINE</h1>
-        <div class="class-card" onclick="start('WARRIOR')">⚔️ GUERRERO<br><small>Alta Defensa / Daño Físico</small></div>
-        <div class="class-card" onclick="start('MAGE')">🔮 MAGO<br><small>Daño de Área / Maná Inmenso</small></div>
-        <div class="class-card" onclick="start('ARCHER')">🏹 ARQUERO<br><small>Velocidad / Críticos</small></div>
-    </div>
-
-    <div id="hud">
-        <div id="p-name" style="font-weight:bold; color:var(--gold)">Player</div>
-        <div style="font-size:10px">Nivel: <span id="p-lvl">1</span></div>
-        <div class="bar-container"><div class="bar-txt" id="hp-txt">100/100</div><div id="hp-fill" class="bar-fill" style="background:var(--health)"></div></div>
-        <div class="bar-container"><div class="bar-txt" id="mp-txt">50/50</div><div id="mp-fill" class="bar-fill" style="background:var(--mana)"></div></div>
-        <div style="font-weight:bold; color:var(--gold); font-size:13px">💰 <span id="p-gold">0</span></div>
-    </div>
-
-    <div id="joy"><div id="stick"></div></div>
-
-    <div id="main-menu">
-        <div class="tabs">
-            <div class="tab active" onclick="tab(event, 'v-char')">PERSONAJE</div>
-            <div class="tab" onclick="tab(event, 'v-back')">BACKPACK</div>
-            <div class="tab" onclick="tab(event, 'v-log')">DIARIO</div>
-            <div class="tab" style="background:#500; color:#fff; flex:0.4" onclick="toggleMenu()">CERRAR</div>
-        </div>
-        <div id="v-char" class="view">
-            <div class="panel-inset" id="stats-render"></div>
-            <div class="panel-inset" style="background:#000; color:#0f0; font-family:monospace; font-size:11px" id="battle-log">Log de batalla listo...</div>
-        </div>
-        <div id="v-back" class="view" style="display:none">
-            <h4 style="margin:0 0 10px 0">PERSONAL BACKPACK</h4>
-            <div class="inv-grid" id="bp-personal"></div>
-            <h4 style="margin:20px 0 10px 0">LOOT BACKPACK</h4>
-            <div class="inv-grid" id="bp-loot"></div>
-        </div>
-        <div id="v-log" class="view" style="display:none">
-            <div id="bestiary-list"></div>
+    <div id="login-screen">
+        <div class="login-panel">
+            <h1 style="color:var(--tibia-gold); margin:0; font-size:22px;">MYTHICA ONLINE</h1>
+            <input type="text" id="input-name" class="input-tibia" placeholder="Character Name..." maxlength="12">
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button class="btn-tibia" style="width:100px; height:45px; border-radius:6px;" onclick="initGame('GUERRERO')">GUERRERO</button>
+                <button class="btn-tibia" style="width:100px; height:45px; border-radius:6px;" onclick="initGame('MAGO')">MAGO</button>
+            </div>
         </div>
     </div>
 
-    <div class="action-btns" id="ui-actions">
-        <button class="btn-round" style="background:#822" onclick="attack()">ATK</button>
-        <button class="btn-round" onclick="toggleMenu()">MENU</button>
+    <div id="game-ui">
+        <div id="stats-panel" class="hud-module">
+            <div id="hud-char-name" style="color:var(--tibia-gold); font-weight:bold;">Name</div>
+            <div style="font-size:11px;">Level: <span id="hud-lvl">1</span></div>
+            <div class="bar"><div class="bar-txt" id="hp-txt">100/100</div><div id="hp-fill" class="bar-fill" style="background:var(--health-bar)"></div></div>
+            <div class="bar"><div class="bar-txt" id="mp-txt">50/50</div><div id="mp-fill" class="bar-fill" style="background:var(--mana-bar)"></div></div>
+            <div style="color:var(--tibia-gold); font-weight:bold; font-size:14px;">💰 <span id="hud-gold">0</span></div>
+        </div>
+
+        <div id="joystick"><div id="stick"></div></div>
+
+        <div class="action-btns">
+            <button class="btn-tibia" style="background:#822" onclick="handleAttack()">ATK</button>
+            <button class="btn-tibia" onclick="toggleMenu()">MENU</button>
+        </div>
     </div>
 
-    <canvas id="game"></canvas>
+    <div id="main-window">
+        <div class="tabs-header">
+            <div class="tab active" onclick="switchTab(event, 'tab-profile')">PROFILE</div>
+            <div class="tab" onclick="switchTab(event, 'tab-set')">EQUIPMENT</div>
+            <div class="tab" onclick="switchTab(event, 'tab-skills')">SKILLS</div>
+            <div class="tab" style="background:#522; color:#fff; flex:0.3" onclick="toggleMenu()">X</div>
+        </div>
 
+        <div id="tab-profile" class="content-area active">
+            <div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; border:2px inset #444;">
+                <h2 id="prof-name" style="margin:0; color:var(--tibia-gold);">---</h2>
+                <div id="prof-class" style="font-size:12px; color:#aaa;">---</div>
+                <div id="stats-list" style="margin-top:10px;"></div>
+            </div>
+            <div id="battle-console">Connecting to server...</div>
+        </div>
+
+        <div id="tab-set" class="content-area">
+            <div class="set-container">
+                <div></div><div class="slot">HEAD</div><div></div>
+                <div class="slot">LEFT</div><div class="slot">CHEST</div><div class="slot">RIGHT</div>
+                <div></div><div class="slot">LEGS</div><div></div>
+                <div></div><div class="slot">FEET</div><div></div>
+            </div>
+        </div>
+
+        <div id="tab-skills" class="content-area">
+            <h4 style="color:var(--tibia-gold)">VOCATION SKILLS</h4>
+            <div id="skills-render"></div>
+        </div>
+    </div>
+
+    <canvas id="game-canvas"></canvas>
+
+    </body>
+</html>
 <script>
-    const canvas = document.getElementById('game');
+    const canvas = document.getElementById('game-canvas');
     const ctx = canvas.getContext('2d');
-    
-    // Base de datos de Monstruos por Tiers
-    const monsterLib = [
-        { name: "Slime Tóxico", t: 1, hp: 80, def: 5, color: "var(--t1)", exp: 40 },
-        { name: "Lobo Alfa", t: 2, hp: 250, def: 15, color: "var(--t2)", exp: 150 },
-        { name: "Minotauro Aplastador", t: 3, hp: 700, def: 40, color: "var(--t3)", exp: 500 },
-        { name: "Behemoth Glacial", t: 4, hp: 2000, def: 90, color: "var(--t4)", exp: 1800 },
-        { name: "Dragón de Plasma", t: 5, hp: 7000, def: 200, color: "var(--t5)", exp: 8000 },
-        { name: "El Abismal", t: 6, hp: 40000, def: 500, color: "var(--t6)", exp: 50000 }
+
+    // 1. BASE DE DATOS DE MONSTRUOS (TIERS DEFINIDOS)
+    const monsterDatabase = [
+        { name: "Slime Tóxico", tier: 1, hp: 100, def: 5, exp: 50, color: "#ffffff", gold: 10 },
+        { name: "Orc Warrior", tier: 2, hp: 400, def: 15, exp: 180, color: "#ffff00", gold: 45 },
+        { name: "Minotaur Guard", tier: 3, hp: 1100, def: 40, exp: 650, color: "#ff8000", gold: 120 },
+        { name: "Behemoth", tier: 4, hp: 3500, def: 110, exp: 2200, color: "#ff0000", gold: 500 },
+        { name: "Ancient Dragon", tier: 5, hp: 12000, def: 250, exp: 9000, color: "#ff00ff", gold: 2000 },
+        { name: "The Abyss", tier: 6, hp: 70000, def: 600, exp: 60000, color: "#00ffff", gold: 10000 }
     ];
 
+    // 2. OBJETO GLOBAL DEL JUGADOR (EL PERFIL)
     let p = {
-        clase: '', lvl: 1, exp: 0, next: 100, gold: 0,
-        hp: 100, mHp: 100, mp: 50, mMp: 50,
-        atk: 25, def: 10, x: 2500, y: 2500, target: null
+        name: "Guest",
+        clase: "",
+        lvl: 1,
+        exp: 0,
+        nextLvl: 100,
+        gold: 0,
+        hp: 100,
+        maxHp: 100,
+        mp: 50,
+        maxMp: 50,
+        // Stats de combate
+        atk: 25,
+        def: 10,
+        agi: 10,
+        mag: 10,
+        // Posición en el mundo
+        x: 2500,
+        y: 2500,
+        target: null
     };
 
-    let mobs = [], active = false, move = {x:0, y:0}, pulse = 0;
+    let mobs = [];
+    let gameActive = false;
+    let moveDir = { x: 0, y: 0 };
+    let animationPulse = 0;
 
-    function start(clase) {
-        p.clase = clase;
-        if(clase === 'WARRIOR') { p.atk = 30; p.def = 25; p.mHp = 150; }
-        if(clase === 'MAGE') { p.atk = 50; p.def = 5; p.mMp = 150; }
-        p.hp = p.mHp; p.mp = p.mMp;
-        
-        document.getElementById('class-selection').style.display = 'none';
-        ['hud', 'joy', 'ui-actions'].forEach(id => document.getElementById(id).style.display = 'block');
-        if(clase==='WARRIOR') document.getElementById('ui-actions').style.display = 'flex';
-
-        // Llenar slots
-        for(let i=0; i<16; i++){
-            document.getElementById('bp-personal').innerHTML += '<div class="slot"></div>';
-            document.getElementById('bp-loot').innerHTML += '<div class="slot"></div>';
+    // 3. FUNCIÓN DE INICIO DE SESIÓN Y CREACIÓN
+    function initGame(vocation) {
+        const nameInput = document.getElementById('input-name').value;
+        if (nameInput.trim() === "") {
+            alert("¡Escribe un nombre para tu leyenda!");
+            return;
         }
 
-        spawnBatch();
-        active = true;
+        p.name = nameInput.toUpperCase();
+        p.clase = vocation;
+
+        // Balance de Clases Profesional
+        if (vocation === 'GUERRERO') {
+            p.atk = 35; p.def = 20; p.maxHp = 160; p.hp = 160;
+        } else if (vocation === 'MAGO') {
+            p.atk = 55; p.def = 5; p.maxMp = 180; p.mp = 180; p.maxHp = 80; p.hp = 80;
+        }
+
+        // Cambio de Interfaz
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('game-ui').style.display = 'block';
+        
+        // Cargar perfiles iniciales
         updateHUD();
-        loop();
-    }
-
-    function spawnBatch() {
-        for(let i=0; i<25; i++) {
-            let base = monsterLib[Math.floor(Math.random()*monsterLib.length)];
-            mobs.push({ ...base, id: Math.random(), x: p.x + (Math.random()*2000-1000), y: p.y + (Math.random()*2000-1000), curHp: base.hp });
-        }
-    }
-
-    function attack() {
-        if(!p.target || Math.hypot(p.x-p.target.x, p.y-p.target.y) > 130) return;
+        syncProfileMenu();
+        spawnInitialMonsters();
         
-        // FÓRMULA DE DAÑO TIBIA (Daño - Defensa)
-        let hit = (p.atk + Math.floor(Math.random()*20)) - p.target.def;
-        if(hit < 0) hit = 0; 
+        gameActive = true;
+        gameLoop();
+        logConsole(`Bienvenido, ${p.name}. Tu aventura comienza ahora.`);
+    }
 
-        p.target.curHp -= hit;
-        document.getElementById('battle-log').innerText = `Golpeas a ${p.target.name} por ${hit} de daño.`;
+    // 4. SISTEMA DE DAÑO Y COMBATE (ESTILO TIBIA)
+    function handleAttack() {
+        if (!p.target) return;
 
-        if(p.target.curHp <= 0) {
-            p.gold += (p.target.t * 25);
+        // Distancia de combate (cuerpo a cuerpo)
+        const dist = Math.hypot(p.x - p.target.x, p.y - p.target.y);
+        if (dist > 130) {
+            logConsole("Estás muy lejos para atacar.");
+            return;
+        }
+
+        // Fórmula: Daño = (Ataque + Random) - Defensa del Monstruo
+        let rawDmg = p.atk + Math.floor(Math.random() * 20);
+        let finalDmg = Math.max(0, rawDmg - p.target.def);
+
+        if (finalDmg === 0) {
+            logConsole(`${p.target.name} bloqueó tu ataque (Miss).`);
+        } else {
+            p.target.curHp -= finalDmg;
+            logConsole(`Has infligido ${finalDmg} de daño a ${p.target.name}.`);
+        }
+
+        // Muerte del Monstruo
+        if (p.target.curHp <= 0) {
+            logConsole(`Has derrotado a ${p.target.name}. Ganaste ${p.target.exp} exp y ${p.target.gold} oro.`);
             p.exp += p.target.exp;
+            p.gold += p.target.gold;
             mobs = mobs.filter(m => m.id !== p.target.id);
             p.target = null;
-            checkLvl();
-            spawnBatch();
+            checkLevelUp();
+            spawnInitialMonsters(); // Repoblar
         }
         updateHUD();
     }
 
-    function checkLvl() {
-        if(p.exp >= p.next) {
-            p.lvl++; p.exp = 0; p.next *= 1.6;
-            p.mHp += 25; p.hp = p.mHp;
-            document.getElementById('battle-log').innerText = "¡HAS SUBIDO DE NIVEL!";
+    // 5. SISTEMA DE PROGRESIÓN
+    function checkLevelUp() {
+        if (p.exp >= p.nextLvl) {
+            p.lvl++;
+            p.exp = 0;
+            p.nextLvl = Math.floor(p.nextLvl * 1.6);
+            p.maxHp += 25;
+            p.hp = p.maxHp;
+            p.atk += 5;
+            logConsole(`¡LEVEL UP! Ahora eres nivel ${p.lvl}. Tus stats han aumentado.`);
+            syncProfileMenu();
         }
+    }
+
+    // 6. UTILIDADES DE INTERFAZ
+    function logConsole(msg) {
+        const consoleEl = document.getElementById('battle-console');
+        const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+        consoleEl.innerHTML += `<br><span style="color:#888">[${time}]</span> ${msg}`;
+        consoleEl.scrollTop = consoleEl.scrollHeight;
     }
 
     function updateHUD() {
-        document.getElementById('hp-fill').style.width = (p.hp/p.mHp*100) + "%";
-        document.getElementById('hp-txt').innerText = `${p.hp}/${p.mHp}`;
-        document.getElementById('p-gold').innerText = p.gold;
-        document.getElementById('p-lvl').innerText = p.lvl;
+        document.getElementById('hud-char-name').innerText = p.name;
+        document.getElementById('hud-lvl').innerText = p.lvl;
+        document.getElementById('hud-gold').innerText = p.gold;
+        
+        // Barras
+        document.getElementById('hp-fill').style.width = (p.hp / p.maxHp * 100) + "%";
+        document.getElementById('hp-txt').innerText = `${p.hp}/${p.maxHp}`;
+        document.getElementById('mp-fill').style.width = (p.mp / p.maxMp * 100) + "%";
+        document.getElementById('mp-txt').innerText = `${p.mp}/${p.maxMp}`;
     }
 
-    function loop() {
-        if(!active) return;
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        p.x += move.x * 5.5; p.y += move.y * 5.5;
-        let cx = p.x - canvas.width/2, cy = p.y - canvas.height/2;
-        pulse += 0.07;
-
-        ctx.save();
-        ctx.translate(-cx, -cy);
-
-        // Grid de suelo
-        ctx.strokeStyle = "#1a1a1a";
-        for(let x = Math.floor(cx/80)*80; x < cx+canvas.width; x+=80) {
-            for(let y = Math.floor(cy/80)*80; y < cy+canvas.height; y+=80) {
-                ctx.strokeRect(x,y,80,80);
+    function syncProfileMenu() {
+        document.getElementById('prof-name').innerText = p.name;
+        document.getElementById('prof-class').innerText = `VOCACIÓN: ${p.clase} | LVL: ${p.lvl}`;
+        
+        let statsHTML = `
+            <div class="stat-line" style="display:flex; justify-content:space-between; padding:5px; border-bottom:1px solid #444;"><span>Fuerza:</span><span style="color:#d4af37">${p.atk}</span></div>
+            <div class="stat-line" style="display:flex; justify-content:space-between; padding:5px; border-bottom:1px solid #444;"><span>Defensa:</span><span style="color:#d4af37">${p.def}</span></div>
+            <div class="stat-line" style="display:flex; justify-content:space-between; padding:5px; border-bottom:1px solid #444;"><span>Magia:</span><span style="color:#d4af37">${p.mag}</span></div>
+            <div class="stat-line" style="display:flex; justify-content:space-between; padding:5px; border-bottom:1px solid #444;"><span>Agilidad:</span><span style="color:#d4af37">${p.agi}</span></div>
+        `;
+        document.getElementById('stats-list').innerHTML = statsHTML;
+    }
+        </script>
+            // 7. MOTOR DE SPAWN DE CRIATURAS
+    function spawnInitialMonsters() {
+        if (mobs.length < 20) {
+            for (let i = 0; i < 10; i++) {
+                let base = monsterDatabase[Math.floor(Math.random() * monsterDatabase.length)];
+                mobs.push({
+                    ...base,
+                    id: Math.random(),
+                    x: p.x + (Math.random() * 1800 - 900),
+                    y: p.y + (Math.random() * 1800 - 900),
+                    curHp: base.hp
+                });
             }
         }
+    }
 
+    // 8. CONTROL DE JOYSTICK Y MOVIMIENTO
+    const joy = document.getElementById('joystick');
+    const stick = document.getElementById('stick');
+
+    joy.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        let rect = joy.getBoundingClientRect();
+        let touch = e.touches[0];
+        let dx = touch.clientX - (rect.left + 55);
+        let dy = touch.clientY - (rect.top + 55);
+        let distance = Math.hypot(dx, dy);
+
+        if (distance > 45) {
+            dx *= 45 / distance;
+            dy *= 45 / distance;
+        }
+
+        stick.style.transform = `translate(${dx}px, ${dy}px)`;
+        moveDir = { x: dx / 45, y: dy / 45 };
+    });
+
+    joy.addEventListener('touchend', () => {
+        stick.style.transform = `translate(0, 0)`;
+        moveDir = { x: 0, y: 0 };
+    });
+
+    // 9. SISTEMA DE SELECCIÓN DE OBJETIVO (TAP-TO-TARGET)
+    canvas.addEventListener('touchstart', (e) => {
+        let touch = e.touches[0];
+        let rect = canvas.getBoundingClientRect();
+        // Traducir coordenadas de pantalla a coordenadas del mundo
+        let worldX = touch.clientX - rect.left + (p.x - canvas.width / 2);
+        let worldY = touch.clientY - rect.top + (p.y - canvas.height / 2);
+
+        p.target = null;
         mobs.forEach(m => {
-            // AURA DE TIER DINÁMICA
-            ctx.beginPath();
-            let g = ctx.createRadialGradient(m.x, m.y, 5, m.x, m.y, 45 + Math.sin(pulse)*10);
-            g.addColorStop(0, m.color);
-            g.addColorStop(1, "transparent");
-            ctx.fillStyle = g;
-            ctx.globalAlpha = 0.5;
-            ctx.arc(m.x, m.y, 60, 0, Math.PI*2);
-            ctx.fill();
-            ctx.globalAlpha = 1;
+            if (Math.hypot(worldX - m.x, worldY - m.y) < 60) {
+                p.target = m;
+                logConsole(`Objetivo: ${m.name} (Tier ${m.tier})`);
+            }
+        });
+    });
 
-            // MONSTRUO Y NOMBRE
+    // 10. BUCLE PRINCIPAL DE RENDERIZADO (GAME LOOP)
+    function gameLoop() {
+        if (!gameActive) return;
+
+        // Actualizar posición
+        p.x += moveDir.x * 6; // Velocidad del jugador
+        p.y += moveDir.y * 6;
+
+        // Limpiar pantalla
+        ctx.fillStyle = "#111"; // Fondo oscuro
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Centro de la cámara
+        let camX = p.x - canvas.width / 2;
+        let camY = p.y - canvas.height / 2;
+
+        ctx.save();
+        ctx.translate(-camX, -camY);
+
+        // Dibujar Grid de suelo (referencia visual)
+        ctx.strokeStyle = "#222";
+        ctx.lineWidth = 1;
+        for (let x = Math.floor(camX / 100) * 100; x < camX + canvas.width + 100; x += 100) {
+            ctx.beginPath(); ctx.moveTo(x, camY); ctx.lineTo(x, camY + canvas.height); ctx.stroke();
+        }
+        for (let y = Math.floor(camY / 100) * 100; y < camY + canvas.height + 100; y += 100) {
+            ctx.beginPath(); ctx.moveTo(camX, y); ctx.lineTo(camX + canvas.width, y); ctx.stroke();
+        }
+
+        animationPulse += 0.07;
+
+        // Dibujar Monstruos
+        mobs.forEach(m => {
+            // Aura de Tier Dinámica
+            let pulseSize = 40 + Math.sin(animationPulse) * 10;
+            let gradient = ctx.createRadialGradient(m.x, m.y, 5, m.x, m.y, pulseSize);
+            gradient.addColorStop(0, m.color);
+            gradient.addColorStop(1, "transparent");
+
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(m.x, m.y, pulseSize + 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+
+            // Cuerpo del Monstruo (Placeholder visual)
             ctx.fillStyle = m.color;
-            ctx.fillRect(m.x-20, m.y-20, 40, 40);
-            
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = m.color;
+            ctx.fillRect(m.x - 20, m.y - 20, 40, 40);
+            ctx.shadowBlur = 0;
+
+            // Nombre y Vida
             ctx.fillStyle = "#fff";
-            ctx.font = "bold 11px Arial";
+            ctx.font = "bold 12px Arial";
             ctx.textAlign = "center";
             ctx.fillText(m.name, m.x, m.y - 35);
 
-            // BARRA DE VIDA MINI
-            ctx.fillStyle = "#333"; ctx.fillRect(m.x-20, m.y-50, 40, 5);
-            ctx.fillStyle = "#0f0"; ctx.fillRect(m.x-20, m.y-50, (m.curHp/m.hp)*40, 5);
+            // Barra de vida mini
+            ctx.fillStyle = "#000"; ctx.fillRect(m.x - 20, m.y - 50, 40, 5);
+            ctx.fillStyle = "#f00"; ctx.fillRect(m.x - 20, m.y - 50, (m.curHp / m.hp) * 40, 5);
 
-            if(p.target === m) {
-                ctx.strokeStyle = "red"; ctx.lineWidth = 3;
-                ctx.strokeRect(m.x-25, m.y-25, 50, 50);
+            // Marcador de Target
+            if (p.target === m) {
+                ctx.strokeStyle = "#ff0000";
+                ctx.lineWidth = 3;
+                ctx.strokeRect(m.x - 28, m.y - 28, 56, 56);
             }
         });
 
-        // PLAYER
+        // Dibujar Jugador
         ctx.fillStyle = "#3e93ff";
-        ctx.fillRect(p.x-25, p.y-25, 50, 50);
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "#3e93ff";
+        ctx.fillRect(p.x - 25, p.y - 25, 50, 50);
+        ctx.shadowBlur = 0;
+
         ctx.restore();
 
-        requestAnimationFrame(loop);
+        requestAnimationFrame(gameLoop);
     }
 
-    // JOYSTICK LOGIC
-    const joy = document.getElementById('joy'), stick = document.getElementById('stick');
-    joy.addEventListener('touchmove', (e) => {
-        let r = joy.getBoundingClientRect();
-        let dx = e.touches[0].clientX - (r.left + 55), dy = e.touches[0].clientY - (r.top + 55);
-        let d = Math.hypot(dx, dy);
-        if(d > 40) { dx *= 40/d; dy *= 40/d; }
-        stick.style.transform = `translate(${dx}px, ${dy}px)`;
-        move = { x: dx/40, y: dy/40 };
-    });
-    joy.addEventListener('touchend', () => { move={x:0, y:0}; stick.style.transform='translate(0,0)'; });
-
-    function toggleMenu() {
-        let m = document.getElementById('main-menu');
-        m.style.display = (m.style.display==='flex'?'none':'flex');
-    }
-
-    function tab(e, id) {
-        document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.getElementById(id).style.display = 'block';
-        e.currentTarget.classList.add('active');
-    }
-
-    canvas.addEventListener('touchstart', (e) => {
-        let tx = e.touches[0].clientX + (p.x - canvas.width/2);
-        let ty = e.touches[0].clientY + (p.y - canvas.height/2);
-        p.target = null;
-        mobs.forEach(m => { if(Math.hypot(tx-m.x, ty-m.y) < 60) p.target = m; });
-    });
-
-    window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    // Ajuste de pantalla
+    window.onresize = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    };
     window.onresize();
-</script>
-</body>
-</html>
+                // 11. CONTROLADOR DE VENTANAS Y MENÚS
+    function toggleMenu() {
+        const mainWindow = document.getElementById('main-window');
+        // Alternar entre flex y none
+        if (mainWindow.style.display === 'flex') {
+            mainWindow.style.display = 'none';
+        } else {
+            mainWindow.style.display = 'flex';
+            syncProfileMenu(); // Actualizar datos al abrir
+        }
+    }
+
+    // 12. SISTEMA DE CAMBIO DE PESTAÑAS (TABS)
+    function switchTab(event, tabId) {
+        // Ocultar todos los contenidos
+        const contents = document.querySelectorAll('.content-area');
+        contents.forEach(content => content.classList.remove('active'));
+
+        // Desactivar todas las pestañas visualmente
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach(tab => tab.classList.remove('active'));
+
+        // Mostrar el contenido seleccionado y activar la pestaña
+        document.getElementById(tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+
+        // Lógica específica al abrir ciertas pestañas
+        if (tabId === 'tab-skills') {
+            renderSkills();
+        }
+    }
+
+    // 13. GENERADOR DINÁMICO DE HABILIDADES (SKILLS)
+    function renderSkills() {
+        const skillContainer = document.getElementById('skills-render');
+        let skillsHTML = "";
+
+        const classSkills = {
+            'GUERRERO': [
+                { name: "Corte Brutal", mana: 10, desc: "Aumenta el daño físico x1.5" },
+                { name: "Piel de Acero", mana: 20, desc: "Aumenta defensa temporalmente" },
+                { name: "Provocación", mana: 5, desc: "Atrae a los monstruos cercanos" }
+            ],
+            'MAGO': [
+                { name: "Flecha de Fuego", mana: 15, desc: "Daño mágico de fuego a distancia" },
+                { name: "Escudo de Maná", mana: 40, desc: "El daño recibido drena maná en vez de vida" },
+                { name: "Explosión Arcana", mana: 60, desc: "Daño masivo en área (AoE)" }
+            ]
+        };
+
+        const mySkills = classSkills[p.clase] || [];
+
+        mySkills.forEach(skill => {
+            skillsHTML += `
+                <div style="background:rgba(0,0,0,0.4); border:1px solid #555; padding:10px; margin-bottom:8px; border-radius:5px;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <b style="color:var(--tibia-gold)">${skill.name}</b>
+                        <span style="color:#3e93ff; font-size:10px;">MP: ${skill.mana}</span>
+                    </div>
+                    <div style="font-size:11px; color:#aaa; margin-top:4px;">${skill.desc}</div>
+                </div>
+            `;
+        });
+
+        skillContainer.innerHTML = skillsHTML;
+    }
+
+    // 14. SISTEMA DE REGENERACIÓN AUTOMÁTICA (TIBIA STYLE)
+    setInterval(() => {
+        if (gameActive) {
+            // Regeneración pasiva cada 3 segundos
+            if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 2);
+            if (p.mp < p.maxMp) p.mp = Math.min(p.maxMp, p.mp + 5);
+            updateHUD();
+        }
+    }, 3000);
+
+    // Finalización del script
+    console.log("Mythica Engine: Todos los módulos cargados con éxito.");
+            </script>
+                    // 15. BASE DE DATOS DE ÍTEMS
+    const itemDatabase = {
+        'POTION': { name: "Poción de Vida", type: "consumable", heal: 50, color: "#ff4444" },
+        'SWORD': { name: "Espada de Hierro", type: "weapon", power: 15, color: "#aaa" },
+        'SHIELD': { name: "Escudo de Madera", type: "shield", armor: 10, color: "#8b4513" },
+        'GOLD': { name: "Monedas", type: "currency" }
+    };
+
+    let inventory = [];
+
+    // 16. LÓGICA DE DROP (Añade esto dentro de handleAttack, donde muere el monstruo)
+    function rollLoot(tier) {
+        const chance = Math.random() * 100;
+        let droppedItem = null;
+
+        if (chance > 80) droppedItem = itemDatabase['POTION'];
+        else if (chance > 60 && tier >= 2) droppedItem = itemDatabase['SWORD'];
+        else if (chance > 40 && tier >= 3) droppedItem = itemDatabase['SHIELD'];
+
+        if (droppedItem) {
+            inventory.push(droppedItem);
+            logConsole(`<span style="color:#00ffff">Loot: Has encontrado ${droppedItem.name}!</span>`);
+            renderInventory();
+        }
+    }
+
+    // 17. RENDERIZAR INVENTARIO EN LA PESTAÑA "SET"
+    function renderInventory() {
+        const grid = document.querySelector('.set-container');
+        // Aquí vamos a llenar los slots vacíos con los ítems del inventario
+        const slots = document.querySelectorAll('.slot');
+        
+        inventory.forEach((item, index) => {
+            if (slots[index + 4]) { // Empezamos a llenar después de los slots de equipo fijo
+                slots[index + 4].innerHTML = `<div style="color:${item.color || '#fff'}; font-size:8px;">${item.name}</div>`;
+                slots[index + 4].style.background = "#333";
+                slots[index + 4].onclick = () => useItem(index);
+            }
+        });
+    }
+
+    // 18. USAR OBJETOS
+    function useItem(index) {
+        const item = inventory[index];
+        if (!item) return;
+
+        if (item.type === "consumable") {
+            p.hp = Math.min(p.maxHp, p.hp + item.heal);
+            logConsole(`Has usado ${item.name}. +${item.heal} HP.`);
+            inventory.splice(index, 1); // Eliminar usado
+        } else if (item.type === "weapon") {
+            p.atk += item.power;
+            logConsole(`Has equipado ${item.name}. +${item.power} Ataque.`);
+            inventory.splice(index, 1);
+        }
+        
+        updateHUD();
+        syncProfileMenu();
+        renderInventory();
+    }
+
+    // Modificamos la función handleAttack para llamar a rollLoot
+    // Nota: Busca en tu bloque anterior la parte donde muere el monstruo y añade:
+    // rollLoot(p.target.tier);
+                    // 19. CONFIGURACIÓN DE BIOMAS
+    const BIOMAS = {
+        BOSQUE: { color: "#1a2e1a", minTier: 1, maxTier: 2, name: "Bosques Ancestrales" },
+        DESIERTO: { color: "#3e3a29", minTier: 2, maxTier: 4, name: "Desierto Calcinado" },
+        HIELLO: { color: "#1a2a3a", minTier: 3, maxTier: 5, name: "Picos Helados" },
+        INFIERNO: { color: "#2a0a0a", minTier: 5, maxTier: 6, name: "Profundidades del Abismo" }
+    };
+
+    let actualBioma = BIOMAS.BOSQUE;
+
+    // 20. DETECTOR DE REGIÓN
+    function checkBioma() {
+        // Determinamos el bioma según las coordenadas X e Y
+        let oldBioma = actualBioma.name;
+
+        if (p.y < 1500) actualBioma = BIOMAS.HIELLO;
+        else if (p.y > 3500) actualBioma = BIOMAS.INFIERNO;
+        else if (p.x > 3500) actualBioma = BIOMAS.DESIERTO;
+        else actualBioma = BIOMAS.BOSQUE;
+
+        if (oldBioma !== actualBioma.name) {
+            logConsole(`<span style="color:var(--tibia-gold)">Has entrado en: ${actualBioma.name}</span>`);
+        }
+    }
+
+    // 21. SPAWN MEJORADO POR BIOMA (Sobrescribe la lógica anterior)
+    function spawnByBioma() {
+        if (mobs.length < 25) {
+            // Filtrar monstruos de la base de datos permitidos en este bioma
+            const posibles = monsterDatabase.filter(m => 
+                m.tier >= actualBioma.minTier && m.tier <= actualBioma.maxTier
+            );
+
+            let base = posibles[Math.floor(Math.random() * posibles.length)];
+            
+            mobs.push({
+                ...base,
+                id: Math.random(),
+                // Aparecen cerca del jugador pero fuera de la vista inmediata
+                x: p.x + (Math.random() * 1200 - 600),
+                y: p.y + (Math.random() * 1200 - 600),
+                curHp: base.hp
+            });
+        }
+    }
+
+    // 22. ACTUALIZACIÓN DEL RENDERIZADO (Añadir al inicio del loop)
+    // Busca la función gameLoop y añade estas líneas al principio:
+    /*
+        checkBioma();
+        spawnByBioma();
+        ctx.fillStyle = actualBioma.color; // Esto cambiará el color del suelo según el bioma
+    */
+
+    // 23. SISTEMA DE MUERTE DEL JUGADOR
+    function checkPlayerDeath() {
+        if (p.hp <= 0) {
+            gameActive = false;
+            logConsole("<b style='color:red'>HAS MUERTO. Perdiste parte de tu oro.</b>");
+            alert("Has muerto. Serás teletransportado al templo.");
+            
+            // Penalización estilo Tibia
+            p.gold = Math.floor(p.gold * 0.8);
+            p.hp = p.maxHp;
+            p.x = 2500; // Coordenadas del "Templo" (Inicio)
+            p.y = 2500;
+            
+            updateHUD();
+            gameActive = true;
+            gameLoop();
+        }
+    }
+
+    // 24. DAÑO DE MONSTRUOS (Añadir un intervalo de ataque de mobs)
+    setInterval(() => {
+        if (!gameActive) return;
+        mobs.forEach(m => {
+            let dist = Math.hypot(p.x - m.x, p.y - m.y);
+            if (dist < 80) { // Si el monstruo está cerca, te ataca
+                let dmg = Math.max(0, (m.tier * 10) - Math.floor(p.def / 2));
+                p.hp -= dmg;
+                if (dmg > 0) logConsole(`<span style="color:#ff4444">${m.name} te ha golpeado por ${dmg}.</span>`);
+                checkPlayerDeath();
+                updateHUD();
+            }
+        });
+    }, 2000); // Te atacan cada 2 segundos
+                    // 25. SISTEMA DE PARTÍCULAS (EFECTOS VISUALES)
+    let particles = [];
+
+    function createParticle(x, y, color, text = "") {
+        particles.push({
+            x: x,
+            y: y,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() - 2),
+            life: 1.0, // Duración de 1 segundo
+            color: color,
+            text: text,
+            fontSize: text ? 16 + Math.random() * 8 : 0
+        });
+    }
+
+    // 26. ACTUALIZAR Y DIBUJAR PARTÍCULAS (Añadir al final de tu gameLoop)
+    function handleParticles() {
+        ctx.save();
+        let camX = p.x - canvas.width / 2;
+        let camY = p.y - canvas.height / 2;
+        ctx.translate(-camX, -camY);
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let part = particles[i];
+            part.x += part.vx;
+            part.y += part.vy;
+            part.life -= 0.02; // Velocidad de desvanecimiento
+
+            if (part.life <= 0) {
+                particles.splice(i, 1);
+                continue;
+            }
+
+            ctx.globalAlpha = part.life;
+            if (part.text) {
+                // Dibujar Números de Daño
+                ctx.fillStyle = part.color;
+                ctx.font = `bold ${part.fontSize}px Arial`;
+                ctx.textAlign = "center";
+                ctx.fillText(part.text, part.x, part.y);
+            } else {
+                // Dibujar Partículas de Impacto
+                ctx.fillStyle = part.color;
+                ctx.beginPath();
+                ctx.arc(part.x, part.y, 3 * part.life, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.restore();
+        ctx.globalAlpha = 1.0;
+    }
+
+    // 27. INTEGRACIÓN CON EL COMBATE
+    // Debes ir a tu función handleAttack() y añadir estas líneas después de calcular finalDmg:
+    /*
+        if (finalDmg > 0) {
+            createParticle(p.target.x, p.target.y, "#ffff00", finalDmg); // Número amarillo
+            for(let i=0; i<5; i++) createParticle(p.target.x, p.target.y, "#ff0000"); // Sangre
+        } else {
+            createParticle(p.target.x, p.target.y, "#fff", "MISS");
+        }
+    */
+
+    // También añade esto en el intervalo de ataque de los monstruos (cuando te pegan a ti):
+    /*
+        createParticle(p.x, p.y, "#ff4444", dmg); // Número rojo para daño recibido
+    */
+
+    // 28. INVOCACIÓN EN EL BUCLE (Añade esta línea dentro de tu función gameLoop, al final)
+    // handleParticles();
+
+                    // 29. CONFIGURACIÓN DEL NPC
+    const npc = {
+        name: "Darius el Mercader",
+        x: 2550,
+        y: 2450,
+        range: 120,
+        inventory: [
+            { name: "Mega Poción", price: 100, type: "consumable", heal: 150, color: "#ff00ff" },
+            { name: "Botas de Hermes", price: 500, type: "boots", speed: 2, color: "#00ff00" }
+        ]
+    };
+
+    // 30. LÓGICA DE INTERACCIÓN Y RENDER (Añadir al final de gameLoop)
+    function drawNPC() {
+        ctx.save();
+        let camX = p.x - canvas.width / 2;
+        let camY = p.y - canvas.height / 2;
+        ctx.translate(-camX, -camY);
+
+        // Cuerpo del NPC (Color Oro para distinguirlo)
+        ctx.fillStyle = "#ffd700";
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "#ffd700";
+        ctx.fillRect(npc.x - 25, npc.y - 25, 50, 50);
+        
+        // Nombre del NPC
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(npc.name, npc.x, npc.y - 40);
+        ctx.fillText("¡Tócame para comerciar!", npc.x, npc.y + 45);
+        
+        ctx.restore();
+
+        // Verificar cercanía para abrir tienda automáticamente
+        const dist = Math.hypot(p.x - npc.x, p.y - npc.y);
+        if (dist < npc.range) {
+            document.getElementById('hud-gold').style.color = "#0f0"; // Feedback visual
+        } else {
+            document.getElementById('hud-gold').style.color = "var(--tibia-gold)";
+        }
+    }
+
+    // 31. SISTEMA DE COMPRA Y VENTA
+    // Añadiremos esta función para que se active al tocar al NPC
+    canvas.addEventListener('touchstart', (e) => {
+        let touch = e.touches[0];
+        let rect = canvas.getBoundingClientRect();
+        let worldX = touch.clientX - rect.left + (p.x - canvas.width / 2);
+        let worldY = touch.clientY - rect.top + (p.y - canvas.height / 2);
+
+        if (Math.hypot(worldX - npc.x, worldY - npc.y) < 60) {
+            openShop();
+        }
+    });
+
+    function openShop() {
+        let shopHTML = `<h3 style="color:var(--tibia-gold)">Tienda de Darius</h3>`;
+        npc.inventory.forEach((item, index) => {
+            shopHTML += `
+                <div style="background:#222; border:1px solid #555; padding:10px; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:${item.color}">${item.name}</span>
+                    <button onclick="buyItem(${index})" style="background:var(--tibia-gold); border:none; padding:5px 10px; cursor:pointer; font-weight:bold;">COMPRAR (${item.price}g)</button>
+                </div>
+            `;
+        });
+        
+        // Usamos el Tab de "Skills" temporalmente para mostrar la tienda o creamos un modal
+        const skillTab = document.getElementById('tab-skills');
+        skillTab.innerHTML = shopHTML;
+        toggleMenu();
+        switchTab({currentTarget: document.querySelectorAll('.tab')[2]}, 'tab-skills');
+    }
+
+    function buyItem(index) {
+        const item = npc.inventory[index];
+        if (p.gold >= item.price) {
+            p.gold -= item.price;
+            inventory.push({...item});
+            logConsole(`<span style="color:#0f0">Has comprado ${item.name}.</span>`);
+            updateHUD();
+            renderInventory();
+        } else {
+            logConsole("<span style='color:red'>No tienes suficiente oro.</span>");
+        }
+    }
+            
