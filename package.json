@@ -1,24 +1,31 @@
 {
-  "name": "mythica-adventure",
+  "name": "mythica-adventure-server",
   "version": "1.0.0",
-  "description": "MMORPG móvil tipo Tibia",
+  "description": "Servidor MMORPG Mythica Adventure con Colyseus y MongoDB",
   "main": "server/index.ts",
   "scripts": {
-    "start": "ts-node-dev server/index.ts",
+    "start": "ts-node server/index.ts",
+    "dev": "ts-node-dev server/index.ts",
     "build": "tsc",
-    "client": "webpack-dev-server --config webpack.config.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
+    "@colyseus/monitor": "^0.15.0",
+    "@colyseus/schema": "^2.0.0",
     "colyseus": "^0.15.0",
-    "colyseus.js": "^0.15.0",
-    "phaser": "^3.60.0",
-    "mongoose": "^7.0.0",
-    "express": "^4.18.0",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "mongoose": "^8.0.3"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
+    "@types/express": "^4.17.17",
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.1",
     "ts-node-dev": "^2.0.0",
-    "webpack": "^5.0.0"
+    "typescript": "^5.0.0"
   }
 }
