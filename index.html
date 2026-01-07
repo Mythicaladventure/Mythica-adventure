@@ -1,103 +1,122 @@
-const canvas = document.getElementById('game-canvas');
-const ctx = canvas.getContext('2d');
-const stick = document.getElementById('joystick-stick');
-const area = document.getElementById('joystick-area');
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mythica MMORPG</title>
+    <style>
+        :root { --gold: #ffd700; --health: #ff4757; --mana: #2e86de; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
+        #game-canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+        #joystick-area { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); }
+        #joystick-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: var(--gold); border-radius: 50%; opacity: 0.5; }
+        .controls { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 70px); gap: 10px; }
+        .btn { width: 70px; height: 70px; background: rgba(20,20,25,0.85); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <canvas id="game-canvas"></canvas>
+    <div id="joystick-area"><div id="joystick-stick"></div></div>
+    <div class="controls">
+        <div class="btn" style="color: var(--health)">ATK</div>
+        <div class="btn" style="color: var(--mana)">SKILL</div>
+        <div class="btn" style="color: #2ecc71">BAG</div>
+        <div class="btn" style="color: var(--gold)">SET</div>
+    </div>
 
-const imgPlayer = new Image(); imgPlayer.src = 'player.png';
-const imgFloor = new Image(); imgFloor.src = 'floor1.png';
+<script>
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    const stick = document.getElementById('joystick-stick');
+    const area = document.getElementById('joystick-area');
 
-// VARIABLES DEL MUNDO (MMORPG)
-let world = { width: 2000, height: 2000 }; // Un mapa mucho más grande
-let camera = { x: 0, y: 0 };
+    // CARGA DE TEXTURAS (Usando tus archivos de GitHub)
+    const imgPlayer = new Image(); imgPlayer.src = 'player.png';
+    const imgFloor = new Image(); imgFloor.src = 'floor1.png';
 
-// JUGADOR (Regla: Nivel 1 = 350 HP)
-let player = {
-    x: world.width / 2,
-    y: world.height / 2,
-    level: 1,
-    hp: 350, 
-    maxHp: 350,
-    mp: 100,
-    maxMp: 100,
-    speed: 5
-};
+    // CONFIGURACIÓN MMORPG
+    let world = { width: 3000, height: 3000 }; // Mapa gigante
+    let camera = { x: 0, y: 0 };
+    
+    // Regla de Vida Nivel 1: 350 HP
+    let player = {
+        x: world.width / 2,
+        y: world.height / 2,
+        speed: 5,
+        hp: 350, maxHp: 350,
+        mp: 100, maxMp: 100
+    };
 
-let moveDir = { x: 0, y: 0 };
+    let moveDir = { x: 0, y: 0 };
 
-function init() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-}
+    function init() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
 
-// Lógica de Joystick (Misma que ya tienes)
-area.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    const rect = area.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    let dx = touch.clientX - centerX;
-    let dy = touch.clientY - centerY;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    const maxDist = 40;
-    if (dist > maxDist) { dx *= maxDist / dist; dy *= maxDist / dist; }
-    stick.style.transform = `translate(${dx}px, ${dy}px)`;
-    moveDir.x = dx / maxDist; moveDir.y = dy / maxDist;
-});
+    // Lógica de movimiento (Joystick)
+    area.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = area.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        let dx = touch.clientX - centerX;
+        let dy = touch.clientY - centerY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const maxDist = 40;
+        if (dist > maxDist) { dx *= maxDist / dist; dy *= maxDist / dist; }
+        stick.style.transform = `translate(${dx}px, ${dy}px)`;
+        moveDir.x = dx / maxDist; moveDir.y = dy / maxDist;
+    });
 
-area.addEventListener('touchend', () => {
-    stick.style.transform = `translate(0, 0)`;
-    moveDir = { x: 0, y: 0 };
-});
+    area.addEventListener('touchend', () => {
+        stick.style.transform = `translate(0, 0)`;
+        moveDir = { x: 0, y: 0 };
+    });
 
-function draw() {
-    // 1. LÓGICA DE CÁMARA: Mantener al jugador centrado
-    camera.x = player.x - canvas.width / 2;
-    camera.y = player.y - canvas.height / 2;
+    function draw() {
+        // LÓGICA DE CÁMARA: Centrar al jugador
+        camera.x = player.x - canvas.width / 2;
+        camera.y = player.y - canvas.height / 2;
 
-    ctx.fillStyle = "#111"; // Fondo oscuro fuera del mapa
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.save();
-    ctx.translate(-camera.x, -camera.y); // Mover todo el mundo según la cámara
+        ctx.save();
+        ctx.translate(-camera.x, -camera.y); // EFECTO CÁMARA
 
-    // 2. DIBUJAR SUELO (Repetido en todo el mundo de 2000x2000)
-    if (imgFloor.complete) {
-        for(let i=0; i < world.width; i += 40) {
-            for(let j=0; j < world.height; j += 40) {
-                ctx.drawImage(imgFloor, i, j, 40, 40);
+        // Dibujar Suelo Infinito
+        if (imgFloor.complete) {
+            for(let i=0; i<world.width; i+=40) {
+                for(let j=0; j<world.height; j+=40) {
+                    ctx.drawImage(imgFloor, i, j, 40, 40);
+                }
             }
         }
+
+        // Mover y Dibujar Jugador
+        player.x += moveDir.x * player.speed;
+        player.y += moveDir.y * player.speed;
+
+        // Barras de Salud (350 HP)
+        const barY = player.y - 45;
+        ctx.fillStyle = "#222";
+        ctx.fillRect(player.x - 20, barY, 40, 6);
+        ctx.fillStyle = "#ff4757";
+        ctx.fillRect(player.x - 20, barY, (player.hp / player.maxHp) * 40, 6);
+
+        if (imgPlayer.complete) {
+            ctx.drawImage(imgPlayer, player.x - 20, player.y - 20, 40, 40);
+        }
+
+        ctx.restore(); 
+        requestAnimationFrame(draw);
     }
 
-    // 3. MOVIMIENTO
-    player.x += moveDir.x * player.speed;
-    player.y += moveDir.y * player.speed;
-
-    // Límites del mundo para no salirse
-    player.x = Math.max(0, Math.min(player.x, world.width));
-    player.y = Math.max(0, Math.min(player.y, world.height));
-
-    // 4. DIBUJAR JUGADOR
-    if (imgPlayer.complete) {
-        ctx.drawImage(imgPlayer, player.x - 20, player.y - 20, 40, 40);
-    }
-
-    // 5. BARRAS (350 HP Nivel 1)
-    const barY = player.y - 45;
-    ctx.fillStyle = "#222";
-    ctx.fillRect(player.x - 20, barY, 40, 6); // Fondo
-    ctx.fillStyle = "#ff4757";
-    ctx.fillRect(player.x - 20, barY, (player.hp / player.maxHp) * 40, 6); // Salud
-    
-    ctx.fillStyle = "#2e86de";
-    ctx.fillRect(player.x - 20, barY + 8, (player.mp / player.maxMp) * 40, 4); // Maná
-
-    ctx.restore(); // Terminar el efecto de la cámara
-
-    requestAnimationFrame(draw);
-}
-
-window.addEventListener('resize', init);
-init();
-draw();
+    window.addEventListener('resize', init);
+    init();
+    draw();
+</script>
+</body>
+</html>
