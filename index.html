@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mythica Adventure - Textures</title>
+    <title>Mythica Adventure</title>
     <style>
         :root { --gold: #ffd700; --health: #ff4757; --mana: #2e86de; }
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
         #game-canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
-        
-        /* Controles */
         #joystick-area { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); }
         #joystick-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: var(--gold); border-radius: 50%; opacity: 0.5; }
         .controls { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 70px); gap: 10px; }
@@ -32,10 +30,11 @@
     const stick = document.getElementById('joystick-stick');
     const area = document.getElementById('joystick-area');
 
-    // Cargar Imágenes
-    const imgPlayer = new Image(); imgPlayer.src = 'player.png';
-    const imgFloor = new Image(); imgFloor.src = 'floor1.png';
+    // Cargar tus imágenes con los nombres nuevos
+    const imgPlayer = new Image(); imgPlayer.src = 'jugador.png';
+    const imgFloor = new Image(); imgFloor.src = 'piso1.png';
 
+    // Regla: 350 de vida para Nivel 1
     let player = { x: 0, y: 0, speed: 4, hp: 350, maxHp: 350, mp: 100, maxMp: 100 };
     let moveDir = { x: 0, y: 0 };
 
@@ -46,7 +45,6 @@
         player.y = canvas.height / 2;
     }
 
-    // Lógica Joystick
     area.addEventListener('touchmove', (e) => {
         e.preventDefault();
         const touch = e.touches[0];
@@ -71,35 +69,29 @@
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 1. Dibujar Suelo
+        // Dibujar Suelo
         for(let i=0; i<canvas.width; i+=40) {
             for(let j=0; j<canvas.height; j+=40) {
                 ctx.drawImage(imgFloor, i, j, 40, 40);
             }
         }
 
-        // 2. Mover Jugador
         player.x += moveDir.x * player.speed;
         player.y += moveDir.y * player.speed;
 
-        // 3. Dibujar Barras sobre la cabeza
-        const barW = 40;
-        const barH = 5;
+        // Barras sobre la cabeza
         const barY = player.y - 35;
-        
-        // Vida (Roja)
         ctx.fillStyle = "#222";
-        ctx.fillRect(player.x - 20, barY, barW, barH);
+        ctx.fillRect(player.x - 20, barY, 40, 5); // Fondo vida
         ctx.fillStyle = "#ff4757";
-        ctx.fillRect(player.x - 20, barY, (player.hp / player.maxHp) * barW, barH);
+        ctx.fillRect(player.x - 20, barY, (player.hp / player.maxHp) * 40, 5); // Vida roja
         
-        // Maná (Azul)
         ctx.fillStyle = "#222";
-        ctx.fillRect(player.x - 20, barY + 7, barW, barH);
+        ctx.fillRect(player.x - 20, barY + 7, 40, 5); // Fondo maná
         ctx.fillStyle = "#2e86de";
-        ctx.fillRect(player.x - 20, barY + 7, (player.mp / player.maxMp) * barW, barH);
+        ctx.fillRect(player.x - 20, barY + 7, (player.mp / player.maxMp) * 40, 5); // Maná azul
 
-        // 4. Dibujar Personaje
+        // Dibujar tu nuevo personaje
         ctx.drawImage(imgPlayer, player.x - 20, player.y - 20, 40, 40);
 
         requestAnimationFrame(draw);
