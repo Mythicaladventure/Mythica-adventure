@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mythica - Retro Tech Edition</title>
+    <title>Mythica Adventure - Retro Tech</title>
     <style>
         :root { 
             --gold: #d4af37; --health: #ff3e3e; --mana: #3e93ff; --exp: #4caf50;
@@ -11,212 +11,170 @@
         }
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Courier New', monospace; }
         
-        /* PANTALLA DE INICIO RETRO */
+        /* Pantalla de Inicio Mythica Adventure */
         #setup { position: absolute; inset: 0; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        #setup h1 { color: var(--beige); text-shadow: 0 0 20px var(--glow); margin-bottom: 30px; letter-spacing: 3px; font-size: 2.5em; text-align: center; }
+        
         .card { 
-            background: var(--beige); border: 3px solid #000; padding: 20px; width: 160px; text-align: center; 
+            background: var(--beige); border: 3px solid #000; padding: 20px; width: 180px; text-align: center; 
             margin: 10px; cursor: pointer; color: #000; font-weight: bold; 
             box-shadow: 0 0 15px var(--glow); transition: 0.2s;
         }
-        .card:active { transform: scale(0.95); box-shadow: 0 0 5px var(--glow); }
+        .card:active { transform: scale(0.95); background: #fff; }
 
-        /* HUD SUPERIOR IZQUIERDO (REFINADO) */
+        /* HUD Superior Izquierdo */
         #hud { 
             position: absolute; top: 15px; left: 15px; background: var(--beige); 
-            padding: 10px; border: 3px solid var(--dark); border-radius: 2px;
-            box-shadow: 0 0 10px var(--glow); z-index: 10;
+            padding: 12px; border: 3px solid var(--dark); border-radius: 2px;
+            box-shadow: 0 0 12px var(--glow); z-index: 10; display: none;
         }
-        .hud-label { color: #000; font-size: 11px; font-weight: bold; margin-bottom: 2px; }
-        .bar { 
-            width: 180px; height: 14px; background: #333; border: 2px solid #000; 
-            margin-bottom: 6px; position: relative;
-        }
-        .fill { height: 100%; position: relative; }
-        .glow-effect { position: absolute; top:0; left:0; right:0; bottom:0; box-shadow: inset 0 0 8px rgba(255,255,255,0.5); }
-        
-        /* BOTONES DE ACCIÓN RETRO-TECH */
-        .actions { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 85px); gap: 15px; }
+        .hud-label { color: #000; font-size: 12px; font-weight: bold; margin-bottom: 4px; }
+        .bar { width: 190px; height: 16px; background: #222; border: 2px solid #000; margin-bottom: 8px; overflow: hidden; }
+        .fill { height: 100%; transition: width 0.4s ease-out; }
+
+        /* Botones de Acción Retro-Tech */
+        .actions { position: absolute; bottom: 35px; right: 35px; display: none; grid-template-columns: repeat(2, 90px); gap: 15px; }
         .btn { 
-            width: 85px; height: 85px; background: var(--beige); border: 3px solid var(--dark); 
-            border-radius: 8px; display: flex; align-items: center; justify-content: center; 
+            width: 90px; height: 90px; background: var(--beige); border: 3px solid var(--dark); 
+            border-radius: 10px; display: flex; align-items: center; justify-content: center; 
             font-size: 13px; font-weight: bold; color: #fff; text-shadow: 2px 2px #000;
-            box-shadow: 0 0 10px var(--glow), inset 0 0 10px rgba(0,0,0,0.2);
+            box-shadow: 0 0 15px var(--glow);
         }
-        .btn:active { box-shadow: 0 0 2px var(--glow); transform: translateY(2px); }
+        .btn:active { transform: translateY(3px); box-shadow: 0 0 5px var(--glow); }
 
-        /* JOYSTICK TECH */
-        #joy { position: absolute; bottom: 45px; left: 45px; width: 130px; height: 130px; background: rgba(229, 211, 179, 0.1); border-radius: 50%; border: 2px solid var(--beige); }
-        #stick { position: absolute; top: 40px; left: 40px; width: 50px; height: 50px; background: var(--beige); border-radius: 50%; box-shadow: 0 0 15px var(--glow); }
+        #joy { position: absolute; bottom: 50px; left: 50px; width: 130px; height: 130px; background: rgba(229,211,179,0.15); border-radius: 50%; border: 2px solid var(--beige); display: none; }
+        #stick { position: absolute; top: 40px; left: 40px; width: 50px; height: 50px; background: var(--beige); border-radius: 50%; box-shadow: 0 0 10px var(--glow); }
 
-        /* MENÚ INTELIGENTE */
-        #menu-ui { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 80%; max-width: 400px; background: var(--beige); border: 4px solid var(--dark);
-            padding: 20px; color: #000; display: none; z-index: 100;
-        }
-        .close-btn { float: right; cursor: pointer; font-weight: bold; }
-
-        #chat { position: absolute; bottom: 150px; left: 15px; width: 200px; height: 80px; font-size: 10px; color: #fff; text-shadow: 1px 1px #000; pointer-events: none; }
+        canvas { display: block; }
     </style>
 </head>
 <body>
 
     <div id="setup">
-        <h1 style="color: var(--beige); text-shadow: 0 0 20px var(--glow);">MYTHICA ONLINE</h1>
-        <div style="display: flex; flex-wrap: wrap; justify-content: center;">
-            <div class="card" onclick="start('WARRIOR')">GUERRERO</div>
-            <div class="card" onclick="start('MAGE')">MAGO</div>
-            <div class="card" onclick="start('ARCHER')">ARQUERO</div>
-            <div class="card" onclick="start('HEALER')">SANADOR</div>
-        </div>
+        <h1>MYTHICA<br>ADVENTURE</h1>
+        <div class="card" onclick="startGame('WARRIOR')">GUERRERO</div>
+        <div class="card" onclick="startGame('MAGE')">MAGO</div>
+        <div class="card" onclick="startGame('ARCHER')">ARQUERO</div>
+        <div class="card" onclick="startGame('HEALER')">SANADOR</div>
     </div>
 
-    <div id="hud" style="display:none">
-        <div class="hud-label" id="p-name">HERO LV. 1</div>
-        <div class="bar"><div id="hp-f" class="fill" style="background:var(--health); width:100%"><div class="glow-effect"></div></div></div>
-        <div class="bar"><div id="mp-f" class="fill" style="background:var(--mana); width:100%"><div class="glow-effect"></div></div></div>
-        <div class="bar" style="height:6px"><div id="ex-f" class="fill" style="background:var(--exp); width:0%"></div></div>
-        <div style="color: #000; font-size: 12px; font-weight: bold;" id="gold-txt">💰 0000</div>
+    <div id="hud">
+        <div class="hud-label" id="p-tag">HERO LV. 1</div>
+        <div class="bar"><div id="hp-f" class="fill" style="background:var(--health)"></div></div>
+        <div class="bar"><div id="mp-f" class="fill" style="background:var(--mana)"></div></div>
+        <div class="bar" style="height:6px"><div id="ex-f" class="fill" style="background:var(--exp)"></div></div>
+        <div style="color: #000; font-size: 13px; font-weight: bold; margin-top: 5px;" id="gold-txt">💰 0000</div>
     </div>
 
-    <div id="menu-ui">
-        <span class="close-btn" onclick="toggleMenu()">[X]</span>
-        <h3>ESTADÍSTICAS</h3>
-        <hr border="1">
-        <div id="stats-content"></div>
+    <div id="joy"><div id="stick"></div></div>
+    
+    <div class="actions" id="btns">
+        <div class="btn" style="background: #a44;" onclick="doAttack()">ATK</div>
+        <div class="btn" style="background: #44a;" onclick="doSpell()">MAG</div>
+        <div class="btn" style="background: #4a4;">INV</div>
+        <div class="btn" style="background: #666;">OPT</div>
     </div>
 
-    <div id="chat"></div>
     <canvas id="game"></canvas>
-    
-    <div id="joy" style="display:none"><div id="stick"></div></div>
-    
-    <div class="actions" id="btns" style="display:none">
-        <div class="btn" style="background: #a33;" onclick="tryAttack()">ATAQUE</div>
-        <div class="btn" style="background: #33a;" onclick="trySpell()">PODER</div>
-        <div class="btn" style="background: #3a3;" onclick="toggleMenu()">ITEMS</div>
-        <div class="btn" style="background: #888;">MENÚ</div>
-    </div>
 
 <script>
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     
-    // TORRE DE CÁLCULOS
     const CLASSES = {
-        WARRIOR: { name: "Guerrero", hpIn: 350, hpL: 80, mpIn: 60, mpL: 15, spd: 4.8, dmg: 35 },
-        MAGE:    { name: "Mago", hpIn: 190, hpL: 35, mpIn: 320, mpL: 90, spd: 4.2, dmg: 60 },
-        ARCHER:  { name: "Arquero", hpIn: 270, hpL: 55, mpIn: 130, mpL: 40, spd: 5.8, dmg: 45 },
-        HEALER:  { name: "Sanador", hpIn: 240, hpL: 45, mpIn: 260, mpL: 70, spd: 4.5, dmg: 25 }
+        WARRIOR: { hp: 400, mp: 80, spd: 5.0, dmg: 38 },
+        MAGE:    { hp: 200, mp: 350, spd: 4.2, dmg: 65 },
+        ARCHER:  { hp: 280, mp: 150, spd: 6.2, dmg: 48 },
+        HEALER:  { hp: 250, mp: 280, spd: 4.8, dmg: 28 }
     };
 
-    let p = { x: 2000, y: 2000, lvl: 1, exp: 0, gold: 0, class: 'WARRIOR', target: null };
-    let obstacles = [];
+    let p = { x: 2500, y: 2500, lvl: 1, exp: 0, gold: 0, class: 'WARRIOR' };
     let mobs = [];
     let world = { w: 5000, h: 5000 };
+    let active = false;
 
+    // Imágenes con precarga
     const imgP = new Image(); imgP.src = 'player.png';
     const imgF = new Image(); imgF.src = 'floor1.png';
-    const imgE = new Image(); imgE.src = 'floor2.png';
+    const imgM = new Image(); imgM.src = 'floor2.png';
 
-    function start(cl) {
+    function startGame(cl) {
         p.class = cl;
-        const c = CLASSES[cl];
-        p.hp = p.maxHp = c.hpIn;
-        p.mp = p.maxMp = c.mpIn;
-        p.spd = c.spd;
+        p.hp = p.maxHp = CLASSES[cl].hp;
+        p.mp = p.maxMp = CLASSES[cl].mp;
+        
         document.getElementById('setup').style.display = 'none';
-        ['hud','joy','btns'].forEach(i => document.getElementById(i).style.display = 'block');
-        generateMap();
-        for(let i=0; i<30; i++) spawnMob();
+        ['hud', 'joy', 'btns'].forEach(id => document.getElementById(id).style.display = (id === 'btns' ? 'grid' : 'block'));
+        
+        for(let i=0; i<35; i++) spawnMob();
+        active = true;
+        updateUI();
         loop();
     }
 
-    function toggleMenu() {
-        const m = document.getElementById('menu-ui');
-        const isVisible = m.style.display === 'block';
-        m.style.display = isVisible ? 'none' : 'block';
-        if(!isVisible) {
-            document.getElementById('stats-content').innerHTML = `
-                <p>Clase: ${CLASSES[p.class].name}</p>
-                <p>Nivel: ${p.lvl}</p>
-                <p>Oro: ${p.gold}</p>
-                <p>Ataque: ${CLASSES[p.class].dmg + (p.lvl * 2)}</p>
-            `;
-        }
-    }
-
-    function generateMap() {
-        for(let i=0; i<80; i++) obstacles.push({ x: Math.random()*world.w, y: Math.random()*world.h, w: 80, h: 80 });
-    }
-
     function spawnMob() {
-        mobs.push({ x: Math.random()*world.w, y: Math.random()*world.h, hp: 120, max: 120, d: false });
+        mobs.push({ x: Math.random()*world.w, y: Math.random()*world.h, hp: 110, max: 110, d: false });
     }
 
-    function updateHUD() {
-        document.getElementById('p-name').innerText = `${p.class} LV. ${p.lvl}`;
+    function updateUI() {
+        document.getElementById('p-tag').innerText = p.class + " ADVENTURER LV." + p.lvl;
         document.getElementById('hp-f').style.width = (p.hp/p.maxHp)*100 + "%";
         document.getElementById('mp-f').style.width = (p.mp/p.maxMp)*100 + "%";
-        document.getElementById('ex-f').style.width = (p.exp/(p.lvl*300))*100 + "%";
-        document.getElementById('gold-txt').innerText = `💰 ${String(p.gold).padStart(4, '0')}`;
+        document.getElementById('ex-f').style.width = (p.exp/(p.lvl*350))*100 + "%";
+        document.getElementById('gold-txt').innerText = "💰 " + String(p.gold).padStart(4, '0');
     }
 
-    function tryAttack() {
+    function doAttack() {
         mobs.forEach(m => {
-            if(!m.d && Math.hypot(p.x - m.x, p.y - m.y) < 100) {
+            if(!m.d && Math.hypot(p.x - m.x, p.y - m.y) < 110) {
                 m.hp -= CLASSES[p.class].dmg;
-                if(m.hp <= 0) { m.d = true; p.exp += 100; p.gold += 15; checkLvl(); setTimeout(spawnMob, 5000); }
+                if(m.hp <= 0) { m.d = true; p.exp += 90; p.gold += 12; spawnMob(); updateUI(); }
             }
         });
-        updateHUD();
     }
 
-    function checkLvl() {
-        if(p.exp >= p.lvl * 300) { 
-            p.lvl++; p.exp = 0; 
-            p.maxHp += CLASSES[p.class].hpL;
-            p.hp = p.maxHp;
-        }
-    }
-
-    // Joystick 
-    let joyMove = { x: 0, y: 0 };
-    const jA = document.getElementById('joy');
-    const jS = document.getElementById('stick');
-    jA.ontouchmove = (e) => {
-        const r = jA.getBoundingClientRect();
+    // Controles
+    let move = { x: 0, y: 0 };
+    const joy = document.getElementById('joy'), stick = document.getElementById('stick');
+    joy.ontouchmove = (e) => {
+        const r = joy.getBoundingClientRect();
         let x = e.touches[0].clientX - (r.left + 65), y = e.touches[0].clientY - (r.top + 65);
         let d = Math.hypot(x,y); if(d > 45) { x *= 45/d; y *= 45/d; }
-        jS.style.transform = `translate(${x}px, ${y}px)`;
-        joyMove = { x: x/45, y: y/45 };
+        stick.style.transform = `translate(${x}px, ${y}px)`;
+        move = { x: x/45, y: y/45 };
     };
-    jA.ontouchend = () => { joyMove = { x: 0, y: 0 }; jS.style.transform = 'translate(0,0)'; };
+    joy.ontouchend = () => { move = { x: 0, y: 0 }; stick.style.transform = 'translate(0,0)'; };
 
     function loop() {
+        if(!active) return;
         ctx.clearRect(0,0,canvas.width,canvas.height);
-        p.x += joyMove.x * p.spd; p.y += joyMove.y * p.spd;
+        
+        p.x += move.x * CLASSES[p.class].spd;
+        p.y += move.y * CLASSES[p.class].spd;
+
         let cx = p.x - canvas.width/2, cy = p.y - canvas.height/2;
         ctx.save(); ctx.translate(-cx, -cy);
-        
-        if(imgF.complete) {
-            for(let i=Math.floor(cx/40)*40; i<cx+canvas.width; i+=40) 
-            for(let j=Math.floor(cy/40)*40; j<cy+canvas.height; j+=40) ctx.drawImage(imgF, i, j, 41, 41);
-        }
 
-        obstacles.forEach(o => {
-            ctx.fillStyle = "#3e2723"; ctx.fillRect(o.x, o.y, o.w, o.h);
-            ctx.strokeStyle = var(--beige); ctx.strokeRect(o.x, o.y, o.w, o.h);
-        });
+        // Dibujar Mundo
+        ctx.fillStyle = "#111"; ctx.fillRect(0,0,world.w,world.h);
+        if(imgF.complete) {
+            for(let i=Math.floor(cx/80)*80; i<cx+canvas.width; i+=80)
+            for(let j=Math.floor(cy/80)*80; j<cy+canvas.height; j+=80)
+            ctx.drawImage(imgF, i, j, 81, 81);
+        }
 
         mobs.forEach(m => {
             if(m.d) return;
-            ctx.drawImage(imgE, m.x-20, m.y-20, 40, 40);
-            ctx.fillStyle = "red"; ctx.fillRect(m.x-15, m.y-25, (m.hp/m.max)*30, 4);
+            if(imgM.complete) ctx.drawImage(imgM, m.x-25, m.y-25, 50, 50);
+            else { ctx.fillStyle = "red"; ctx.fillRect(m.x-25, m.y-25, 50, 50); }
+            ctx.fillStyle = "red"; ctx.fillRect(m.x-20, m.y-35, (m.hp/m.max)*40, 5);
         });
 
-        ctx.drawImage(imgP, p.x-25, p.y-25, 50, 50);
-        ctx.restore(); requestAnimationFrame(loop);
+        if(imgP.complete) ctx.drawImage(imgP, p.x-30, p.y-30, 60, 60);
+        else { ctx.fillStyle = "cyan"; ctx.fillRect(p.x-30, p.y-30, 60, 60); }
+
+        ctx.restore();
+        requestAnimationFrame(loop);
     }
 
     window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
