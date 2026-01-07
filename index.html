@@ -1,217 +1,279 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mythica Online - Lawl Style</title>
+    <title>Mythica Online - Lawl Engine</title>
     <style>
-        :root { --gold: #ffd700; --health: #ff4757; --mana: #2e86de; --exp: #2ecc71; --ui-bg: rgba(20, 20, 25, 0.95); }
+        :root { --gold: #ffd700; --health: #ff4757; --mana: #2e86de; --exp: #2ecc71; --ui-bg: rgba(10, 10, 15, 0.98); }
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Courier New', monospace; color: white; }
         
-        /* Pantalla de Inicio */
-        #setup-screen { position: absolute; inset: 0; background: #050505; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        .class-select { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
-        .card { background: #1a1a1a; border: 2px solid #333; padding: 15px; width: 140px; text-align: center; border-radius: 8px; transition: 0.3s; }
-        .card:active { border-color: var(--gold); background: #222; }
+        #setup { position: absolute; inset: 0; background: #0a0a0a; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        .card { background: #1a1a1a; border: 2px solid #333; padding: 15px; width: 150px; text-align: center; border-radius: 8px; margin: 8px; cursor: pointer; border: 1px solid var(--gold); }
 
-        /* HUD Superior (Stats) */
-        #hud { position: absolute; top: 10px; left: 10px; background: var(--ui-bg); padding: 12px; border: 2px solid var(--gold); border-radius: 5px; pointer-events: none; min-width: 160px; }
-        .bar { width: 100%; height: 12px; background: #111; border: 1px solid #444; margin: 4px 0; position: relative; }
+        #hud { position: absolute; top: 10px; left: 10px; background: var(--ui-bg); padding: 10px; border: 2px solid var(--gold); border-radius: 4px; pointer-events: none; z-index: 10; }
+        .bar { width: 160px; height: 12px; background: #000; border: 1px solid #333; margin: 4px 0; overflow: hidden; }
         .fill { height: 100%; transition: width 0.3s; }
-        
-        /* Floating Damage */
-        .dmg { position: absolute; font-weight: bold; pointer-events: none; animation: floatUp 0.8s ease-out forwards; }
-        @keyframes floatUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-50px); opacity: 0; } }
 
-        /* Controles */
-        #joy-bg { position: absolute; bottom: 50px; left: 50px; width: 120px; height: 120px; background: rgba(255,255,255,0.05); border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); }
-        #joy-thumb { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: var(--gold); border-radius: 50%; opacity: 0.5; }
-        .actions { position: absolute; bottom: 40px; right: 40px; display: grid; grid-template-columns: repeat(2, 80px); gap: 15px; }
-        .btn { width: 80px; height: 80px; background: var(--ui-bg); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; box-shadow: 0 4px 0 #8a6d00; }
-        .btn:active { transform: translateY(3px); box-shadow: none; }
+        #chat { position: absolute; bottom: 180px; left: 10px; width: 260px; height: 110px; background: rgba(0,0,0,0.4); font-size: 11px; overflow: hidden; pointer-events: none; color: #ccc; }
+
+        .dmg { position: absolute; font-weight: bold; pointer-events: none; animation: float 0.8s forwards; font-size: 20px; text-shadow: 2px 2px #000; }
+        @keyframes float { to { transform: translateY(-70px); opacity: 0; } }
+
+        #joy { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.05); border-radius: 50%; border: 1px solid #444; }
+        #stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: var(--gold); border-radius: 50%; opacity: 0.6; }
+        
+        .actions { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 80px); gap: 12px; }
+        .btn { width: 80px; height: 80px; background: var(--ui-bg); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="setup-screen">
-        <h1 style="color: var(--gold); letter-spacing: 5px;">MYTHICA</h1>
-        <p>SELECCIONA TU VOCACIÓN</p>
-        <div class="class-select">
-            <div class="card" onclick="startGame('WARRIOR')"><h3>GUERRERO</h3><small>Tanque</small></div>
-            <div class="card" onclick="startGame('MAGE')"><h3>MAGO</h3><small>Explosivo</small></div>
-            <div class="card" onclick="startGame('ARCHER')"><h3>ARQUERO</h3><small>Veloz</small></div>
-            <div class="card" onclick="startGame('HEALER')"><h3>SANADOR</h3><small>Soporte</small></div>
+    <div id="setup">
+        <h1 style="color: var(--gold); text-shadow: 0 0 10px gold;">MYTHICA ONLINE</h1>
+        <div style="display: flex; flex-wrap: wrap; justify-content: center;">
+            <div class="card" onclick="start('WARRIOR')">GUERRERO</div>
+            <div class="card" onclick="start('MAGE')">MAGO</div>
+            <div class="card" onclick="start('ARCHER')">ARQUERO</div>
+            <div class="card" onclick="start('HEALER')">SANADOR</div>
         </div>
     </div>
 
     <div id="hud" style="display:none">
-        <div id="info">HERO [Lv 1]</div>
-        <div class="bar"><div id="hp-fill" class="fill" style="background:var(--health); width:100%"></div></div>
-        <div class="bar"><div id="mp-fill" class="fill" style="background:var(--mana); width:100%"></div></div>
-        <div class="bar" style="height:4px"><div id="exp-fill" class="fill" style="background:var(--exp); width:0%"></div></div>
+        <div id="p-tag">Cargando...</div>
+        <div class="bar"><div id="hp-f" class="fill" style="background:var(--health)"></div></div>
+        <div class="bar"><div id="mp-f" class="fill" style="background:var(--mana)"></div></div>
+        <div class="bar" style="height:4px"><div id="ex-f" class="fill" style="background:var(--exp)"></div></div>
+        <div id="gold-txt" style="color:var(--gold); font-size:12px; margin-top:5px;">Oro: 0</div>
     </div>
 
+    <div id="chat"></div>
     <canvas id="game"></canvas>
-    <div id="joy-bg" style="display:none"><div id="joy-thumb"></div></div>
+    <div id="joy" style="display:none"><div id="stick"></div></div>
     
-    <div class="actions" id="ctrls" style="display:none">
-        <div class="btn" style="color:var(--health)" onclick="doAttack()">ATAQUE</div>
-        <div class="btn" style="color:var(--mana)" onclick="doSpell()">PODER</div>
-        <div class="btn" style="color:#2ecc71">MOCHILA</div>
-        <div class="btn" style="color:var(--gold)">MENU</div>
+    <div class="actions" id="btns" style="display:none">
+        <div class="btn" onclick="tryAttack()">ATTACK</div>
+        <div class="btn" style="color:var(--mana)" onclick="trySpell()">SPELL</div>
+        <div class="btn" style="color:#2ecc71">BAG</div>
+        <div class="btn" style="color:var(--gold)">MAP</div>
     </div>
 
 <script>
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     
-    // CONFIGURACIÓN DE CLASES (Torre de Cálculos Lawl)
+    // TORRE DE CÁLCULOS (Sistema Lawl)
     const CLASSES = {
-        WARRIOR: { hpIn: 350, hpLvl: 80, mpIn: 50, mpLvl: 10, speed: 4.5, dmg: 25 },
-        MAGE: { hpIn: 180, hpLvl: 35, mpIn: 250, mpLvl: 85, speed: 4, dmg: 45 },
-        ARCHER: { hpIn: 250, hpLvl: 55, mpIn: 100, mpLvl: 35, speed: 5.5, dmg: 35 },
-        HEALER: { hpIn: 220, hpLvl: 45, mpIn: 200, mpLvl: 65, speed: 4.2, dmg: 20 }
+        WARRIOR: { name: "Guerrero", hpIn: 350, hpL: 80, mpIn: 60, mpL: 15, spd: 4.8, dmg: 32 },
+        MAGE:    { name: "Mago", hpIn: 190, hpL: 35, mpIn: 320, mpL: 90, spd: 4.2, dmg: 58 },
+        ARCHER:  { name: "Arquero", hpIn: 270, hpL: 55, mpIn: 130, mpL: 40, spd: 5.8, dmg: 42 },
+        HEALER:  { name: "Sanador", hpIn: 240, hpL: 45, mpIn: 260, mpL: 70, spd: 4.5, dmg: 26 }
     };
 
-    let p = { 
-        x: 1500, y: 1500, lvl: 1, exp: 0, 
-        hp: 350, maxHp: 350, mp: 50, maxMp: 50,
-        class: 'WARRIOR', dead: false
-    };
+    let p = { x: 2000, y: 2000, lvl: 1, exp: 0, gold: 0, class: 'WARRIOR', target: null };
+    let world = { w: 4000, h: 4000 };
+    let obstacles = []; // Paredes y árboles
+    let mobs = [];
+    let loot = [];
 
-    let enemies = [];
-    let world = { w: 3000, h: 3000 };
-    let imgPlayer = new Image(); imgPlayer.src = 'player.png';
-    let imgFloor = new Image(); imgFloor.src = 'floor1.png';
-    let imgMob = new Image(); imgMob.src = 'floor2.png';
+    // IMÁGENES
+    const imgP = new Image(); imgP.src = 'player.png';
+    const imgF = new Image(); imgF.src = 'floor1.png';
+    const imgE = new Image(); imgE.src = 'floor2.png';
 
-    function startGame(vocation) {
-        p.class = vocation;
-        const c = CLASSES[vocation];
-        p.maxHp = p.hp = c.hpIn;
-        p.maxMp = p.mp = c.mpIn;
-        document.getElementById('setup-screen').style.display = 'none';
-        ['hud','joy-bg','ctrls'].forEach(id => document.getElementById(id).style.display = 'block');
-        spawnMobs();
+    function start(cl) {
+        p.class = cl;
+        const c = CLASSES[cl];
+        p.hp = p.maxHp = c.hpIn;
+        p.mp = p.maxMp = c.mpIn;
+        p.spd = c.spd;
+        
+        document.getElementById('setup').style.display = 'none';
+        ['hud','joy','btns'].forEach(i => document.getElementById(i).style.display = 'block');
+        
+        generateEcosystem();
+        for(let i=0; i<30; i++) spawnMob();
+        addChat("Bienvenido, " + CLASSES[p.class].name);
         loop();
     }
 
-    function spawnMobs() {
-        for(let i=0; i<20; i++) {
-            enemies.push({
-                x: Math.random()*world.w, y: Math.random()*world.h,
-                hp: 100, maxHp: 100, dead: false
+    function generateEcosystem() {
+        // Generar muros y árboles aleatorios
+        for(let i=0; i<100; i++) {
+            obstacles.push({
+                x: Math.random() * world.w,
+                y: Math.random() * world.h,
+                w: 60, h: 60,
+                type: Math.random() > 0.5 ? 'WALL' : 'TREE'
             });
         }
     }
 
-    function doAttack() {
-        enemies.forEach(m => {
-            let dist = Math.hypot(p.x - m.x, p.y - m.y);
-            if(dist < 80 && !m.dead) {
-                let d = CLASSES[p.class].dmg + Math.floor(Math.random()*10);
-                m.hp -= d;
-                showDamage(m.x, m.y, d, "white");
-                if(m.hp <= 0) { 
-                    m.dead = true; 
-                    p.exp += 40; 
-                    checkLvl();
-                    setTimeout(() => { m.dead = false; m.hp = 100; m.x = Math.random()*world.w; m.y = Math.random()*world.h; }, 5000);
-                }
-            }
-        });
+    function spawnMob() {
+        mobs.push({ x: Math.random()*world.w, y: Math.random()*world.h, hp: 130, max: 130, d: false });
     }
 
-    function checkLvl() {
-        let next = p.lvl * 150;
-        if(p.exp >= next) {
-            p.lvl++; p.exp = 0;
-            const c = CLASSES[p.class];
-            p.maxHp += c.hpLvl; p.maxMp += c.mpLvl;
-            p.hp = p.maxHp; p.mp = p.maxMp;
-            showDamage(p.x, p.y, "LEVEL UP!", "gold");
-        }
-        updateHUD();
+    function addChat(t) {
+        const c = document.getElementById('chat');
+        c.innerHTML = `<div>> ${t}</div>` + c.innerHTML;
     }
 
-    function showDamage(x, y, text, color) {
+    function showDmg(x, y, v, c) {
         const d = document.createElement('div');
         d.className = 'dmg';
         d.style.left = (x - (p.x - canvas.width/2)) + 'px';
         d.style.top = (y - (p.y - canvas.height/2)) + 'px';
-        d.style.color = color;
-        d.innerText = text;
+        d.style.color = c; d.innerText = v;
         document.body.appendChild(d);
-        setTimeout(() => d.remove(), 800);
+        setTimeout(() => d.remove(), 750);
+    }
+
+    // TARGETING: Tocar monstruo para marcarlo
+    canvas.addEventListener('touchstart', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const tx = e.touches[0].clientX - rect.left + (p.x - canvas.width/2);
+        const ty = e.touches[0].clientY - rect.top + (p.y - canvas.height/2);
+        
+        p.target = null;
+        mobs.forEach(m => {
+            if(!m.d && Math.hypot(tx - m.x, ty - m.y) < 50) {
+                p.target = m;
+                addChat("Objetivo fijado.");
+            }
+        });
+    });
+
+    function tryAttack() {
+        if(!p.target || p.target.d) {
+            // Auto-target si no hay uno seleccionado
+            mobs.forEach(m => {
+                if(!m.d && Math.hypot(p.x - m.x, p.y - m.y) < 100) p.target = m;
+            });
+        }
+
+        if(p.target && !p.target.d) {
+            let dist = Math.hypot(p.x - p.target.x, p.y - p.target.y);
+            if(dist < 90) {
+                let d = CLASSES[p.class].dmg + Math.floor(Math.random()*15);
+                p.target.hp -= d;
+                showDmg(p.target.x, p.target.y, d, "white");
+                if(p.target.hp <= 0) {
+                    p.target.d = true; p.exp += 60;
+                    loot.push({x: p.target.x, y: p.target.y, v: 10});
+                    addChat("Enemigo derrotado +60 XP");
+                    checkLvl();
+                    p.target = null;
+                    setTimeout(() => { spawnMob(); }, 5000);
+                }
+            } else { addChat("Muy lejos..."); }
+        }
+        updateHUD();
+    }
+
+    function trySpell() {
+        if(p.mp >= 25) {
+            p.mp -= 25;
+            showDmg(p.x, p.y, "SPELL!", "#00ffff");
+            mobs.forEach(m => {
+                if(!m.d && Math.hypot(p.x - m.x, p.y - m.y) < 180) {
+                    m.hp -= 50; showDmg(m.x, m.y, 50, "cyan");
+                }
+            });
+        }
+        updateHUD();
+    }
+
+    function checkLvl() {
+        let n = p.lvl * 250;
+        if(p.exp >= n) {
+            p.lvl++; p.exp = 0;
+            const c = CLASSES[p.class];
+            p.maxHp += c.hpL; p.maxMp += c.mpL;
+            p.hp = p.maxHp; p.mp = p.maxMp;
+            addChat("¡SUBISTE DE NIVEL!");
+            showDmg(p.x, p.y, "LVL UP", "gold");
+        }
     }
 
     function updateHUD() {
-        document.getElementById('info').innerText = `${p.class} [Lv ${p.lvl}]`;
-        document.getElementById('hp-fill').style.width = (p.hp/p.maxHp)*100 + "%";
-        document.getElementById('mp-fill').style.width = (p.mp/p.maxMp)*100 + "%";
-        document.getElementById('exp-fill').style.width = (p.exp/(p.lvl*150))*100 + "%";
+        document.getElementById('p-tag').innerText = `${CLASSES[p.class].name} [Lv ${p.lvl}]`;
+        document.getElementById('hp-f').style.width = (p.hp/p.maxHp)*100 + "%";
+        document.getElementById('mp-f').style.width = (p.mp/p.maxMp)*100 + "%";
+        document.getElementById('ex-f').style.width = (p.exp/(p.lvl*250))*100 + "%";
+        document.getElementById('gold-txt').innerText = `Oro: ${p.gold}`;
     }
 
-    // Sistema de Movimiento
-    let joy = { dx: 0, dy: 0 };
-    const jArea = document.getElementById('joy-bg');
-    const jThumb = document.getElementById('joy-thumb');
-    
-    jArea.ontouchmove = (e) => {
-        const t = e.touches[0];
-        const r = jArea.getBoundingClientRect();
-        let x = t.clientX - (r.left + 60);
-        let y = t.clientY - (r.top + 60);
-        let d = Math.hypot(x, y);
-        if(d > 40) { x *= 40/d; y *= 40/d; }
-        jThumb.style.transform = `translate(${x}px, ${y}px)`;
-        joy = { dx: x/40, dy: y/40 };
+    // Movimiento
+    let joyMove = { x: 0, y: 0 };
+    const jA = document.getElementById('joy');
+    const jS = document.getElementById('stick');
+    jA.ontouchmove = (e) => {
+        const r = jA.getBoundingClientRect();
+        let x = e.touches[0].clientX - (r.left + 60), y = e.touches[0].clientY - (r.top + 60);
+        let d = Math.hypot(x,y); if(d > 40) { x *= 40/d; y *= 40/d; }
+        jS.style.transform = `translate(${x}px, ${y}px)`;
+        joyMove = { x: x/40, y: y/40 };
     };
-    jArea.ontouchend = () => { joy = { dx: 0, dy: 0 }; jThumb.style.transform = 'translate(0,0)'; };
+    jA.ontouchend = () => { joyMove = { x: 0, y: 0 }; jS.style.transform = 'translate(0,0)'; };
+
+    function checkCollision(nx, ny) {
+        let collision = false;
+        obstacles.forEach(o => {
+            if(nx > o.x - 20 && nx < o.x + o.w + 20 && ny > o.y - 20 && ny < o.y + o.h + 20) collision = true;
+        });
+        return collision;
+    }
 
     function loop() {
         ctx.clearRect(0,0,canvas.width,canvas.height);
-        p.x += joy.dx * CLASSES[p.class].speed;
-        p.y += joy.dy * CLASSES[p.class].speed;
+        
+        let nextX = p.x + joyMove.x * p.spd;
+        let nextY = p.y + joyMove.y * p.spd;
+        
+        if(!checkCollision(nextX, p.y)) p.x = nextX;
+        if(!checkCollision(p.x, nextY)) p.y = nextY;
 
-        let camX = p.x - canvas.width/2;
-        let camY = p.y - canvas.height/2;
-
-        ctx.save();
-        ctx.translate(-camX, -camY);
+        let cx = p.x - canvas.width/2, cy = p.y - canvas.height/2;
+        ctx.save(); ctx.translate(-cx, -cy);
 
         // Piso
-        if(imgFloor.complete) {
-            for(let i=0; i<world.w; i+=40) {
-                for(let j=0; j<world.h; j+=40) {
-                    if(i > camX-40 && i < camX+canvas.width && j > camY-40 && j < camY+canvas.height)
-                        ctx.drawImage(imgFloor, i, j, 41, 41);
-                }
+        if(imgF.complete) {
+            for(let i=0; i<world.w; i+=40) for(let j=0; j<world.h; j+=40) {
+                if(i > cx-40 && i < cx+canvas.width && j > cy-40 && j < cy+canvas.height) ctx.drawImage(imgF, i, j, 41, 41);
             }
         }
 
-        // Monstruos IA
-        enemies.forEach(m => {
-            if(m.dead) return;
-            let d = Math.hypot(p.x - m.x, p.y - m.y);
-            if(d < 250) { // Persecución
-                m.x += (p.x - m.x) * 0.015;
-                m.y += (p.y - m.y) * 0.015;
-                if(d < 30 && Math.random() < 0.05) { // Ataque mob
-                    p.hp -= 5;
-                    updateHUD();
-                    showDamage(p.x, p.y, 5, "red");
-                }
+        // Obstáculos (Ecosistema)
+        obstacles.forEach(o => {
+            if(o.type === 'WALL') {
+                ctx.fillStyle = "#444";
+                ctx.fillRect(o.x, o.y, o.w, o.h);
+                ctx.strokeStyle = "#222"; ctx.strokeRect(o.x, o.y, o.w, o.h);
+            } else {
+                ctx.fillStyle = "#1b4d1b";
+                ctx.beginPath(); ctx.arc(o.x+30, o.y+30, 25, 0, 7); ctx.fill();
             }
-            ctx.drawImage(imgMob, m.x-20, m.y-20, 40, 40);
-            ctx.fillStyle = "red"; ctx.fillRect(m.x-15, m.y-25, (m.hp/m.maxHp)*30, 3);
         });
 
-        // Jugador
-        ctx.drawImage(imgPlayer, p.x-25, p.y-25, 50, 50);
-        
-        ctx.restore();
-        requestAnimationFrame(loop);
+        // Loot
+        loot.forEach((l, i) => {
+            ctx.fillStyle = "gold"; ctx.beginPath(); ctx.arc(l.x, l.y, 6, 0, 7); ctx.fill();
+            if(Math.hypot(p.x - l.x, p.y - l.y) < 35) { p.gold += l.v; loot.splice(i, 1); updateHUD(); }
+        });
+
+        // Mobs IA
+        mobs.forEach(m => {
+            if(m.d) return;
+            let d = Math.hypot(p.x - m.x, p.y - m.y);
+            if(d < 300) { m.x += (p.x - m.x)*0.015; m.y += (p.y - m.y)*0.015; }
+            if(d < 35 && Math.random() < 0.05) { p.hp -= 6; updateHUD(); showDmg(p.x, p.y, 6, "red"); }
+            ctx.drawImage(imgE, m.x-20, m.y-20, 40, 40);
+            ctx.fillStyle = "red"; ctx.fillRect(m.x-15, m.y-25, (m.hp/m.max)*30, 4);
+            if(p.target === m) { ctx.strokeStyle = "red"; ctx.lineWidth = 2; ctx.strokeRect(m.x-22, m.y-22, 44, 44); }
+        });
+
+        ctx.drawImage(imgP, p.x-25, p.y-25, 50, 50);
+        ctx.restore(); requestAnimationFrame(loop);
     }
 
     window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
