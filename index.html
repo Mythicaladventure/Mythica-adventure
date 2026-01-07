@@ -3,36 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mythica Adventure Core</title>
+    <title>Mythica Adventure - Textures</title>
     <style>
-        :root { --gold: #ffd700; --bg: #0a0a0c; --health: #ff4757; --mana: #2e86de; }
-        body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
+        :root { --gold: #ffd700; --health: #ff4757; --mana: #2e86de; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
         #game-canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
         
-        /* Interfaz HUD */
-        .hud { position: absolute; top: 20px; left: 20px; pointer-events: none; }
-        .stat-bar { width: 180px; height: 14px; background: #222; border: 1px solid #444; border-radius: 3px; margin-bottom: 5px; }
-        .fill { height: 100%; transition: width 0.4s ease; }
-
         /* Controles */
-        .controls { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 70px); gap: 10px; }
-        .btn { width: 70px; height: 70px; background: rgba(20,20,25,0.85); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
-        
-        #joystick-area { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; }
+        #joystick-area { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); }
         #joystick-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: var(--gold); border-radius: 50%; opacity: 0.5; }
+        .controls { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 70px); gap: 10px; }
+        .btn { width: 70px; height: 70px; background: rgba(20,20,25,0.85); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; }
     </style>
 </head>
 <body>
     <canvas id="game-canvas"></canvas>
-    
-    <div class="hud">
-        <div style="color: var(--gold); font-size: 14px; margin-bottom: 5px; font-weight: bold;">MYTHICA ADVENTURE - LV 1</div>
-        <div class="stat-bar"><div id="hp" class="fill" style="background: var(--health); width: 100%;"></div></div>
-        <div class="stat-bar"><div id="mp" class="fill" style="background: var(--mana); width: 100%;"></div></div>
-    </div>
-
     <div id="joystick-area"><div id="joystick-stick"></div></div>
-
     <div class="controls">
         <div class="btn" style="color: var(--health)">ATK</div>
         <div class="btn" style="color: var(--mana)">SKILL</div>
@@ -46,7 +32,11 @@
     const stick = document.getElementById('joystick-stick');
     const area = document.getElementById('joystick-area');
 
-    let player = { x: 0, y: 0, speed: 4 };
+    // Cargar Imágenes
+    const imgPlayer = new Image(); imgPlayer.src = 'player.png';
+    const imgFloor = new Image(); imgFloor.src = 'floor1.png';
+
+    let player = { x: 0, y: 0, speed: 4, hp: 350, maxHp: 350, mp: 100, maxMp: 100 };
     let moveDir = { x: 0, y: 0 };
 
     function init() {
@@ -56,26 +46,20 @@
         player.y = canvas.height / 2;
     }
 
-    // Lógica del Joystick
+    // Lógica Joystick
     area.addEventListener('touchmove', (e) => {
+        e.preventDefault();
         const touch = e.touches[0];
         const rect = area.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
-        
         let dx = touch.clientX - centerX;
         let dy = touch.clientY - centerY;
         const dist = Math.sqrt(dx*dx + dy*dy);
         const maxDist = 40;
-
-        if (dist > maxDist) {
-            dx *= maxDist / dist;
-            dy *= maxDist / dist;
-        }
-
+        if (dist > maxDist) { dx *= maxDist / dist; dy *= maxDist / dist; }
         stick.style.transform = `translate(${dx}px, ${dy}px)`;
-        moveDir.x = dx / maxDist;
-        moveDir.y = dy / maxDist;
+        moveDir.x = dx / maxDist; moveDir.y = dy / maxDist;
     });
 
     area.addEventListener('touchend', () => {
@@ -87,20 +71,36 @@
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Dibujar Rejilla
-        ctx.strokeStyle = "#1a1a1a";
-        for(let i=0; i<canvas.width; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
-        for(let i=0; i<canvas.height; i+=40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
+        // 1. Dibujar Suelo
+        for(let i=0; i<canvas.width; i+=40) {
+            for(let j=0; j<canvas.height; j+=40) {
+                ctx.drawImage(imgFloor, i, j, 40, 40);
+            }
+        }
 
-        // Mover y Dibujar Jugador
+        // 2. Mover Jugador
         player.x += moveDir.x * player.speed;
         player.y += moveDir.y * player.speed;
 
-        ctx.fillStyle = "gold";
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = "gold";
-        ctx.fillRect(player.x - 16, player.y - 16, 32, 32);
-        ctx.shadowBlur = 0;
+        // 3. Dibujar Barras sobre la cabeza
+        const barW = 40;
+        const barH = 5;
+        const barY = player.y - 35;
+        
+        // Vida (Roja)
+        ctx.fillStyle = "#222";
+        ctx.fillRect(player.x - 20, barY, barW, barH);
+        ctx.fillStyle = "#ff4757";
+        ctx.fillRect(player.x - 20, barY, (player.hp / player.maxHp) * barW, barH);
+        
+        // Maná (Azul)
+        ctx.fillStyle = "#222";
+        ctx.fillRect(player.x - 20, barY + 7, barW, barH);
+        ctx.fillStyle = "#2e86de";
+        ctx.fillRect(player.x - 20, barY + 7, (player.mp / player.maxMp) * barW, barH);
+
+        // 4. Dibujar Personaje
+        ctx.drawImage(imgPlayer, player.x - 20, player.y - 20, 40, 40);
 
         requestAnimationFrame(draw);
     }
@@ -111,4 +111,3 @@
 </script>
 </body>
 </html>
-
