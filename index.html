@@ -6,20 +6,25 @@
     <title>Mythica MMORPG</title>
     <style>
         :root { --gold: #ffd700; --health: #ff4757; --mana: #2e86de; }
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         #game-canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
-        #joystick-area { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); }
-        #joystick-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: var(--gold); border-radius: 50%; opacity: 0.5; }
-        .controls { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 70px); gap: 10px; }
-        .btn { width: 70px; height: 70px; background: rgba(20,20,25,0.85); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; }
+        
+        /* Interfaz de Usuario (HUD) */
+        #joystick-area { position: absolute; bottom: 50px; left: 50px; width: 130px; height: 130px; background: rgba(255,255,255,0.05); border-radius: 50%; border: 2px solid rgba(255,215,0,0.2); }
+        #joystick-stick { position: absolute; top: 40px; left: 40px; width: 50px; height: 50px; background: var(--gold); border-radius: 50%; opacity: 0.6; box-shadow: 0 0 15px var(--gold); }
+        
+        .controls { position: absolute; bottom: 40px; right: 40px; display: grid; grid-template-columns: repeat(2, 75px); gap: 15px; }
+        .btn { width: 75px; height: 75px; background: rgba(20,20,25,0.9); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 13px; text-shadow: 1px 1px 2px black; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .btn:active { transform: scale(0.9); background: var(--gold); color: black; }
     </style>
 </head>
 <body>
     <canvas id="game-canvas"></canvas>
+    
     <div id="joystick-area"><div id="joystick-stick"></div></div>
     <div class="controls">
-        <div class="btn" style="color: var(--health)">ATK</div>
-        <div class="btn" style="color: var(--mana)">SKILL</div>
+        <div class="btn" style="border-color: var(--health); color: var(--health)">ATK</div>
+        <div class="btn" style="border-color: var(--mana); color: var(--mana)">SKILL</div>
         <div class="btn" style="color: #2ecc71">BAG</div>
         <div class="btn" style="color: var(--gold)">SET</div>
     </div>
@@ -30,21 +35,25 @@
     const stick = document.getElementById('joystick-stick');
     const area = document.getElementById('joystick-area');
 
-    // CARGA DE TEXTURAS (Usando tus archivos de GitHub)
+    // RECURSOS GRÁFICOS
     const imgPlayer = new Image(); imgPlayer.src = 'player.png';
     const imgFloor = new Image(); imgFloor.src = 'floor1.png';
 
-    // CONFIGURACIÓN MMORPG
-    let world = { width: 3000, height: 3000 }; // Mapa gigante
+    // SISTEMA DE MUNDO Y CÁMARA
+    let world = { width: 3000, height: 3000 }; 
     let camera = { x: 0, y: 0 };
-    
-    // Regla de Vida Nivel 1: 350 HP
+
+    // MECÁNICAS DE PERSONAJE (MMORPG)
     let player = {
-        x: world.width / 2,
+        x: world.width / 2, // Inicia en el centro del mundo
         y: world.height / 2,
         speed: 5,
-        hp: 350, maxHp: 350,
-        mp: 100, maxMp: 100
+        level: 1,
+        hp: 350,      // Tu regla: Nivel 1 = 350 HP
+        maxHp: 350,
+        mp: 100,
+        maxMp: 100,
+        name: "Heroe"
     };
 
     let moveDir = { x: 0, y: 0 };
@@ -54,7 +63,7 @@
         canvas.height = window.innerHeight;
     }
 
-    // Lógica de movimiento (Joystick)
+    // LÓGICA DEL JOYSTICK
     area.addEventListener('touchmove', (e) => {
         e.preventDefault();
         const touch = e.touches[0];
@@ -64,10 +73,12 @@
         let dx = touch.clientX - centerX;
         let dy = touch.clientY - centerY;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        const maxDist = 40;
+        const maxDist = 45;
+        
         if (dist > maxDist) { dx *= maxDist / dist; dy *= maxDist / dist; }
         stick.style.transform = `translate(${dx}px, ${dy}px)`;
-        moveDir.x = dx / maxDist; moveDir.y = dy / maxDist;
+        moveDir.x = dx / maxDist; 
+        moveDir.y = dy / maxDist;
     });
 
     area.addEventListener('touchend', () => {
@@ -76,41 +87,63 @@
     });
 
     function draw() {
-        // LÓGICA DE CÁMARA: Centrar al jugador
+        // ACTUALIZAR CÁMARA (Seguir al jugador)
         camera.x = player.x - canvas.width / 2;
         camera.y = player.y - canvas.height / 2;
 
+        // Limpiar pantalla
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         ctx.save();
-        ctx.translate(-camera.x, -camera.y); // EFECTO CÁMARA
+        ctx.translate(-camera.x, -camera.y); // Aplicar movimiento de cámara
 
-        // Dibujar Suelo Infinito
+        // 1. DIBUJAR MAPA (Tiles)
         if (imgFloor.complete) {
             for(let i=0; i<world.width; i+=40) {
                 for(let j=0; j<world.height; j+=40) {
-                    ctx.drawImage(imgFloor, i, j, 40, 40);
+                    // Solo dibuja lo que la cámara puede ver (Optimización MMORPG)
+                    if (i > camera.x - 40 && i < camera.x + canvas.width &&
+                        j > camera.y - 40 && j < camera.y + canvas.height) {
+                        ctx.drawImage(imgFloor, i, j, 41, 41);
+                    }
                 }
             }
         }
 
-        // Mover y Dibujar Jugador
+        // 2. ACTUALIZAR POSICIÓN
         player.x += moveDir.x * player.speed;
         player.y += moveDir.y * player.speed;
 
-        // Barras de Salud (350 HP)
-        const barY = player.y - 45;
-        ctx.fillStyle = "#222";
-        ctx.fillRect(player.x - 20, barY, 40, 6);
-        ctx.fillStyle = "#ff4757";
-        ctx.fillRect(player.x - 20, barY, (player.hp / player.maxHp) * 40, 6);
+        // Límites del mundo
+        player.x = Math.max(20, Math.min(player.x, world.width - 20));
+        player.y = Math.max(20, Math.min(player.y, world.height - 20));
 
+        // 3. DIBUJAR JUGADOR
         if (imgPlayer.complete) {
-            ctx.drawImage(imgPlayer, player.x - 20, player.y - 20, 40, 40);
+            ctx.drawImage(imgPlayer, player.x - 25, player.y - 25, 50, 50);
         }
 
-        ctx.restore(); 
+        // 4. INTERFAZ SOBRE CABEZA (HP/MP)
+        const barW = 50;
+        const barH = 6;
+        const barY = player.y - 45;
+
+        // Fondo barras
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(player.x - barW/2, barY, barW, barH);
+        ctx.fillRect(player.x - barW/2, barY + 8, barW, barH - 2);
+
+        // Vida (Roja - 350 HP)
+        ctx.fillStyle = "#ff4757";
+        ctx.fillRect(player.x - barW/2, barY, (player.hp / player.maxHp) * barW, barH);
+
+        // Maná (Azul)
+        ctx.fillStyle = "#2e86de";
+        ctx.fillRect(player.x - barW/2, barY + 8, (player.mp / player.maxMp) * barW, barH - 2);
+
+        ctx.restore(); // Quitar traslación de cámara para el HUD fijo si hubiera
+        
         requestAnimationFrame(draw);
     }
 
