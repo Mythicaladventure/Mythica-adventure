@@ -1,13 +1,40 @@
-import { Room, Client } from "colyseus";
+import { Server, Room, Client } from "colyseus";
+import { createServer } from "http";
+import express from "express";
+import { monitor } from "@colyseus/monitor";
 import { Schema, type, MapSchema, ArraySchema } from "@colyseus/schema";
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
+import dotenv from "dotenv";
 
-// --- 1. ESQUEMAS DE DATOS (ESTADO DEL JUEGO) ---
+// 1. CONFIGURACIÓN INICIAL (Variables de entorno)
+dotenv.config();
 
+const port = Number(process.env.PORT || 2567);
+const MONGO_URI = process.env.MONGO_URI;
+
+// 2. CONEXIÓN A LA BASE DE DATOS
+if (MONGO_URI) {
+    mongoose.connect(MONGO_URI)
+        .then(() => console.log("✅ Conexión exitosa a MongoDB Atlas (Mythica DB)"))
+        .catch((err) => console.error("❌ Error conectando a MongoDB:", err));
+} else {
+    console.warn("⚠️ Advertencia: No se encontró MONGO_URI en el archivo .env");
+}
+
+// 3. MODELO DE BASE DE DATOS (MONGODB)
+const PlayerModel = mongoose.model('Player', new mongoose.Schema({
+    username: String,
+    level: { type: Number, default: 1 },
+    position: { x: Number, y: Number },
+    stats: { hp: Number, maxHp: Number },
+    inventory: Array
+}));
+
+// 4. ESQUEMAS DEL ESTADO DEL JUEGO (COLYSEUS)
 export class Item extends Schema {
     @type("string") id: string;
     @type("string") name: string;
-    @type("string") type: string; // weapon, armor, potion
+    @type("string") type: string;
     @type("number") attackBonus: number = 0;
     @type("number") defenseBonus: number = 0;
     @type("boolean") equippable: boolean = false;
@@ -25,7 +52,6 @@ export class Player extends Schema {
     @type("string") targetId: string = "";
     @type([Item]) inventory = new ArraySchema<Item>();
     
-    // Slots de equipo
     @type(Item) weapon: Item;
     @type(Item) chest: Item;
 }
@@ -34,18 +60,7 @@ export class MythicaState extends Schema {
     @type({ map: Player }) players = new MapSchema<Player>();
 }
 
-// --- 2. MODELO DE BASE DE DATOS (MONGODB) ---
-
-const PlayerModel = mongoose.model('Player', new mongoose.Schema({
-    username: String,
-    level: Number,
-    position: { x: Number, y: Number },
-    stats: { hp: Number, maxHp: Number },
-    inventory: Array
-}));
-
-// --- 3. LÓGICA DE LA SALA DEL JUEGO ---
-
+// 5. LÓGICA DE LA SALA DEL JUEGO
 export class GameRoom extends Room<MythicaState> {
     
     onCreate(options: any) {
@@ -54,19 +69,17 @@ export class GameRoom extends Room<MythicaState> {
         // Ciclo de simulación: Combate cada 1 segundo
         this.setSimulationInterval((dt) => this.processCombat(), 1000);
 
-        // Mensaje de Movimiento
         this.onMessage("move", (client, data) => {
             const player = this.state.players.get(client.sessionId);
-            if (this.isValidMove(player, data.x, data.y)) {
+            if (player && this.isValidMove(player, data.x, data.y)) {
                 player.x = data.x;
                 player.y = data.y;
             }
         });
 
-        // Mensaje de Target (Combate)
         this.onMessage("setTarget", (client, data) => {
             const player = this.state.players.get(client.sessionId);
-            player.targetId = data.targetId;
+            if (player) player.targetId = data.targetId;
         });
     }
 
@@ -84,7 +97,6 @@ export class GameRoom extends Room<MythicaState> {
     }
 
     isValidMove(player: Player, nx: number, ny: number) {
-        // Validación de 1 solo cuadro (Estilo Tibia)
         const dist = Math.abs(player.x - nx) + Math.abs(player.y - ny);
         return dist === 1;
     }
@@ -95,8 +107,6 @@ export class GameRoom extends Room<MythicaState> {
 
     async onJoin(client: Client, options: any) {
         console.log(options.name, "se ha unido!");
-        
-        // Cargar datos de DB o crear nuevo
         const dbData = await PlayerModel.findOne({ username: options.name });
         
         const player = new Player().assign({
@@ -112,7 +122,6 @@ export class GameRoom extends Room<MythicaState> {
     async onLeave(client: Client) {
         const player = this.state.players.get(client.sessionId);
         if (player) {
-            // Guardar progreso al salir
             await PlayerModel.updateOne({ username: player.name }, {
                 $set: { 
                     "position.x": player.x, 
@@ -124,3 +133,16 @@ export class GameRoom extends Room<MythicaState> {
         }
     }
 }
+
+// 6. SERVIDOR EXPRESS Y MONITOR
+const app = express();
+app.use(express.json());
+app.use("/colyseus", monitor());
+
+const server = createServer(app);
+const gameServer = new Server({ server });
+
+// Definir la sala de juego
+gameServer.define("mythica_room", GameRoom);
+
+server.listen(port, () => console.log(`🚀 Mythica Server escuchando en http://localhost:${port}`));
