@@ -1,199 +1,221 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mythica MMORPG Engine</title>
+    <title>Mythica Online - Lawl Style</title>
     <style>
-        :root { --gold: #ffd700; --health: #ff4757; --mana: #2e86de; --exp: #2ecc71; }
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Courier New', Courier, monospace; color: white; }
+        :root { --gold: #ffd700; --health: #ff4757; --mana: #2e86de; --exp: #2ecc71; --ui-bg: rgba(20, 20, 25, 0.95); }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Courier New', monospace; color: white; }
         
-        /* Pantalla de Selección de Clase */
-        #class-selection { position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; }
-        .class-card { background: #222; border: 2px solid var(--gold); padding: 15px; margin: 10px; width: 250px; border-radius: 10px; cursor: pointer; transition: 0.3s; }
-        .class-card:hover { transform: scale(1.05); background: #333; }
-        .class-card h3 { margin: 0; color: var(--gold); }
-        .class-card p { font-size: 11px; color: #ccc; }
+        /* Pantalla de Inicio */
+        #setup-screen { position: absolute; inset: 0; background: #050505; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        .class-select { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+        .card { background: #1a1a1a; border: 2px solid #333; padding: 15px; width: 140px; text-align: center; border-radius: 8px; transition: 0.3s; }
+        .card:active { border-color: var(--gold); background: #222; }
 
-        /* HUD Profesional Estilo Tibia/Lawl */
-        #hud-top { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.85); padding: 12px; border: 1px solid var(--gold); border-radius: 4px; z-index: 10; display: none; }
-        .bar-container { width: 140px; height: 10px; background: #111; margin: 5px 0; border: 1px solid #444; overflow: hidden; }
-        .bar-fill { height: 100%; transition: width 0.4s ease; }
-        #hp-bar { background: var(--health); }
-        #mp-bar { background: var(--mana); }
-        #exp-bar { background: var(--exp); }
-
-        #game-canvas { display: block; image-rendering: pixelated; }
-
-        /* Joystick y Controles */
-        #joystick-area { position: absolute; bottom: 50px; left: 50px; width: 120px; height: 120px; background: rgba(255,255,255,0.05); border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); display: none; }
-        #joystick-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: var(--gold); border-radius: 50%; opacity: 0.4; }
+        /* HUD Superior (Stats) */
+        #hud { position: absolute; top: 10px; left: 10px; background: var(--ui-bg); padding: 12px; border: 2px solid var(--gold); border-radius: 5px; pointer-events: none; min-width: 160px; }
+        .bar { width: 100%; height: 12px; background: #111; border: 1px solid #444; margin: 4px 0; position: relative; }
+        .fill { height: 100%; transition: width 0.3s; }
         
-        .action-btns { position: absolute; bottom: 40px; right: 40px; display: none; grid-template-columns: repeat(2, 75px); gap: 12px; }
-        .btn { width: 75px; height: 75px; background: rgba(20,20,30,0.9); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
+        /* Floating Damage */
+        .dmg { position: absolute; font-weight: bold; pointer-events: none; animation: floatUp 0.8s ease-out forwards; }
+        @keyframes floatUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-50px); opacity: 0; } }
+
+        /* Controles */
+        #joy-bg { position: absolute; bottom: 50px; left: 50px; width: 120px; height: 120px; background: rgba(255,255,255,0.05); border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); }
+        #joy-thumb { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: var(--gold); border-radius: 50%; opacity: 0.5; }
+        .actions { position: absolute; bottom: 40px; right: 40px; display: grid; grid-template-columns: repeat(2, 80px); gap: 15px; }
+        .btn { width: 80px; height: 80px; background: var(--ui-bg); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; box-shadow: 0 4px 0 #8a6d00; }
+        .btn:active { transform: translateY(3px); box-shadow: none; }
     </style>
 </head>
 <body>
 
-    <div id="class-selection">
-        <h1 style="color: var(--gold);">MYTHICA ADVENTURE</h1>
-        <p>Elige tu vocación para entrar al mundo</p>
-        <div id="classes-container" style="display: flex; flex-wrap: wrap; justify-content: center;">
-            <div class="class-card" onclick="chooseClass('WARRIOR')">
-                <h3>GUERRERO</h3>
-                <p>350 HP iniciales. Gran resistencia.</p>
-            </div>
-            <div class="class-card" onclick="chooseClass('MAGE')">
-                <h3>MAGO</h3>
-                <p>180 HP. Dominio de artes oscuras.</p>
-            </div>
-            <div class="class-card" onclick="chooseClass('ARCHER')">
-                <h3>ARQUERO</h3>
-                <p>250 HP. El más veloz del reino.</p>
-            </div>
-            <div class="class-card" onclick="chooseClass('HEALER')">
-                <h3>SANADOR</h3>
-                <p>220 HP. Regeneración de maná divina.</p>
-            </div>
+    <div id="setup-screen">
+        <h1 style="color: var(--gold); letter-spacing: 5px;">MYTHICA</h1>
+        <p>SELECCIONA TU VOCACIÓN</p>
+        <div class="class-select">
+            <div class="card" onclick="startGame('WARRIOR')"><h3>GUERRERO</h3><small>Tanque</small></div>
+            <div class="card" onclick="startGame('MAGE')"><h3>MAGO</h3><small>Explosivo</small></div>
+            <div class="card" onclick="startGame('ARCHER')"><h3>ARQUERO</h3><small>Veloz</small></div>
+            <div class="card" onclick="startGame('HEALER')"><h3>SANADOR</h3><small>Soporte</small></div>
         </div>
     </div>
 
-    <div id="hud-top">
-        <div id="display-name" style="font-size: 14px; font-weight: bold;">HERO</div>
-        <div id="display-level" style="font-size: 11px; color: var(--gold);">Level 1 - Guerrero</div>
-        <div class="bar-container"><div id="hp-bar" class="bar-fill" style="width: 100%"></div></div>
-        <div class="bar-container"><div id="mp-bar" class="bar-fill" style="width: 100%"></div></div>
-        <div style="font-size: 9px; margin-top: 5px;">EXP NEXT LEVEL</div>
-        <div class="bar-container" style="height: 4px;"><div id="exp-bar" class="bar-fill" style="width: 0%"></div></div>
+    <div id="hud" style="display:none">
+        <div id="info">HERO [Lv 1]</div>
+        <div class="bar"><div id="hp-fill" class="fill" style="background:var(--health); width:100%"></div></div>
+        <div class="bar"><div id="mp-fill" class="fill" style="background:var(--mana); width:100%"></div></div>
+        <div class="bar" style="height:4px"><div id="exp-fill" class="fill" style="background:var(--exp); width:0%"></div></div>
     </div>
 
-    <canvas id="game-canvas"></canvas>
-    <div id="joystick-area"><div id="joystick-stick"></div></div>
+    <canvas id="game"></canvas>
+    <div id="joy-bg" style="display:none"><div id="joy-thumb"></div></div>
     
-    <div class="action-btns" id="game-btns">
-        <div class="btn" style="color: var(--health)" onclick="simulateExp()">ATTACK</div>
-        <div class="btn" style="color: var(--mana)">SPELL</div>
-        <div class="btn" style="color: #2ecc71">BAG</div>
-        <div class="btn" style="color: var(--gold)">SKILLS</div>
+    <div class="actions" id="ctrls" style="display:none">
+        <div class="btn" style="color:var(--health)" onclick="doAttack()">ATAQUE</div>
+        <div class="btn" style="color:var(--mana)" onclick="doSpell()">PODER</div>
+        <div class="btn" style="color:#2ecc71">MOCHILA</div>
+        <div class="btn" style="color:var(--gold)">MENU</div>
     </div>
 
 <script>
-    const canvas = document.getElementById('game-canvas');
+    const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     
-    // DEFINICIÓN DE CLASES (Torre de Cálculos)
+    // CONFIGURACIÓN DE CLASES (Torre de Cálculos Lawl)
     const CLASSES = {
-        WARRIOR: { name: "Guerrero", hpIn: 350, hpLvl: 80, mpIn: 50, mpLvl: 10, speed: 4.5 },
-        MAGE: { name: "Mago", hpIn: 180, hpLvl: 30, mpIn: 250, mpLvl: 80, speed: 3.8 },
-        ARCHER: { name: "Arquero", hpIn: 250, hpLvl: 50, mpIn: 100, mpLvl: 30, speed: 5.5 },
-        HEALER: { name: "Sanador", hpIn: 220, hpLvl: 40, mpIn: 200, mpLvl: 60, speed: 4.2 }
+        WARRIOR: { hpIn: 350, hpLvl: 80, mpIn: 50, mpLvl: 10, speed: 4.5, dmg: 25 },
+        MAGE: { hpIn: 180, hpLvl: 35, mpIn: 250, mpLvl: 85, speed: 4, dmg: 45 },
+        ARCHER: { hpIn: 250, hpLvl: 55, mpIn: 100, mpLvl: 35, speed: 5.5, dmg: 35 },
+        HEALER: { hpIn: 220, hpLvl: 45, mpIn: 200, mpLvl: 65, speed: 4.2, dmg: 20 }
     };
 
-    let p = {
-        classId: 'WARRIOR',
-        lvl: 1, exp: 0, nextExp: 100,
-        x: 1500, y: 1500,
-        hp: 350, maxHp: 350,
-        mp: 50, maxMp: 50,
-        speed: 4
+    let p = { 
+        x: 1500, y: 1500, lvl: 1, exp: 0, 
+        hp: 350, maxHp: 350, mp: 50, maxMp: 50,
+        class: 'WARRIOR', dead: false
     };
 
-    let gameStarted = false;
-
-    function chooseClass(id) {
-        p.classId = id;
-        const c = CLASSES[id];
-        p.maxHp = c.hpIn;
-        p.hp = c.hpIn;
-        p.maxMp = c.mpIn;
-        p.mp = c.mpIn;
-        p.speed = c.speed;
-        
-        document.getElementById('class-selection').style.display = 'none';
-        document.getElementById('hud-top').style.display = 'block';
-        document.getElementById('joystick-area').style.display = 'block';
-        document.getElementById('game-btns').style.display = 'grid';
-        
-        updateStats();
-        gameStarted = true;
-    }
-
-    function updateStats() {
-        const c = CLASSES[p.classId];
-        // FÓRMULA DE XP (Exponencial tipo Lawl/Tibia)
-        p.nextExp = Math.floor(100 * Math.pow(p.lvl, 1.8));
-        p.maxHp = c.hpIn + (c.hpLvl * (p.lvl - 1));
-        p.maxMp = c.mpIn + (c.mpLvl * (p.lvl - 1));
-
-        document.getElementById('display-level').innerText = `Level ${p.lvl} - ${c.name}`;
-        document.getElementById('hp-bar').style.width = (p.hp / p.maxHp) * 100 + "%";
-        document.getElementById('mp-bar').style.width = (p.mp / p.maxMp) * 100 + "%";
-        document.getElementById('exp-bar').style.width = (p.exp / p.nextExp) * 100 + "%";
-    }
-
-    function simulateExp() {
-        p.exp += 30; // Simulamos ganar XP por ahora
-        if(p.exp >= p.nextExp) {
-            p.lvl++;
-            p.exp = 0;
-            p.hp = p.maxHp; // Heal al subir nivel
-            alert("¡LEVEL UP! Ahora eres nivel " + p.lvl);
-        }
-        updateStats();
-    }
-
-    // MOTOR GRÁFICO (Cámara y Movimiento)
-    const imgFloor = new Image(); imgFloor.src = 'floor1.png';
-    const imgPlayer = new Image(); imgPlayer.src = 'player.png';
+    let enemies = [];
     let world = { w: 3000, h: 3000 };
-    let moveDir = { x: 0, y: 0 };
+    let imgPlayer = new Image(); imgPlayer.src = 'player.png';
+    let imgFloor = new Image(); imgFloor.src = 'floor1.png';
+    let imgMob = new Image(); imgMob.src = 'floor2.png';
 
-    const area = document.getElementById('joystick-area');
-    const stick = document.getElementById('joystick-stick');
-    area.ontouchmove = (e) => {
-        const touch = e.touches[0];
-        const rect = area.getBoundingClientRect();
-        let dx = touch.clientX - (rect.left + 60);
-        let dy = touch.clientY - (rect.top + 60);
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if(dist > 40) { dx *= 40/dist; dy *= 40/dist; }
-        stick.style.transform = `translate(${dx}px, ${dy}px)`;
-        moveDir = { x: dx/40, y: dy/40 };
+    function startGame(vocation) {
+        p.class = vocation;
+        const c = CLASSES[vocation];
+        p.maxHp = p.hp = c.hpIn;
+        p.maxMp = p.mp = c.mpIn;
+        document.getElementById('setup-screen').style.display = 'none';
+        ['hud','joy-bg','ctrls'].forEach(id => document.getElementById(id).style.display = 'block');
+        spawnMobs();
+        loop();
+    }
+
+    function spawnMobs() {
+        for(let i=0; i<20; i++) {
+            enemies.push({
+                x: Math.random()*world.w, y: Math.random()*world.h,
+                hp: 100, maxHp: 100, dead: false
+            });
+        }
+    }
+
+    function doAttack() {
+        enemies.forEach(m => {
+            let dist = Math.hypot(p.x - m.x, p.y - m.y);
+            if(dist < 80 && !m.dead) {
+                let d = CLASSES[p.class].dmg + Math.floor(Math.random()*10);
+                m.hp -= d;
+                showDamage(m.x, m.y, d, "white");
+                if(m.hp <= 0) { 
+                    m.dead = true; 
+                    p.exp += 40; 
+                    checkLvl();
+                    setTimeout(() => { m.dead = false; m.hp = 100; m.x = Math.random()*world.w; m.y = Math.random()*world.h; }, 5000);
+                }
+            }
+        });
+    }
+
+    function checkLvl() {
+        let next = p.lvl * 150;
+        if(p.exp >= next) {
+            p.lvl++; p.exp = 0;
+            const c = CLASSES[p.class];
+            p.maxHp += c.hpLvl; p.maxMp += c.mpLvl;
+            p.hp = p.maxHp; p.mp = p.maxMp;
+            showDamage(p.x, p.y, "LEVEL UP!", "gold");
+        }
+        updateHUD();
+    }
+
+    function showDamage(x, y, text, color) {
+        const d = document.createElement('div');
+        d.className = 'dmg';
+        d.style.left = (x - (p.x - canvas.width/2)) + 'px';
+        d.style.top = (y - (p.y - canvas.height/2)) + 'px';
+        d.style.color = color;
+        d.innerText = text;
+        document.body.appendChild(d);
+        setTimeout(() => d.remove(), 800);
+    }
+
+    function updateHUD() {
+        document.getElementById('info').innerText = `${p.class} [Lv ${p.lvl}]`;
+        document.getElementById('hp-fill').style.width = (p.hp/p.maxHp)*100 + "%";
+        document.getElementById('mp-fill').style.width = (p.mp/p.maxMp)*100 + "%";
+        document.getElementById('exp-fill').style.width = (p.exp/(p.lvl*150))*100 + "%";
+    }
+
+    // Sistema de Movimiento
+    let joy = { dx: 0, dy: 0 };
+    const jArea = document.getElementById('joy-bg');
+    const jThumb = document.getElementById('joy-thumb');
+    
+    jArea.ontouchmove = (e) => {
+        const t = e.touches[0];
+        const r = jArea.getBoundingClientRect();
+        let x = t.clientX - (r.left + 60);
+        let y = t.clientY - (r.top + 60);
+        let d = Math.hypot(x, y);
+        if(d > 40) { x *= 40/d; y *= 40/d; }
+        jThumb.style.transform = `translate(${x}px, ${y}px)`;
+        joy = { dx: x/40, dy: y/40 };
     };
-    area.ontouchend = () => { moveDir = { x: 0, y: 0 }; stick.style.transform = `translate(0,0)`; };
+    jArea.ontouchend = () => { joy = { dx: 0, dy: 0 }; jThumb.style.transform = 'translate(0,0)'; };
 
-    function draw() {
-        if(!gameStarted) { requestAnimationFrame(draw); return; }
+    function loop() {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        p.x += joy.dx * CLASSES[p.class].speed;
+        p.y += joy.dy * CLASSES[p.class].speed;
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
         let camX = p.x - canvas.width/2;
         let camY = p.y - canvas.height/2;
 
         ctx.save();
         ctx.translate(-camX, -camY);
 
-        // Suelo Infinito
+        // Piso
         if(imgFloor.complete) {
-            for(let x=0; x<world.w; x+=40) {
-                for(let y=0; y<world.h; y+=40) {
-                    if(x > camX-40 && x < camX+canvas.width && y > camY-40 && y < camY+canvas.height)
-                    ctx.drawImage(imgFloor, x, y, 41, 41);
+            for(let i=0; i<world.w; i+=40) {
+                for(let j=0; j<world.h; j+=40) {
+                    if(i > camX-40 && i < camX+canvas.width && j > camY-40 && j < camY+canvas.height)
+                        ctx.drawImage(imgFloor, i, j, 41, 41);
                 }
             }
         }
 
-        p.x += moveDir.x * p.speed;
-        p.y += moveDir.y * p.speed;
+        // Monstruos IA
+        enemies.forEach(m => {
+            if(m.dead) return;
+            let d = Math.hypot(p.x - m.x, p.y - m.y);
+            if(d < 250) { // Persecución
+                m.x += (p.x - m.x) * 0.015;
+                m.y += (p.y - m.y) * 0.015;
+                if(d < 30 && Math.random() < 0.05) { // Ataque mob
+                    p.hp -= 5;
+                    updateHUD();
+                    showDamage(p.x, p.y, 5, "red");
+                }
+            }
+            ctx.drawImage(imgMob, m.x-20, m.y-20, 40, 40);
+            ctx.fillStyle = "red"; ctx.fillRect(m.x-15, m.y-25, (m.hp/m.maxHp)*30, 3);
+        });
 
-        if(imgPlayer.complete) ctx.drawImage(imgPlayer, p.x-20, p.y-20, 40, 40);
+        // Jugador
+        ctx.drawImage(imgPlayer, p.x-25, p.y-25, 50, 50);
         
         ctx.restore();
-        requestAnimationFrame(draw);
+        requestAnimationFrame(loop);
     }
 
     window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
     window.onresize();
-    draw();
 </script>
 </body>
 </html>
