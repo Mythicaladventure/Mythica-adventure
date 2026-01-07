@@ -1,136 +1,103 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mythica Adventure</title>
-    <style>
-        :root { --gold: #ffd700; --health: #ff4757; --mana: #2e86de; }
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
-        #game-canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
-        
-        /* Controles */
-        #joystick-area { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); }
-        #joystick-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: var(--gold); border-radius: 50%; opacity: 0.5; }
-        .controls { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 70px); gap: 10px; }
-        .btn { width: 70px; height: 70px; background: rgba(20,20,25,0.85); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <canvas id="game-canvas"></canvas>
-    <div id="joystick-area"><div id="joystick-stick"></div></div>
-    <div class="controls">
-        <div class="btn" style="color: var(--health)">ATK</div>
-        <div class="btn" style="color: var(--mana)">SKILL</div>
-        <div class="btn" style="color: #2ecc71">BAG</div>
-        <div class="btn" style="color: var(--gold)">SET</div>
-    </div>
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const stick = document.getElementById('joystick-stick');
+const area = document.getElementById('joystick-area');
 
-<script>
-    const canvas = document.getElementById('game-canvas');
-    const ctx = canvas.getContext('2d');
-    const stick = document.getElementById('joystick-stick');
-    const area = document.getElementById('joystick-area');
+const imgPlayer = new Image(); imgPlayer.src = 'player.png';
+const imgFloor = new Image(); imgFloor.src = 'floor1.png';
 
-    // CONFIGURACIÓN DE IMÁGENES
-    const imgPlayer = new Image();
-    const imgFloor = new Image();
-    
-    let assetsLoaded = 0;
-    const totalAssets = 2;
+// VARIABLES DEL MUNDO (MMORPG)
+let world = { width: 2000, height: 2000 }; // Un mapa mucho más grande
+let camera = { x: 0, y: 0 };
 
-    function assetLoaded() {
-        assetsLoaded++;
-        if (assetsLoaded === totalAssets) {
-            console.log("Todo cargado perfectamente");
-        }
-    }
+// JUGADOR (Regla: Nivel 1 = 350 HP)
+let player = {
+    x: world.width / 2,
+    y: world.height / 2,
+    level: 1,
+    hp: 350, 
+    maxHp: 350,
+    mp: 100,
+    maxMp: 100,
+    speed: 5
+};
 
-    imgPlayer.onload = assetLoaded;
-    imgFloor.onload = assetLoaded;
+let moveDir = { x: 0, y: 0 };
 
-    // Asegúrate de que estos nombres sean EXACTOS a los archivos en tu GitHub
-    imgPlayer.src = 'player.png'; 
-    imgFloor.src = 'floor1.png';
+function init() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
 
-    // Jugador Nivel 1: 350 HP
-    let player = { x: 0, y: 0, speed: 5, hp: 350, maxHp: 350, mp: 100, maxMp: 100 };
-    let moveDir = { x: 0, y: 0 };
+// Lógica de Joystick (Misma que ya tienes)
+area.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = area.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    let dx = touch.clientX - centerX;
+    let dy = touch.clientY - centerY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const maxDist = 40;
+    if (dist > maxDist) { dx *= maxDist / dist; dy *= maxDist / dist; }
+    stick.style.transform = `translate(${dx}px, ${dy}px)`;
+    moveDir.x = dx / maxDist; moveDir.y = dy / maxDist;
+});
 
-    function init() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        player.x = canvas.width / 2;
-        player.y = canvas.height / 2;
-    }
+area.addEventListener('touchend', () => {
+    stick.style.transform = `translate(0, 0)`;
+    moveDir = { x: 0, y: 0 };
+});
 
-    // Lógica Joystick
-    area.addEventListener('touchmove', (e) => {
-        e.preventDefault();
-        const touch = e.touches[0];
-        const rect = area.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        let dx = touch.clientX - centerX;
-        let dy = touch.clientY - centerY;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        const maxDist = 40;
-        if (dist > maxDist) { dx *= maxDist / dist; dy *= maxDist / dist; }
-        stick.style.transform = `translate(${dx}px, ${dy}px)`;
-        moveDir.x = dx / maxDist; moveDir.y = dy / maxDist;
-    });
+function draw() {
+    // 1. LÓGICA DE CÁMARA: Mantener al jugador centrado
+    camera.x = player.x - canvas.width / 2;
+    camera.y = player.y - canvas.height / 2;
 
-    area.addEventListener('touchend', () => {
-        stick.style.transform = `translate(0, 0)`;
-        moveDir = { x: 0, y: 0 };
-    });
+    ctx.fillStyle = "#111"; // Fondo oscuro fuera del mapa
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    function draw() {
-        // Fondo negro de seguridad
-        ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y); // Mover todo el mundo según la cámara
 
-        // 1. Dibujar Suelo (solo si cargó)
-        if (imgFloor.complete) {
-            for(let i=0; i<canvas.width; i+=40) {
-                for(let j=0; j<canvas.height; j+=40) {
-                    ctx.drawImage(imgFloor, i, j, 40, 40);
-                }
+    // 2. DIBUJAR SUELO (Repetido en todo el mundo de 2000x2000)
+    if (imgFloor.complete) {
+        for(let i=0; i < world.width; i += 40) {
+            for(let j=0; j < world.height; j += 40) {
+                ctx.drawImage(imgFloor, i, j, 40, 40);
             }
         }
-
-        // 2. Mover Jugador
-        player.x += moveDir.x * player.speed;
-        player.y += moveDir.y * player.speed;
-
-        // 3. Dibujar Barras sobre la cabeza
-        const barY = player.y - 45;
-        // Vida (350 HP)
-        ctx.fillStyle = "#222";
-        ctx.fillRect(player.x - 20, barY, 40, 6);
-        ctx.fillStyle = "#ff4757";
-        ctx.fillRect(player.x - 20, barY, (player.hp / player.maxHp) * 40, 6);
-        // Maná
-        ctx.fillStyle = "#222";
-        ctx.fillRect(player.x - 20, barY + 8, 40, 4);
-        ctx.fillStyle = "#2e86de";
-        ctx.fillRect(player.x - 20, barY + 8, (player.mp / player.maxMp) * 40, 4);
-
-        // 4. Dibujar Personaje (solo si cargó)
-        if (imgPlayer.complete) {
-            ctx.drawImage(imgPlayer, player.x - 20, player.y - 20, 40, 40);
-        } else {
-            // Si la imagen falla, dibujar un cuadro dorado temporal
-            ctx.fillStyle = "gold";
-            ctx.fillRect(player.x - 15, player.y - 15, 30, 30);
-        }
-
-        requestAnimationFrame(draw);
     }
 
-    window.addEventListener('resize', init);
-    init();
-    draw();
-</script>
-</body>
-</html>
+    // 3. MOVIMIENTO
+    player.x += moveDir.x * player.speed;
+    player.y += moveDir.y * player.speed;
+
+    // Límites del mundo para no salirse
+    player.x = Math.max(0, Math.min(player.x, world.width));
+    player.y = Math.max(0, Math.min(player.y, world.height));
+
+    // 4. DIBUJAR JUGADOR
+    if (imgPlayer.complete) {
+        ctx.drawImage(imgPlayer, player.x - 20, player.y - 20, 40, 40);
+    }
+
+    // 5. BARRAS (350 HP Nivel 1)
+    const barY = player.y - 45;
+    ctx.fillStyle = "#222";
+    ctx.fillRect(player.x - 20, barY, 40, 6); // Fondo
+    ctx.fillStyle = "#ff4757";
+    ctx.fillRect(player.x - 20, barY, (player.hp / player.maxHp) * 40, 6); // Salud
+    
+    ctx.fillStyle = "#2e86de";
+    ctx.fillRect(player.x - 20, barY + 8, (player.mp / player.maxMp) * 40, 4); // Maná
+
+    ctx.restore(); // Terminar el efecto de la cámara
+
+    requestAnimationFrame(draw);
+}
+
+window.addEventListener('resize', init);
+init();
+draw();
