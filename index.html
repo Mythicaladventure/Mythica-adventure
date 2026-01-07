@@ -3,342 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mythica Apex: Divine Unification</title>
+    <title>Mythica Apex: Total Legacy</title>
     <style>
         :root {
-            --glass: rgba(10, 10, 18, 0.96);
-            --gold: #ffd700; --silver: #c0c0c0; --gem: #ff00ff;
-            --hp: #00ff66; --mp: #00ccff; --neon: #3e93ff;
+            --bg: #1c1c1c; --panel: #333; --border: #555;
+            --gold: #ffd700; --gem: #ff00ff; --hp: #ff4444; 
+            --mp: #4444ff; --cap: #99ff99; --pvt: #f0f;
         }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; color: #fff; user-select: none; }
+        * { box-sizing: border-box; font-family: 'Verdana', sans-serif; user-select: none; margin: 0; padding: 0; }
+        body { background: #000; overflow: hidden; display: flex; color: #eee; height: 100vh; }
 
-        /* UI NUCLEO */
-        .glass { background: var(--glass); backdrop-filter: blur(30px); border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        #ui-layer { position: absolute; inset: 0; pointer-events: none; display: none; }
-        .hud-el { position: absolute; pointer-events: auto; padding: 15px; }
+        /* --- PANTALLA DE LOGIN --- */
+        #login-screen { position: fixed; inset: 0; background: radial-gradient(circle, #333 0%, #000 100%); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .login-box { background: rgba(0,0,0,0.8); padding: 30px; border: 2px solid var(--border); border-radius: 8px; width: 320px; text-align: center; }
+        .login-input { width: 100%; padding: 12px; margin: 10px 0; background: #111; border: 1px solid var(--border); color: #fff; }
+        .btn-gold { width: 100%; padding: 15px; background: var(--gold); border: none; font-weight: bold; cursor: pointer; color: #000; margin-top: 10px; }
 
-        /* HUD Y MAPA */
-        #top-hud { top: 20px; left: 20px; width: 240px; }
-        .bar-bg { width: 100%; height: 10px; background: rgba(0,0,0,0.6); border-radius: 10px; margin: 6px 0; overflow: hidden; }
-        .bar-fill { height: 100%; transition: width 0.4s; }
-        .currency { display: flex; gap: 12px; font-size: 11px; font-weight: bold; margin-top: 8px; }
-        #map-tag { position: absolute; top: 20px; right: 20px; color: var(--neon); font-size: 14px; font-weight: bold; text-shadow: 0 0 10px var(--neon); }
+        /* --- LAYOUT DEL JUEGO --- */
+        #viewport { position: relative; flex: 1; background: #000; overflow: hidden; display: none; }
+        #sidebar { width: 240px; background: var(--panel); border-left: 3px solid #111; display: none; flex-direction: column; z-index: 10; height: 100vh; }
 
-        /* BLOQUE 44: CHAT SISTEMA */
-        #chat-container { position: absolute; bottom: 120px; left: 20px; width: 260px; height: 150px; display: flex; flex-direction: column; pointer-events: auto; }
-        #chat-box { flex: 1; overflow-y: auto; font-size: 12px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 10px; margin-bottom: 5px; color: #aaa; }
-        #chat-input { background: rgba(255,255,255,0.1); border: none; padding: 10px; border-radius: 8px; color: #fff; width: 100%; }
-        .msg-me { color: var(--neon); } .msg-sys { color: var(--gold); font-style: italic; }
+        /* --- CONSOLA Y CHAT --- */
+        #console { position: absolute; bottom: 0; left: 0; right: 0; height: 160px; background: rgba(0,0,0,0.95); border-top: 2px solid var(--border); display: flex; flex-direction: column; }
+        .tabs { display: flex; background: #222; font-size: 10px; }
+        .tab { padding: 8px 12px; cursor: pointer; border-right: 1px solid #444; }
+        .tab.active { background: var(--panel); color: var(--gold); }
+        #log { flex: 1; overflow-y: auto; padding: 8px; font-size: 11px; line-height: 1.4; color: #ccc; }
+        #chat-in { background: #000; border: none; padding: 10px; color: #fff; border-top: 1px solid #333; }
 
-        /* MENUS */
-        #main-menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 92%; height: 85%; z-index: 1000; display: none; flex-direction: column; pointer-events: auto; }
-        .tabs { display: flex; background: rgba(0,0,0,0.3); border-radius: 20px 20px 0 0; }
-        .tab { flex: 1; padding: 15px; text-align: center; font-size: 10px; font-weight: bold; cursor: pointer; }
-        .tab.active { color: var(--gold); border-bottom: 3px solid var(--gold); }
-        .view { flex: 1; padding: 20px; overflow-y: auto; display: none; }
-        .view.active { display: block; }
+        /* --- SIDEBAR COMPONENTS --- */
+        .status-header { padding: 10px; background: #222; border-bottom: 2px solid #000; }
+        .bar { height: 14px; background: #111; margin: 4px 0; position: relative; border: 1px solid #444; }
+        .fill { height: 100%; transition: width 0.3s; }
+        .bar-label { position: absolute; width: 100%; text-align: center; font-size: 9px; top: 0; font-weight: bold; color: #fff; text-shadow: 1px 1px #000; }
 
-        /* BLOQUE 43: TIENDA Y ANUNCIOS */
-        .shop-card { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.1); }
-        .btn-buy { background: var(--gem); color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .btn-ad { background: linear-gradient(45deg, #00f, #f0f); color: white; border: none; padding: 12px; border-radius: 10px; width: 100%; font-weight: bold; margin-bottom: 20px; box-shadow: 0 0 15px rgba(255,0,255,0.4); }
+        .equip-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 10px; background: #2a2a2a; }
+        .slot { width: 44px; height: 44px; background: #444; border: 1px solid #666; font-size: 7px; display: flex; align-items: center; justify-content: center; color: #888; }
 
-        /* CONTROLES */
-        #actions { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; pointer-events: auto; }
-        .btn-c { width: 65px; height: 65px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border: 2px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.5); }
-        .btn-atk { background: radial-gradient(#900, #300); border-color: #f55; }
-        #joy-base { position: absolute; bottom: 40px; left: 300px; width: 100px; height: 100px; background: rgba(255,255,255,0.05); border-radius: 50%; pointer-events: auto; }
-        #joy-knob { position: absolute; width: 40px; height: 40px; background: #fff; border-radius: 50%; top: 30px; left: 300px; box-shadow: 0 0 20px var(--neon); pointer-events: none; }
+        #vip-list { flex: 1; overflow-y: auto; background: #1a1a1a; padding: 5px; font-size: 11px; border-top: 2px solid #000; }
+        .vip-entry { display: flex; justify-content: space-between; padding: 2px 0; }
 
-        canvas { display: block; }
+        /* --- MENU GENERAL --- */
+        #main-menu { position: fixed; inset: 30px; background: var(--panel); border: 4px solid var(--border); z-index: 1000; display: none; }
+        .menu-nav { width: 140px; background: #222; display: flex; flex-direction: column; }
+        .nav-it { padding: 15px; border: none; background: transparent; color: #fff; cursor: pointer; text-align: left; font-size: 12px; border-bottom: 1px solid #333; }
+        .nav-it.active { background: var(--panel); color: var(--gold); }
+        .menu-content { flex: 1; padding: 25px; overflow-y: auto; }
     </style>
 </head>
 <body>
 
-<div id="login-screen" style="position:fixed; inset:0; background:#000; z-index:9000; display:flex; align-items:center; justify-content:center;">
-    <div class="glass" style="padding:50px; text-align:center; width:320px;">
-        <h1 style="color:var(--gold); margin:0; letter-spacing:4px;">MYTHICA</h1>
-        <p style="font-size:10px; opacity:0.5; margin-bottom:30px;">THE DIVINE UNIFICATION</p>
-        <input type="text" id="user-id" placeholder="NOMBRE DE HÉROE" style="width:100%; padding:12px; background:rgba(255,255,255,0.1); border:1px solid #444; color:#fff; border-radius:8px; margin-bottom:15px; text-align:center;">
-        <button onclick="initGame()" style="width:100%; padding:15px; background:var(--gold); border:none; border-radius:8px; font-weight:bold; cursor:pointer;">ENTRAR AL NEXUS</button>
+<div id="login-screen">
+    <div class="login-box">
+        <h2 style="color:var(--gold); margin-bottom:20px;">MYTHICA APEX</h2>
+        <input type="text" id="acc-name" class="login-input" placeholder="Account Name">
+        <input type="password" id="acc-pass" class="login-input" placeholder="Password">
+        
+        <div id="char-selection" style="display:none; margin: 15px 0; background:#222; padding:10px; border:1px solid var(--gold);">
+            <p style="font-size:10px; color:var(--gold);">SELECT CHARACTER:</p>
+            <div id="char-name-tag" style="padding:5px; background:#444; cursor:pointer; font-weight:bold; margin-top:5px;"></div>
+        </div>
+
+        <button id="btn-login" class="btn-gold" onclick="doLogin()">LOGIN</button>
+        <button id="btn-enter" class="btn-gold" style="display:none; background:#282; color:#fff;" onclick="startGame()">ENTER GAME</button>
     </div>
 </div>
 
-<div id="ui-layer">
-    <div id="top-hud" class="hud-el glass">
-        <div id="p-tag" style="font-weight:bold; color:var(--gold);">PLAYER</div>
-        <div class="bar-bg"><div id="hp-f" class="bar-fill" style="background:var(--hp);"></div></div>
-        <div class="bar-bg"><div id="mp-f" class="bar-fill" style="background:var(--mp);"></div></div>
-        <div class="currency">
-            <span style="color:var(--silver)">S: <span id="s-val">0</span></span>
-            <span style="color:var(--gold)">G: <span id="g-val">0</span></span>
-            <span style="color:var(--gem)">💎: <span id="d-val">0</span></span>
+<div id="viewport">
+    <canvas id="stage"></canvas>
+    <div id="console">
+        <div class="tabs">
+            <div class="tab active">Local Chat</div>
+            <div class="tab">Server Log</div>
+            <div class="tab" style="color:var(--gold)">Trade</div>
         </div>
-    </div>
-    
-    <div id="map-tag">NEON CITY</div>
-
-    <div id="chat-container" class="glass" style="background:rgba(0,0,0,0.5); padding:10px;">
-        <div id="chat-box"></div>
-        <input type="text" id="chat-input" placeholder="Escribe al mundo..." onkeypress="if(event.key==='Enter') sendChat()">
-    </div>
-
-    <div id="actions">
-        <div class="btn-c glass" onclick="castHeal()">HEAL</div>
-        <div class="btn-c btn-atk" onclick="doAttack()">ATK</div>
-        <div class="btn-c glass" onclick="toggleMenu('v-shop')">SHOP</div>
-        <div class="btn-c glass" onclick="toggleMenu('v-skills')">MENU</div>
-    </div>
-
-    <div id="joy-base"></div>
-    <div id="joy-knob"></div>
-</div>
-
-<div id="main-menu" class="glass">
-    <div class="tabs">
-        <div class="tab" onclick="showTab('skills')">PODER</div>
-        <div class="tab" onclick="showTab('shop')">TIENDA 💎</div>
-        <div class="tab" onclick="showTab('clan')">CLAN</div>
-        <div class="tab" onclick="showTab('cloud')">CLOUD</div>
-    </div>
-    
-    <div id="v-skills" class="view active"></div>
-    
-    <div id="v-shop" class="view">
-        <button class="btn-ad" onclick="watchAd()">📺 VER VIDEO (RECOMPENSA: 1-3 💎)</button>
-        <h4 style="color:var(--gold); margin-top:0;">PAQUETES DE GEMAS</h4>
-        <div class="shop-card">
-            <span>Bolsa de Gemas (x50)</span>
-            <button class="btn-buy" onclick="buyGems(50, 1.99)">$1.99</button>
-        </div>
-        <div class="shop-card">
-            <span>Cofre Arcano (x500)</span>
-            <button class="btn-buy" onclick="buyGems(500, 9.99)">$9.99</button>
-        </div>
-        <div class="shop-card">
-            <span>Legado Mythica (x2000)</span>
-            <button class="btn-buy" onclick="buyGems(2000, 24.99)">$24.99</button>
-        </div>
-    </div>
-
-    <div id="v-clan" class="view">
-        <button class="btn-ad" style="background:var(--neon)" onclick="createClan()">FUNDAR CLAN (1000 ORO)</button>
-    </div>
-    
-    <div id="v-cloud" class="view">
-        <button onclick="saveToCloud()" class="btn-ad" style="background:var(--hp)">GUARDAR PROGRESO</button>
-        <button onclick="loadFromCloud()" class="btn-ad" style="background:var(--gold); color:black;">CARGAR PROGRESO</button>
+        <div id="log"></div>
+        <input type="text" id="chat-in" onkeypress="if(event.key==='Enter') sendMsg()">
     </div>
 </div>
 
-<canvas id="stage"></canvas>
+<div id="sidebar">
+    <div class="status-header">
+        <b id="ui-name" style="color:var(--gold); font-size:12px;">Player</b>
+        <div class="bar"><div id="hp-f" class="fill" style="background:var(--hp);"></div><div class="bar-label" id="hp-t">100/100</div></div>
+        <div class="bar"><div id="mp-f" class="fill" style="background:var(--mp);"></div><div class="bar-label" id="mp-t">50/50</div></div>
+        <div style="font-size:10px; color:var(--cap); margin-top:5px;">Cap: <span id="cap-v">400.0</span> oz</div>
+    </div>
+
+    <div class="equip-grid">
+        <div class="slot"></div><div class="slot">HEAD</div><div class="slot"></div>
+        <div class="slot">L-H</div><div class="slot">BODY</div><div class="slot">R-H</div>
+        <div class="slot">BAG</div><div class="slot">LEGS</div><div class="slot"></div>
+        <div class="slot"></div><div class="slot">FEET</div><div class="slot"></div>
+    </div>
+
+    <div id="vip-list">
+        <div style="font-size:9px; color:var(--gold); border-bottom:1px solid #333; margin-bottom:5px;">VIP LIST <span onclick="addFriend()" style="float:right; cursor:pointer; color:#9f9;">[+]</span></div>
+        <div id="vip-box"></div>
+    </div>
+
+    <button onclick="toggleMenu()" style="width:100%; padding:10px; background:#222; color:#fff; border:none; border-top:2px solid #000; cursor:pointer; font-weight:bold;">MENU GENERAL</button>
+</div>
+
+<div id="main-menu">
+    <div class="menu-nav">
+        <button class="nav-it active" onclick="setMenuTab('skills')">SKILLS</button>
+        <button class="nav-it" onclick="setMenuTab('store')">STORE 💎</button>
+        <button class="nav-it" onclick="setMenuTab('quests')">QUESTS</button>
+        <button class="nav-it" style="margin-top:auto; background:#522;" onclick="toggleMenu()">CERRAR</button>
+    </div>
+    <div class="menu-content" id="m-content"></div>
+</div>
 
 <script>
     const canvas = document.getElementById('stage');
     const ctx = canvas.getContext('2d');
-    
+
+    // DATA CORE
     let p = {
-        name: "", x: 2500, y: 2500, hp: 100, mHp: 100, mp: 50, mMp: 50,
-        wallet: { s: 0, g: 0, d: 5 },
-        clan: null, currentMap: "Neon City",
-        tree: { atk: { n: "Daño Neón", l: 0 }, mag: { n: "Maná Arcano", l: 0 } },
-        chatMsg: "", chatTime: 0
+        name: "Héroe", level: 1, x: 2500, y: 2500, hp: 100, mHp: 100, mp: 50, mMp: 50,
+        cap: 400.0, wallet: { gold: 0, gem: 5 }, skills: { sword: 10, shield: 10, magic: 1 },
+        adProgress: 0, vip: [{name: "SocioAI", on: true}]
     };
 
-    const MAPS = {
-        "Neon City": { c: "#06060a", portal: {x:2800, y:2800, to: "Crystal Desert"} },
-        "Crystal Desert": { c: "#110a05", portal: {x:2200, y:2200, to: "Biomech Forest"} },
-        "Biomech Forest": { c: "#051105", portal: {x:2500, y:2800, to: "Neon City"} }
-    };
+    // LOGIN LOGIC
+    function doLogin() {
+        const acc = document.getElementById('acc-name').value;
+        if(!acc) return alert("Ingrese cuenta");
+        document.getElementById('acc-name').style.display = 'none';
+        document.getElementById('acc-pass').style.display = 'none';
+        document.getElementById('btn-login').style.display = 'none';
+        document.getElementById('char-selection').style.display = 'block';
+        document.getElementById('btn-enter').style.display = 'block';
+        document.getElementById('char-name-tag').innerText = p.name + " (Lv. 1)";
+    }
 
-    let mobs = [], loot = [], fx = [], move = {x:0, y:0}, active = false;
-
-    function initGame() {
-        p.name = document.getElementById('user-id').value || "Héroe";
+    function startGame() {
         document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('ui-layer').style.display = 'block';
-        active = true;
+        document.getElementById('viewport').style.display = 'block';
+        document.getElementById('sidebar').style.display = 'flex';
         resize();
-        addChat("Sistema", "¡Bienvenido a Mythica Apex!", "msg-sys");
-        for(let i=0; i<8; i++) spawnMob();
+        addLog("Welcome to Mythica Apex. Server online.", "#9f9");
         loop();
     }
 
-    // BLOQUE 44: LÓGICA DE CHAT
-    function sendChat() {
-        let input = document.getElementById('chat-input');
-        if(input.value.trim() === "") return;
-        addChat(p.name, input.value);
-        p.chatMsg = input.value;
-        p.chatTime = 180; // Segundos de frames que dura el mensaje sobre la cabeza
-        input.value = "";
-    }
-
-    function addChat(user, msg, type = "msg-me") {
-        let box = document.getElementById('chat-box');
-        box.innerHTML += `<div class="${type}"><b>${user}:</b> ${msg}</div>`;
-        box.scrollTop = box.scrollHeight;
-    }
-
-    // BLOQUE 43: MONETIZACIÓN (SIMULADA)
-    function watchAd() {
-        alert("Reproduciendo Anuncio... (Simulación de 30s)");
-        setTimeout(() => {
-            let reward = Math.floor(Math.random() * 3) + 1;
-            p.wallet.d += reward;
-            addChat("Sistema", `¡Anuncio visto! Recibiste ${reward} Gemas 💎`, "msg-sys");
-            updateHUD();
-        }, 1000);
-    }
-
-    function buyGems(amt, price) {
-        if(confirm(`¿Comprar ${amt} Gemas por $${price}?`)) {
-            p.wallet.d += amt;
-            updateHUD();
-            addChat("Tienda", `Gracias por tu compra de ${amt} gemas.`, "msg-sys");
-        }
-    }
-
+    // GAME ENGINE
     function loop() {
-        if(!active) return;
         update();
         draw();
         requestAnimationFrame(loop);
     }
 
     function update() {
-        p.x += move.x * 6; p.y += move.y * 6;
-        if(p.chatTime > 0) p.chatTime--;
-
-        let m = MAPS[p.currentMap];
-        if(Math.hypot(p.x - m.portal.x, p.y - m.portal.y) < 50) {
-            p.currentMap = m.portal.to;
-            p.x = 2500; p.y = 2500;
-            mobs = []; spawnMob();
-            document.getElementById('map-tag').innerText = p.currentMap.toUpperCase();
-        }
-
-        loot.forEach((it, i) => {
-            let d = Math.hypot(p.x - it.x, p.y - it.y);
-            if(d < 150) {
-                it.x += (p.x - it.x) * 0.2; it.y += (p.y - it.y) * 0.2;
-                if(d < 15) {
-                    p.wallet.s += it.v;
-                    if(p.wallet.s >= 100) { p.wallet.g++; p.wallet.s -= 100; }
-                    loot.splice(i, 1);
-                }
-            }
-        });
-        updateHUD();
+        updateUI();
+        updateVIP();
     }
 
     function draw() {
-        let m = MAPS[p.currentMap];
-        ctx.fillStyle = m.c; ctx.fillRect(0,0,canvas.width, canvas.height);
-        let cx = p.x - canvas.width/2, cy = p.y - canvas.height/2;
-
-        ctx.save(); ctx.translate(-cx, -cy);
-        
-        // Portal
-        ctx.fillStyle = "#3e93ff"; ctx.shadowBlur = 20; ctx.shadowColor = "#3e93ff";
-        ctx.beginPath(); ctx.arc(m.portal.x, m.portal.y, 40, 0, Math.PI*2); ctx.fill();
-
-        // Mobs y Loot
-        mobs.forEach(mob => {
-            ctx.fillStyle = "#f44"; ctx.beginPath(); ctx.roundRect(mob.x-15, mob.y-15, 30, 30, 5); ctx.fill();
-        });
-        loot.forEach(l => {
-            ctx.fillStyle = "#c0c0c0"; ctx.beginPath(); ctx.arc(l.x, l.y, 4, 0, Math.PI*2); ctx.fill();
-        });
-
-        // Jugador
-        ctx.fillStyle = "#fff"; ctx.shadowBlur = 25; ctx.shadowColor = "#3e93ff";
-        ctx.beginPath(); ctx.roundRect(p.x-18, p.y-18, 36, 36, 10); ctx.fill();
-        
-        // Bloque 44: Mensaje sobre la cabeza
-        if(p.chatTime > 0) {
-            ctx.shadowBlur = 0; ctx.fillStyle = "rgba(0,0,0,0.7)";
-            ctx.beginPath(); ctx.roundRect(p.x-50, p.y-70, 100, 25, 5); ctx.fill();
-            ctx.fillStyle = "#fff"; ctx.font = "10px Arial"; ctx.textAlign = "center";
-            ctx.fillText(p.chatMsg, p.x, p.y-54);
+        ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(canvas.width/2 - p.x, canvas.height/2 - p.y);
+        // Grid
+        ctx.strokeStyle = "#222";
+        for(let i=2300; i<2700; i+=32) {
+            ctx.beginPath(); ctx.moveTo(i, 2300); ctx.lineTo(i, 2700); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(2300, i); ctx.lineTo(2700, i); ctx.stroke();
         }
-
+        // Player
+        ctx.fillStyle = "#fff"; ctx.fillRect(p.x-16, p.y-16, 32, 32);
         ctx.restore();
-        drawFX(cx, cy);
     }
 
-    function doAttack() {
-        mobs.forEach(m => {
-            if(Math.hypot(p.x-m.x, p.y-m.y) < 100) {
-                m.hp -= (20 + p.tree.atk.l * 5);
-                pop(m.x, m.y, "#f44", "-DMG");
-                if(m.hp <= 0) {
-                    loot.push({x: m.x, y: m.y, v: 25}); // Solo Plata
-                    mobs = mobs.filter(mob => mob !== m); spawnMob();
-                }
-            }
-        });
-    }
-
-    function updateHUD() {
+    // UI & SOCIAL
+    function updateUI() {
         document.getElementById('hp-f').style.width = (p.hp/p.mHp*100) + "%";
-        document.getElementById('mp-f').style.width = (p.mp/p.mMp*100) + "%";
-        document.getElementById('s-val').innerText = p.wallet.s;
-        document.getElementById('g-val').innerText = p.wallet.g;
-        document.getElementById('d-val').innerText = p.wallet.d;
-        document.getElementById('p-tag').innerText = p.name.toUpperCase();
+        document.getElementById('hp-t').innerText = `${p.hp}/${p.mHp}`;
+        document.getElementById('cap-v').innerText = p.cap.toFixed(1);
+        document.getElementById('ui-name').innerText = p.name;
     }
 
-    // UTILS Y JOYSTICK
-    function spawnMob() { mobs.push({x: 2300+Math.random()*400, y: 2300+Math.random()*400, hp: 50}); }
-    function pop(x, y, c, t) { fx.push({x, y, c, t, l:1}); }
-    function drawFX(cx, cy) {
-        ctx.save(); ctx.translate(-cx, -cy);
-        fx.forEach((f, i) => {
-            ctx.globalAlpha = f.l; ctx.fillStyle = f.c; ctx.font = "bold 14px Arial";
-            ctx.fillText(f.t, f.x, f.y); f.y -= 1; f.l -= 0.02;
-            if(f.l <= 0) fx.splice(i, 1);
-        });
-        ctx.restore();
+    function addLog(m, c = "#ccc") {
+        const l = document.getElementById('log');
+        l.innerHTML += `<div style="color:${c}">${m}</div>`;
+        l.scrollTop = l.scrollHeight;
     }
 
-    // Joystick Adaptado
-    const jb = document.getElementById('joy-base'), jk = document.getElementById('joy-knob');
-    window.addEventListener('touchmove', e => {
-        let touch = e.touches[0];
-        let dx = touch.clientX - 350, dy = touch.clientY - (window.innerHeight - 90);
-        let d = Math.hypot(dx, dy); if(d>40){ dx*=40/d; dy*=40/d; }
-        jk.style.left = (300+30+dx)+'px'; jk.style.top = (window.innerHeight - 90 + dy)+'px';
-        move = {x:dx/40, y:dy/40};
-    });
-    window.addEventListener('touchend', () => { move={x:0, y:0}; jk.style.left='330px'; jk.style.top=(window.innerHeight-90)+'px'; });
+    function sendMsg() {
+        const i = document.getElementById('chat-in');
+        if(i.value) { addLog(p.name + ": " + i.value); i.value = ""; }
+    }
 
-    function toggleMenu(tab = 'v-skills') {
-        let m = document.getElementById('main-menu');
+    function updateVIP() {
+        const box = document.getElementById('vip-box');
+        box.innerHTML = p.vip.map(v => `<div class="vip-entry"><span>${v.name}</span><span style="color:${v.on?'#5f5':'#f55'}">${v.on?'●':'○'}</span></div>`).join('');
+    }
+
+    function addFriend() {
+        const n = prompt("Nombre:");
+        if(n) { p.vip.push({name: n, on: false}); addLog("Añadido a VIP: " + n); }
+    }
+
+    // MENU & STORE (10:1 REGLA)
+    function toggleMenu() {
+        const m = document.getElementById('main-menu');
         m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
-        showTab(tab.replace('v-', ''));
+        if(m.style.display === 'flex') setMenuTab('skills');
     }
 
-    function showTab(t) {
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.getElementById('v-'+t).classList.add('active');
-        if(t === 'skills') renderSkills();
-    }
-
-    function renderSkills() {
-        let h = "";
-        for(let k in p.tree) {
-            let s = p.tree[k];
-            h += `<div class="shop-card">
-                <b>${s.n} (Nivel ${s.l})</b>
-                <button class="btn-buy" onclick="p.tree['${k}'].l++; renderSkills();">SUBIR (10 G)</button>
+    function setMenuTab(t) {
+        const c = document.getElementById('m-content');
+        if(t === 'skills') {
+            c.innerHTML = `<h2>Skills</h2><p>Sword: ${p.skills.sword}</p><p>Shield: ${p.skills.shield}</p>`;
+        } else if(t === 'store') {
+            c.innerHTML = `<h2>Store</h2><p>Gemas: ${p.wallet.gem} 💎</p>
+            <div style="background:#222; padding:15px; border:1px solid var(--gold); margin-top:10px;">
+                <b>Video Recompensa</b><br>Progreso: ${p.adProgress}/10
+                <button onclick="watchVideo()" style="display:block; margin-top:10px; padding:10px; background:var(--gold); border:none;">VER VIDEO</button>
             </div>`;
         }
-        document.getElementById('v-skills').innerHTML = h;
     }
 
-    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    function watchVideo() {
+        addLog("Viendo video... (15s)");
+        setTimeout(() => {
+            p.adProgress++;
+            if(p.adProgress >= 10) { p.wallet.gem++; p.adProgress = 0; addLog("¡Ganaste 1 Gema! 💎", "var(--gold)"); }
+            setMenuTab('store');
+        }, 1500);
+    }
+
+    function resize() {
+        canvas.width = document.getElementById('viewport').clientWidth;
+        canvas.height = document.getElementById('viewport').clientHeight;
+    }
+
     window.onresize = resize;
 </script>
 </body>
