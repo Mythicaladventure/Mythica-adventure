@@ -3,132 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mythica Adventure - Full System</title>
+    <title>Mythica Adventure - Engine Pro</title>
     <style>
         :root { 
             --gold: #d4af37; --health: #ff3e3e; --mana: #3e93ff; --exp: #4caf50;
-            --beige: #e5d3b3; --dark: #1a1a1a; --glow: rgba(255, 255, 255, 0.5);
-            --panel: #d2b48c; /* Beige Tibia Style */
+            --beige: #e5d3b3; --dark: #1a1a1a; --glow: rgba(255, 255, 255, 0.4);
+            --panel: #d2b48c;
         }
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Verdana', sans-serif; color: #1a1a1a; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Courier New', monospace; }
         
-        /* PANTALLA DE INICIO PROFESIONAL */
-        #setup { position: absolute; inset: 0; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5000; }
-        .card { background: var(--beige); border: 3px solid #000; padding: 20px; width: 200px; text-align: center; margin: 10px; cursor: pointer; font-weight: bold; box-shadow: 0 5px 0 #8b7d6b; }
-        .card:active { transform: translateY(3px); box-shadow: none; }
+        /* UI OVERLAY */
+        #hud { position: absolute; top: 15px; left: 15px; background: var(--beige); padding: 12px; border: 3px solid #000; z-index: 100; display: none; box-shadow: 0 0 15px var(--glow); }
+        .bar-wrap { width: 180px; height: 16px; background: #222; border: 2px solid #000; margin-top: 5px; position: relative; }
+        .bar-fill { height: 100%; transition: width 0.3s; }
+        .bar-txt { position: absolute; width: 100%; text-align: center; font-size: 10px; color: #fff; line-height: 16px; font-weight: bold; }
 
-        /* HUD SUPERIOR */
-        #hud { position: absolute; top: 10px; left: 10px; background: var(--beige); padding: 12px; border: 3px solid #000; z-index: 100; display: none; box-shadow: 0 0 15px var(--glow); }
-        .bar-wrap { width: 180px; height: 16px; background: #333; border: 2px solid #000; margin-top: 5px; position: relative; }
-        .bar-fill { height: 100%; transition: width 0.3s ease; }
-        .bar-text { position: absolute; width: 100%; text-align: center; font-size: 10px; color: #fff; font-weight: bold; line-height: 16px; }
+        /* JOYSTICK */
+        #joy { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border: 2px solid var(--beige); border-radius: 50%; z-index: 200; display: none; }
+        #stick { position: absolute; width: 50px; height: 50px; background: var(--beige); border-radius: 50%; top: 35px; left: 35px; box-shadow: 0 0 10px #000; }
 
-        /* MENÚ MAESTRO */
-        #menu-container { 
+        /* MENU MAESTRO */
+        #main-menu { 
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 95%; height: 85%; background: var(--panel); border: 4px solid #000;
-            display: none; flex-direction: column; z-index: 1000; 
+            width: 92%; height: 85%; background: var(--panel); border: 5px solid #000;
+            display: none; flex-direction: column; z-index: 1000;
         }
-        .tabs { display: flex; background: #2c2c2c; height: 50px; }
-        .tab { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--beige); font-size: 11px; font-weight: bold; border: 1px solid #444; cursor: pointer; }
-        .tab.active { background: var(--beige); color: #000; }
-
-        .view { flex: 1; padding: 15px; overflow-y: auto; display: none; }
+        .tabs { display: flex; background: #1a1a1a; height: 50px; }
+        .tab { flex: 1; color: var(--beige); display: flex; align-items: center; justify-content: center; font-size: 11px; cursor: pointer; border: 1px solid #333; }
+        .tab.active { background: var(--beige); color: #000; font-weight: bold; }
+        
+        .view { flex: 1; padding: 20px; overflow-y: auto; display: none; }
         .view.active { display: block; }
 
-        /* ESTILOS DE CADA SECCIÓN */
-        .guide-text { background: rgba(0,0,0,0.1); border-left: 5px solid #000; padding: 10px; margin-bottom: 15px; font-size: 12px; line-height: 1.4; }
-        
-        .stats-box { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .stat-card { background: #c5b291; border: 2px solid #000; padding: 8px; }
-        .stat-val { font-size: 18px; font-weight: bold; display: block; }
-        .train-bar { width: 100%; height: 4px; background: #444; margin-top: 4px; }
-        .train-fill { height: 100%; background: var(--gold); width: 0%; }
+        /* COMPONENTES INTERNOS */
+        .info-msg { background: rgba(0,0,0,0.1); border-left: 4px solid #000; padding: 10px; margin-bottom: 15px; font-size: 12px; }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .stat-card { background: #c5b291; border: 2px solid #000; padding: 10px; }
+        .train-bg { width: 100%; height: 5px; background: #444; margin-top: 5px; }
+        .train-fill { height: 100%; background: var(--gold); transition: width 0.2s; }
 
-        /* INVENTARIO DOBLE */
-        .inv-header { background: #000; color: #fff; padding: 5px; font-size: 11px; margin-top: 10px; display: flex; justify-content: space-between; }
-        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 5px; }
-        .slot { aspect-ratio: 1/1; background: #b8a07e; border: 2px solid #000; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .inv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 10px; }
+        .slot { aspect-ratio: 1/1; background: #b8a07e; border: 2px solid #000; display: flex; align-items: center; justify-content: center; }
 
-        /* EQUIPO TIBIA STYLE */
-        .eq-map { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 150px; margin: 0 auto; }
+        /* DMG */
+        .dmg-text { position: absolute; font-weight: bold; font-size: 24px; text-shadow: 2px 2px #000; animation: floatUp 0.8s forwards; pointer-events: none; }
+        @keyframes floatUp { to { transform: translateY(-100px); opacity: 0; } }
 
-        /* BOTONES ACCIÓN JUEGO */
-        #game-ui { position: absolute; bottom: 20px; right: 20px; display: none; gap: 10px; }
-        .action-btn { width: 80px; height: 80px; background: var(--beige); border: 4px solid #000; border-radius: 10px; font-weight: bold; box-shadow: 0 4px 0 #8b7d6b; }
-        
-        /* DAÑO FLOTANTE */
-        .dmg-num { position: absolute; font-weight: bold; font-size: 22px; text-shadow: 2px 2px #000; pointer-events: none; animation: fly 0.8s forwards; }
-        @keyframes fly { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-100px); } }
+        /* SETUP */
+        #setup { position: absolute; inset: 0; background: #1a1a1a; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; }
+        .btn-class { background: var(--beige); border: 3px solid #000; padding: 15px; width: 180px; margin: 10px; font-weight: bold; text-align: center; }
 
-        canvas { display: block; }
+        .game-btns { position: absolute; bottom: 30px; right: 30px; display: none; gap: 15px; z-index: 200; }
+        .act-btn { width: 80px; height: 80px; background: var(--beige); border: 4px solid #000; font-weight: bold; border-radius: 10px; }
     </style>
 </head>
 <body>
 
     <div id="setup">
-        <h1 style="color:var(--beige); letter-spacing: 5px;">MYTHICA ADVENTURE</h1>
-        <div class="card" onclick="startGame('GUERRERO')">GUERRERO</div>
-        <div class="card" onclick="startGame('MAGO')">MAGO</div>
-        <div class="card" onclick="startGame('ARQUERO')">ARQUERO</div>
+        <h1 style="color:var(--beige); text-align:center;">MYTHICA<br>ADVENTURE</h1>
+        <div class="btn-class" onclick="init('WARRIOR')">GUERRERO</div>
+        <div class="btn-class" onclick="init('MAGE')">MAGO</div>
     </div>
 
     <div id="hud">
-        <div id="p-header" style="font-weight:bold; font-size:12px;">ADVENTURER LV. 1</div>
-        <div class="bar-wrap"><div class="bar-text" id="hp-txt">100/100</div><div id="hp-f" class="bar-fill" style="background:var(--health); width:100%"></div></div>
-        <div class="bar-wrap"><div class="bar-text" id="mp-txt">50/50</div><div id="mp-f" class="bar-fill" style="background:var(--mana); width:100%"></div></div>
-        <div id="gold-hud" style="font-weight:bold; margin-top:8px;">💰 0000</div>
+        <div id="p-lvl" style="font-weight:bold; font-size:12px">LVL 1</div>
+        <div class="bar-wrap"><div class="bar-txt" id="hp-t">100/100</div><div id="hp-f" class="bar-fill" style="background:var(--health)"></div></div>
+        <div class="bar-wrap"><div class="bar-txt" id="mp-t">50/50</div><div id="mp-f" class="bar-fill" style="background:var(--mana)"></div></div>
+        <div id="gold-t" style="margin-top:5px; font-weight:bold">💰 0000</div>
     </div>
 
-    <div id="menu-container">
+    <div id="joy"><div id="stick"></div></div>
+
+    <div id="main-menu">
         <div class="tabs">
-            <div class="tab active" onclick="openTab(event, 'tab-stats')">👤 PERFIL</div>
-            <div class="tab" onclick="openTab(event, 'tab-inv')">🎒 BOLSA</div>
-            <div class="tab" onclick="openTab(event, 'tab-diario')">⚔️ DIARIO</div>
-            <div class="tab" onclick="openTab(event, 'tab-config')">⚙️ AJUSTES</div>
-            <div class="tab" style="background:#800; color:white; flex:0.5" onclick="toggleMenu()">X</div>
+            <div class="tab active" onclick="tab(event, 'v-stats')">👤 PERFIL</div>
+            <div class="tab" onclick="tab(event, 'v-inv')">🎒 BOLSA</div>
+            <div class="tab" onclick="tab(event, 'v-map')">⚔️ DIARIO</div>
+            <div class="tab" style="background:#600; color:#fff; flex:0.4" onclick="toggleMenu()">X</div>
         </div>
 
-        <div id="tab-stats" class="view active">
-            <div class="guide-text"><b>Orientación:</b> Tu poder crece mediante el entrenamiento constante. Cada golpe que das o recibes aumenta tu progreso de habilidad.</div>
-            <div class="stats-box">
-                <div class="stat-card">FUERZA <span class="stat-val" id="stat-str">10</span> <div class="train-bar"><div class="train-fill" id="t-str"></div></div></div>
-                <div class="stat-card">MAGIA <span class="stat-val" id="stat-mag">10</span> <div class="train-bar"><div class="train-fill" id="t-mag"></div></div></div>
-                <div class="stat-card">DEFENSA <span class="stat-val" id="stat-def">10</span> <div class="train-bar"><div class="train-fill" id="t-def"></div></div></div>
-                <div class="stat-card">AGILIDAD <span class="stat-val" id="stat-agi">10</span> <div class="train-bar"><div class="train-fill" id="t-agi"></div></div></div>
+        <div id="v-stats" class="view active">
+            <div class="info-msg">Tu fuerza aumenta con cada golpe. La constancia es la clave del poder en Mythica.</div>
+            <div class="stat-grid">
+                <div class="stat-card">FUERZA: <span id="s-str">10</span> <div class="train-bg"><div class="train-fill" id="t-str"></div></div></div>
+                <div class="stat-card">MAGIA: <span id="s-mag">10</span> <div class="train-bg"><div class="train-fill" id="t-mag"></div></div></div>
+                <div class="stat-card">DEFENSA: <span id="s-def">10</span> <div class="train-bg"><div class="train-fill" id="t-def"></div></div></div>
+                <div class="stat-card">AGILIDAD: <span id="s-agi">10</span> <div class="train-bg"><div class="train-fill" id="t-agi"></div></div></div>
             </div>
-            <div id="dmg-math" style="margin-top:15px; background:#1a1a1a; color:#0f0; padding:15px; border-radius:5px; font-family: monospace;">
-                --- ANÁLISIS DE COMBATE ---<br>Selecciona un enemigo para calcular...
-            </div>
-            <div style="margin-top:10px;">
-                <b>TÍTULO ACTIVO:</b> <span id="active-title" style="color:var(--gold)">Ninguno</span>
+            <div id="combat-analyst" style="margin-top:20px; background:#000; color:#0f0; padding:15px; font-family:monospace; font-size:12px; border-left: 4px solid #0f0;">
+                [ANÁLISIS DE COMBATE]<br>Analizando objetivo...
             </div>
         </div>
 
-        <div id="tab-inv" class="view">
-            <div class="guide-text"><b>Orientación:</b> Tienes dos mochilas. La de <b>Loot</b> guarda lo que recojas. La <b>Personal</b> es para tu equipo. Puedes arrastrar o tirar items.</div>
-            
-            <div class="inv-header">BACKPACK PERSONAL <span>Cap: 16</span></div>
-            <div class="grid" id="grid-personal"></div>
-            
-            <div class="inv-header" style="background:#555">MOCHILA DE LOOT <span>Cap: 16</span></div>
-            <div class="grid" id="grid-loot"></div>
+        <div id="v-inv" class="view">
+            <div class="info-msg">Mochila Personal y de Botín. Gestiona tu equipo con sabiduría.</div>
+            <b>MOCHILA PERSONAL</b><div class="inv-grid" id="inv-p"></div>
+            <br><b>MOCHILA DE LOOT</b><div class="inv-grid" id="inv-l"></div>
         </div>
 
-        <div id="tab-diario" class="view">
-            <div class="guide-text"><b>Bestiario Mundial:</b> Listado de criaturas de Nivel 1 a 2000. Derrotarlos te otorga Títulos y misiones diarias.</div>
-            <div id="monster-list"></div>
-        </div>
-
-        <div id="tab-config" class="view">
-            <div class="guide-text">Configura tu experiencia visual y de sonido.</div>
-            <button onclick="location.reload()" style="width:100%; padding:20px; background:#a44; color:white; font-weight:bold; border:4px solid #000;">SALIR AL MENÚ PRINCIPAL</button>
+        <div id="v-map" class="view">
+            <div class="info-msg">Bestiario de Tier 1 a Tier 6 (Nivel 1-2000).</div>
+            <div id="bestiary-content"></div>
         </div>
     </div>
 
-    <div id="game-ui">
-        <button class="action-btn" style="background:#a44; color:white;" onclick="playerAttack()">ATK</button>
-        <button class="action-btn" onclick="toggleMenu()">MENÚ</button>
+    <div class="game-btns" id="g-ui">
+        <button class="act-btn" style="background:#a44; color:#fff" onclick="attack()">ATK</button>
+        <button class="act-btn" onclick="toggleMenu()">MENU</button>
     </div>
 
     <canvas id="game"></canvas>
@@ -137,98 +118,104 @@
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     
+    // ASSETS
+    const imgP = new Image(); imgP.src = 'player.png';
+    const imgF = new Image(); imgF.src = 'floor1.png';
+    const imgM = new Image(); imgM.src = 'floor2.png';
+
     let p = {
-        clase: '', lvl: 1, exp: 0, gold: 0,
-        hp: 100, mHp: 100, mp: 50, mMp: 50,
+        clase: '', lvl: 1, hp: 100, mHp: 100, mp: 50, mMp: 50, gold: 0,
         x: 2500, y: 2500, target: null,
         stats: { str: 10, mag: 10, def: 10, agi: 10 },
-        train: { str: 0, mag: 0, def: 0, agi: 0 },
-        titles: [], activeTitle: null
+        train: { str: 0, mag: 0, def: 0, agi: 0 }
     };
 
     let mobs = [], active = false, move = {x:0, y:0};
+    const worldSize = 5000;
 
-    function startGame(cl) {
+    function init(cl) {
         p.clase = cl;
         document.getElementById('setup').style.display = 'none';
-        document.getElementById('hud').style.display = 'block';
-        document.getElementById('game-ui').style.display = 'flex';
-        initGrids();
-        initBestiary();
-        spawnMobs();
+        ['hud', 'joy', 'g-ui'].forEach(id => document.getElementById(id).style.display = 'block');
+        if(cl==='MAGE') { p.hp = 70; p.mHp = 70; p.mp = 150; p.mMp = 150; }
+        
+        // Cargar slots
+        const grids = ['inv-p', 'inv-l'];
+        grids.forEach(g => {
+            for(let i=0; i<16; i++) document.getElementById(g).innerHTML += '<div class="slot"></div>';
+        });
+
+        // Bestiario
+        const bc = document.getElementById('bestiary-content');
+        const tiers = [
+            {n: "Gelatina Cristalina", t: "T1", l: "1-10", c: "#fff"},
+            {n: "Cazador de Sombras", t: "T3", l: "100-300", c: "orange"},
+            {n: "El Abismal", t: "T6", l: "1500-2000", c: "#f0f"}
+        ];
+        tiers.forEach(t => bc.innerHTML += `<div style="color:${t.c}; padding:5px; border-bottom:1px solid #000"><b>${t.n}</b> [${t.t}] - Niv.${t.l}</div>`);
+
+        for(let i=0; i<30; i++) spawnMob();
         active = true;
         updateUI();
         loop();
     }
 
-    function initGrids() {
-        const gp = document.getElementById('grid-personal');
-        const gl = document.getElementById('grid-loot');
-        for(let i=0; i<16; i++) {
-            gp.innerHTML += `<div class="slot" onclick="alert('Item Personal')"></div>`;
-            gl.innerHTML += `<div class="slot" onclick="alert('Item de Loot')"></div>`;
-        }
+    function spawnMob() {
+        mobs.push({ id: Math.random(), x: p.x + (Math.random()*800-400), y: p.y + (Math.random()*800-400), hp: 120, max: 120, aggro: false });
     }
 
-    function initBestiary() {
-        const ml = document.getElementById('monster-list');
-        const data = [
-            {n: "Gelatina de Cristal", t: "TIER 1", l: "1-10", c: "white"},
-            {n: "Guerrero Esmeralda", t: "TIER 2", l: "11-50", c: "yellow"},
-            {n: "El Soberano", t: "TIER 6", l: "1500-2000", c: "#f0f"}
-        ];
-        data.forEach(m => {
-            ml.innerHTML += `<div style="padding:10px; border-bottom:1px solid #000; color:${m.c}"><b>${m.n}</b> - ${m.t} (Nivel ${m.l})</div>`;
-        });
-    }
-
-    function spawnMobs() {
-        for(let i=0; i<20; i++) {
-            mobs.push({ id: i, x: p.x + (Math.random()*600-300), y: p.y + (Math.random()*600-300), hp: 150, max: 150, lvl: 5 });
-        }
-    }
+    // JOYSTICK LOGIC (RESTAURADA)
+    const joy = document.getElementById('joy'), stick = document.getElementById('stick');
+    joy.addEventListener('touchmove', (e) => {
+        const r = joy.getBoundingClientRect();
+        const jx = r.left + 60, jy = r.top + 60;
+        let dx = e.touches[0].clientX - jx, dy = e.touches[0].clientY - jy;
+        const dist = Math.hypot(dx, dy);
+        if(dist > 40) { dx *= 40/dist; dy *= 40/dist; }
+        stick.style.transform = `translate(${dx}px, ${dy}px)`;
+        move = { x: dx/40, y: dy/40 };
+    });
+    joy.addEventListener('touchend', () => { move = {x:0, y:0}; stick.style.transform = 'translate(0,0)'; });
 
     function toggleMenu() {
-        const m = document.getElementById('menu-container');
+        const m = document.getElementById('main-menu');
         m.style.display = (m.style.display === 'flex' ? 'none' : 'flex');
-        if(m.style.display === 'flex') refreshStats();
-    }
-
-    function openTab(evt, tabName) {
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.getElementById(tabName).classList.add('active');
-        evt.currentTarget.classList.add('active');
-    }
-
-    function refreshStats() {
-        ['str','mag','def','agi'].forEach(s => {
-            document.getElementById('stat-'+s).innerText = p.stats[s];
-            document.getElementById('t-'+s).style.width = (p.train[s] / (p.stats[s] * 10)) * 100 + "%";
-        });
-        
-        const math = document.getElementById('dmg-math');
-        if(p.target) {
-            let myDmg = p.stats.str * 2;
-            let hits = Math.ceil(p.target.hp / myDmg);
-            math.innerHTML = `ANÁLISIS DE COMBATE:<br>Enemigo: Mob Lv.${p.target.lvl}<br>Tu Daño: ${myDmg}<br>Vida Mob: ${p.target.hp}<br>Golpes necesarios: ${hits}`;
-        } else {
-            math.innerHTML = "Selecciona un enemigo para analizar...";
+        if(m.style.display === 'flex') {
+            ['str','mag','def','agi'].forEach(s => {
+                document.getElementById('s-'+s).innerText = p.stats[s];
+                document.getElementById('t-'+s).style.width = (p.train[s]/(p.stats[s]*5))*100 + "%";
+            });
+            const analyst = document.getElementById('combat-analyst');
+            if(p.target) {
+                analyst.innerHTML = `[ANÁLISIS]<br>Objetivo: Mob LVL ?<br>Tu daño base: ${p.stats.str * 2}<br>Vida restante: ${p.target.hp} HP<br>Analiza tu daño para ganar.`;
+            } else {
+                analyst.innerHTML = "[ANÁLISIS]<br>Sin objetivo marcado.";
+            }
         }
     }
 
-    function playerAttack() {
+    function tab(e, id) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        e.currentTarget.classList.add('active');
+    }
+
+    function attack() {
         if(!p.target) return;
+        if(Math.hypot(p.x - p.target.x, p.y - p.target.y) > 100) return;
+        
         let d = p.stats.str * 2 + Math.floor(Math.random()*10);
         p.target.hp -= d;
+        p.target.aggro = true;
         showDmg(p.target.x, p.target.y, d, "white");
-        
-        // ENTRENAMIENTO CONSTANTE
-        p.train.str += 1;
-        if(p.train.str >= p.stats.str * 10) { p.stats.str++; p.train.str = 0; }
+
+        // ENTRENAMIENTO
+        p.train.str++;
+        if(p.train.str >= p.stats.str * 5) { p.stats.str++; p.train.str = 0; }
 
         if(p.target.hp <= 0) {
-            p.gold += 25; p.exp += 100;
+            p.gold += 20; spawnMob();
             mobs = mobs.filter(m => m.id !== p.target.id);
             p.target = null;
             updateUI();
@@ -237,7 +224,7 @@
 
     function showDmg(x, y, v, c) {
         const div = document.createElement('div');
-        div.className = 'dmg-num';
+        div.className = 'dmg-text';
         div.style.left = (x - (p.x - canvas.width/2)) + 'px';
         div.style.top = (y - (p.y - canvas.height/2)) + 'px';
         div.style.color = c; div.innerText = v;
@@ -246,37 +233,52 @@
     }
 
     function updateUI() {
-        document.getElementById('p-header').innerText = p.clase + " ADVENTURER LV." + p.lvl;
-        document.getElementById('hp-txt').innerText = p.hp + "/" + p.mHp;
         document.getElementById('hp-f').style.width = (p.hp/p.mHp)*100 + "%";
-        document.getElementById('gold-hud').innerText = "💰 " + String(p.gold).padStart(4, '0');
+        document.getElementById('hp-t').innerText = `${p.hp}/${p.mHp}`;
+        document.getElementById('gold-t').innerText = "💰 " + String(p.gold).padStart(4, '0');
     }
 
     function loop() {
         if(!active) return;
         ctx.clearRect(0,0,canvas.width,canvas.height);
+        
+        p.x += move.x * 5; p.y += move.y * 5;
         let cx = p.x - canvas.width/2, cy = p.y - canvas.height/2;
+
         ctx.save(); ctx.translate(-cx, -cy);
-        ctx.fillStyle = "#111"; ctx.fillRect(cx, cy, canvas.width, canvas.height);
+
+        // Piso
+        if(imgF.complete) {
+            for(let i=Math.floor(cx/80)*80; i<cx+canvas.width; i+=80)
+            for(let j=Math.floor(cy/80)*80; j<cy+canvas.height; j+=80) ctx.drawImage(imgF, i, j, 81, 81);
+        } else { ctx.fillStyle="#222"; ctx.fillRect(cx,cy,canvas.width,canvas.height); }
 
         mobs.forEach(m => {
-            ctx.fillStyle = "red"; ctx.fillRect(m.x-20, m.y-20, 40, 40);
+            if(m.aggro || Math.hypot(p.x-m.x, p.y-m.y) < 200) {
+                m.x += (p.x-m.x)*0.015; m.y += (p.y-m.y)*0.015;
+            }
+            if(imgM.complete) ctx.drawImage(imgM, m.x-25, m.y-25, 50, 50);
+            else { ctx.fillStyle="red"; ctx.fillRect(m.x-20, m.y-20, 40, 40); }
+
+            // Aura de Target
             if(p.target === m) {
-                ctx.strokeStyle = "red"; ctx.lineWidth = 3;
-                ctx.beginPath(); ctx.arc(m.x, m.y, 35, 0, 7); ctx.stroke();
+                ctx.strokeStyle = "rgba(255,0,0,0.8)"; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.arc(m.x, m.y, 35, 0, Math.PI*2); ctx.stroke();
             }
         });
 
-        ctx.fillStyle = "cyan"; ctx.fillRect(p.x-25, p.y-25, 50, 50);
+        if(imgP.complete) ctx.drawImage(imgP, p.x-30, p.y-30, 60, 60);
+        else { ctx.fillStyle="cyan"; ctx.fillRect(p.x-25, p.y-25, 50, 50); }
+
         ctx.restore();
         requestAnimationFrame(loop);
     }
 
     canvas.addEventListener('touchstart', (e) => {
-        let tx = e.touches[0].clientX + (p.x - canvas.width/2);
-        let ty = e.touches[0].clientY + (p.y - canvas.height/2);
+        const tx = e.touches[0].clientX + (p.x - canvas.width/2);
+        const ty = e.touches[0].clientY + (p.y - canvas.height/2);
         p.target = null;
-        mobs.forEach(m => { if(Math.hypot(tx-m.x, ty-m.y) < 50) p.target = m; });
+        mobs.forEach(m => { if(Math.hypot(tx-m.x, ty-m.y) < 60) p.target = m; });
     });
 
     window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
