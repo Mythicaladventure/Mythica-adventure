@@ -1,1 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mythica Adventure - Infinite</title>
+    <style>
+        body { background: #000; color: white; font-family: monospace; margin: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
+        #game-container { position: relative; border: 2px solid #333; margin-top: 10px; overflow: hidden; width: 320px; height: 320px; }
+        canvas { display: block; image-rendering: pixelated; background: #111; }
+        #ui-overlay { position: absolute; top: 5px; left: 5px; pointer-events: none; }
+        .bar-container { width: 100px; height: 8px; background: #222; border: 1px solid #000; margin-bottom: 3px; }
+        #hp-bar { background: #45e645; height: 100%; width: 100%; }
+        #joystick { position: fixed; bottom: 30px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; touch-action: none; }
+        #stick { width: 40px; height: 40px; background: rgba(255,255,255,0.3); border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="320" height="320"></canvas>
+        <div id="ui-overlay">
+            <div style="font-size: 10px;">Lvl 1 - Knight</div>
+            <div class="bar-container"><div id="hp-bar"></div></div>
+        </div>
+    </div>
+
+    <div id="joystick"><div id="stick"></div></div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const TILE_SIZE = 32;
+
+// --- 1. PERSONAJE GENERADO (64px de alto) ---
+const playerSprite = new Image();
+playerSprite.src = 'https://i.imgur.com/vH7Z1mG.png'; // Sprite genérico estilo retro 32x64
+
+// --- 2. TILES DE TU GITHUB ---
+const tiles = {};
+const tileNames = ['pasto y grama 001.png', 'piedra 001.png', 'baldosa piso.png'];
+tileNames.forEach(n => { tiles[n] = new Image(); tiles[n].src = n; });
+
+// --- 3. LÓGICA DE MAPA INFINITO ---
+// Generamos tiles basados en coordenadas X, Y
+function getTileAt(x, y) {
+    // Generador pseudo-aleatorio simple
+    let v = Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
+    if (v > 0.85) return 'piedra 001.png'; // Obstáculo
+    if (v > 0.70) return 'baldosa piso.png'; // Decoración
+    return 'pasto y grama 001.png'; // Suelo base
+}
+
+const player = { x: 0, y: 0, screenX: 5, screenY: 5, moving: false };
+
+function move(dx, dy) {
+    if (player.moving) return;
+    let targetTile = getTileAt(player.x + dx, player.y + dy);
+    
+    if (targetTile !== 'piedra 001.png') {
+        player.x += dx;
+        player.y += dy;
+        player.moving = true;
+        setTimeout(() => player.moving = false, 150);
+    }
+}
+
+// --- 4. RENDERIZADO ---
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const offset = 5; // Centro de la pantalla
+    for (let iy = -1; iy < 11; iy++) {
+        for (let ix = -1; ix < 11; ix++) {
+            let worldX = player.x + ix - offset;
+            let worldY = player.y + iy - offset;
+            let tileImg = tiles[getTileAt(worldX, worldY)];
+
+            if (tileImg && tileImg.complete) {
+                ctx.drawImage(tileImg, ix * TILE_SIZE, iy * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            }
+        }
+    }
+
+    // Dibujar Personaje (centrado)
+    // Se dibuja en la posición 5,5 pero con offset de -32px en Y porque mide 64px
+    if (playerSprite.complete) {
+        ctx.drawImage(playerSprite, 5 * TILE_SIZE, 5 * TILE_SIZE - 32, 32, 64);
+    } else {
+        ctx.fillStyle = "red";
+        ctx.fillRect(5 * TILE_SIZE + 4, 5 * TILE_SIZE + 4, 24, 24);
+    }
+}
+
+// --- 5. JOYSTICK ---
+const joy = document.getElementById('joystick');
+let sX, sY;
+joy.addEventListener('touchstart', e => { sX = e.touches[0].clientX; sY = e.touches[0].clientY; });
+joy.addEventListener('touchmove', e => {
+    let dx = e.touches[0].clientX - sX;
+    let dy = e.touches[0].clientY - sY;
+    if (Math.abs(dx) > 30) { move(dx > 0 ? 1 : -1, 0); sX = e.touches[0].clientX; }
+    if (Math.abs(dy) > 30) { move(0, dy > 0 ? 1 : -1); sY = e.touches[0].clientY; }
+});
+
+function loop() { draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
 
