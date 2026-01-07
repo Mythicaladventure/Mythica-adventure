@@ -6,35 +6,32 @@
     <title>Mythica Adventure Core</title>
     <style>
         :root { --gold: #ffd700; --bg: #0a0a0c; --health: #ff4757; --mana: #2e86de; }
-        body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; }
-        
-        /* El Mundo (Estilo Tibia/Lawl) */
+        body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; color: white; touch-action: none; }
         #game-canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
-
-        /* Interfaz Pro (Estilo Grind Hero) */
+        
+        /* Interfaz HUD */
         .hud { position: absolute; top: 20px; left: 20px; pointer-events: none; }
-        .stat-bar { width: 180px; height: 14px; background: #222; border: 1px solid #444; border-radius: 3px; margin-bottom: 6px; position: relative; }
+        .stat-bar { width: 180px; height: 14px; background: #222; border: 1px solid #444; border-radius: 3px; margin-bottom: 5px; }
         .fill { height: 100%; transition: width 0.4s ease; }
+
+        /* Controles */
+        .controls { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 70px); gap: 10px; }
+        .btn { width: 70px; height: 70px; background: rgba(20,20,25,0.85); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
         
-        /* Controles Táctiles */
-        .controls { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 70px); gap: 12px; }
-        .btn { width: 70px; height: 70px; background: rgba(20,20,25,0.85); border: 2px solid var(--gold); border-radius: 50%; 
-               display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
-        
-        #joystick { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.05); border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); }
+        #joystick-area { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; }
+        #joystick-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: var(--gold); border-radius: 50%; opacity: 0.5; }
     </style>
 </head>
 <body>
-
     <canvas id="game-canvas"></canvas>
-
+    
     <div class="hud">
-        <div style="color: var(--gold); font-size: 14px; margin-bottom: 5px; font-weight: bold;">MYTHICA ADVENTURE - LVL 1</div>
+        <div style="color: var(--gold); font-size: 14px; margin-bottom: 5px; font-weight: bold;">MYTHICA ADVENTURE - LV 1</div>
         <div class="stat-bar"><div id="hp" class="fill" style="background: var(--health); width: 100%;"></div></div>
         <div class="stat-bar"><div id="mp" class="fill" style="background: var(--mana); width: 100%;"></div></div>
     </div>
 
-    <div id="joystick"></div>
+    <div id="joystick-area"><div id="joystick-stick"></div></div>
 
     <div class="controls">
         <div class="btn" style="color: var(--health)">ATK</div>
@@ -43,31 +40,75 @@
         <div class="btn" style="color: var(--gold)">SET</div>
     </div>
 
-    <script>
-        const canvas = document.getElementById('game-canvas');
-        const ctx = canvas.getContext('2d');
+<script>
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    const stick = document.getElementById('joystick-stick');
+    const area = document.getElementById('joystick-area');
 
-        function draw() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            
-            // Dibujamos un suelo de rejilla (Estilo Tibia)
-            ctx.strokeStyle = "#1a1a1a";
-            for(let i=0; i<canvas.width; i+=40) {
-                ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke();
-            }
-            for(let i=0; i<canvas.height; i+=40) {
-                ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke();
-            }
+    let player = { x: 0, y: 0, speed: 4 };
+    let moveDir = { x: 0, y: 0 };
 
-            // Jugador (Placeholder dorado)
-            ctx.fillStyle = "gold";
-            ctx.shadowBlur = 15; ctx.shadowColor = "gold";
-            ctx.fillRect(canvas.width/2 - 16, canvas.height/2 - 16, 32, 32);
-            
-            requestAnimationFrame(draw);
+    function init() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        player.x = canvas.width / 2;
+        player.y = canvas.height / 2;
+    }
+
+    // Lógica del Joystick
+    area.addEventListener('touchmove', (e) => {
+        const touch = e.touches[0];
+        const rect = area.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        let dx = touch.clientX - centerX;
+        let dy = touch.clientY - centerY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const maxDist = 40;
+
+        if (dist > maxDist) {
+            dx *= maxDist / dist;
+            dy *= maxDist / dist;
         }
-        draw();
-    </script>
+
+        stick.style.transform = `translate(${dx}px, ${dy}px)`;
+        moveDir.x = dx / maxDist;
+        moveDir.y = dy / maxDist;
+    });
+
+    area.addEventListener('touchend', () => {
+        stick.style.transform = `translate(0, 0)`;
+        moveDir = { x: 0, y: 0 };
+    });
+
+    function draw() {
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Dibujar Rejilla
+        ctx.strokeStyle = "#1a1a1a";
+        for(let i=0; i<canvas.width; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
+        for(let i=0; i<canvas.height; i+=40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
+
+        // Mover y Dibujar Jugador
+        player.x += moveDir.x * player.speed;
+        player.y += moveDir.y * player.speed;
+
+        ctx.fillStyle = "gold";
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "gold";
+        ctx.fillRect(player.x - 16, player.y - 16, 32, 32);
+        ctx.shadowBlur = 0;
+
+        requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', init);
+    init();
+    draw();
+</script>
 </body>
 </html>
+
