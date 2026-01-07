@@ -8,6 +8,8 @@
         :root { --gold: #ffd700; --health: #ff4757; --mana: #2e86de; }
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: sans-serif; }
         #game-canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+        
+        /* Controles */
         #joystick-area { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); }
         #joystick-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: var(--gold); border-radius: 50%; opacity: 0.5; }
         .controls { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 70px); gap: 10px; }
@@ -30,12 +32,29 @@
     const stick = document.getElementById('joystick-stick');
     const area = document.getElementById('joystick-area');
 
-    // Cargar tus imágenes con los nombres nuevos
-    const imgPlayer = new Image(); imgPlayer.src = 'jugador.png';
-    const imgFloor = new Image(); imgFloor.src = 'piso1.png';
+    // CONFIGURACIÓN DE IMÁGENES
+    const imgPlayer = new Image();
+    const imgFloor = new Image();
+    
+    let assetsLoaded = 0;
+    const totalAssets = 2;
 
-    // Regla: 350 de vida para Nivel 1
-    let player = { x: 0, y: 0, speed: 4, hp: 350, maxHp: 350, mp: 100, maxMp: 100 };
+    function assetLoaded() {
+        assetsLoaded++;
+        if (assetsLoaded === totalAssets) {
+            console.log("Todo cargado perfectamente");
+        }
+    }
+
+    imgPlayer.onload = assetLoaded;
+    imgFloor.onload = assetLoaded;
+
+    // Asegúrate de que estos nombres sean EXACTOS a los archivos en tu GitHub
+    imgPlayer.src = 'player.png'; 
+    imgFloor.src = 'floor1.png';
+
+    // Jugador Nivel 1: 350 HP
+    let player = { x: 0, y: 0, speed: 5, hp: 350, maxHp: 350, mp: 100, maxMp: 100 };
     let moveDir = { x: 0, y: 0 };
 
     function init() {
@@ -45,6 +64,7 @@
         player.y = canvas.height / 2;
     }
 
+    // Lógica Joystick
     area.addEventListener('touchmove', (e) => {
         e.preventDefault();
         const touch = e.touches[0];
@@ -66,33 +86,44 @@
     });
 
     function draw() {
+        // Fondo negro de seguridad
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Dibujar Suelo
-        for(let i=0; i<canvas.width; i+=40) {
-            for(let j=0; j<canvas.height; j+=40) {
-                ctx.drawImage(imgFloor, i, j, 40, 40);
+        // 1. Dibujar Suelo (solo si cargó)
+        if (imgFloor.complete) {
+            for(let i=0; i<canvas.width; i+=40) {
+                for(let j=0; j<canvas.height; j+=40) {
+                    ctx.drawImage(imgFloor, i, j, 40, 40);
+                }
             }
         }
 
+        // 2. Mover Jugador
         player.x += moveDir.x * player.speed;
         player.y += moveDir.y * player.speed;
 
-        // Barras sobre la cabeza
-        const barY = player.y - 35;
+        // 3. Dibujar Barras sobre la cabeza
+        const barY = player.y - 45;
+        // Vida (350 HP)
         ctx.fillStyle = "#222";
-        ctx.fillRect(player.x - 20, barY, 40, 5); // Fondo vida
+        ctx.fillRect(player.x - 20, barY, 40, 6);
         ctx.fillStyle = "#ff4757";
-        ctx.fillRect(player.x - 20, barY, (player.hp / player.maxHp) * 40, 5); // Vida roja
-        
+        ctx.fillRect(player.x - 20, barY, (player.hp / player.maxHp) * 40, 6);
+        // Maná
         ctx.fillStyle = "#222";
-        ctx.fillRect(player.x - 20, barY + 7, 40, 5); // Fondo maná
+        ctx.fillRect(player.x - 20, barY + 8, 40, 4);
         ctx.fillStyle = "#2e86de";
-        ctx.fillRect(player.x - 20, barY + 7, (player.mp / player.maxMp) * 40, 5); // Maná azul
+        ctx.fillRect(player.x - 20, barY + 8, (player.mp / player.maxMp) * 40, 4);
 
-        // Dibujar tu nuevo personaje
-        ctx.drawImage(imgPlayer, player.x - 20, player.y - 20, 40, 40);
+        // 4. Dibujar Personaje (solo si cargó)
+        if (imgPlayer.complete) {
+            ctx.drawImage(imgPlayer, player.x - 20, player.y - 20, 40, 40);
+        } else {
+            // Si la imagen falla, dibujar un cuadro dorado temporal
+            ctx.fillStyle = "gold";
+            ctx.fillRect(player.x - 15, player.y - 15, 30, 30);
+        }
 
         requestAnimationFrame(draw);
     }
