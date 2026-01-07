@@ -1,36 +1,68 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mythica Online - Lawl Engine</title>
+    <title>Mythica - Retro Tech Edition</title>
     <style>
-        :root { --gold: #ffd700; --health: #ff4757; --mana: #2e86de; --exp: #2ecc71; --ui-bg: rgba(10, 10, 15, 0.98); }
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Courier New', monospace; color: white; }
+        :root { 
+            --gold: #d4af37; --health: #ff3e3e; --mana: #3e93ff; --exp: #4caf50;
+            --beige: #e5d3b3; --dark: #1a1a1a; --glow: rgba(255, 255, 255, 0.4);
+        }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Courier New', monospace; }
         
-        #setup { position: absolute; inset: 0; background: #0a0a0a; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        .card { background: #1a1a1a; border: 2px solid #333; padding: 15px; width: 150px; text-align: center; border-radius: 8px; margin: 8px; cursor: pointer; border: 1px solid var(--gold); }
+        /* PANTALLA DE INICIO RETRO */
+        #setup { position: absolute; inset: 0; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        .card { 
+            background: var(--beige); border: 3px solid #000; padding: 20px; width: 160px; text-align: center; 
+            margin: 10px; cursor: pointer; color: #000; font-weight: bold; 
+            box-shadow: 0 0 15px var(--glow); transition: 0.2s;
+        }
+        .card:active { transform: scale(0.95); box-shadow: 0 0 5px var(--glow); }
 
-        #hud { position: absolute; top: 10px; left: 10px; background: var(--ui-bg); padding: 10px; border: 2px solid var(--gold); border-radius: 4px; pointer-events: none; z-index: 10; }
-        .bar { width: 160px; height: 12px; background: #000; border: 1px solid #333; margin: 4px 0; overflow: hidden; }
-        .fill { height: 100%; transition: width 0.3s; }
-
-        #chat { position: absolute; bottom: 180px; left: 10px; width: 260px; height: 110px; background: rgba(0,0,0,0.4); font-size: 11px; overflow: hidden; pointer-events: none; color: #ccc; }
-
-        .dmg { position: absolute; font-weight: bold; pointer-events: none; animation: float 0.8s forwards; font-size: 20px; text-shadow: 2px 2px #000; }
-        @keyframes float { to { transform: translateY(-70px); opacity: 0; } }
-
-        #joy { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.05); border-radius: 50%; border: 1px solid #444; }
-        #stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: var(--gold); border-radius: 50%; opacity: 0.6; }
+        /* HUD SUPERIOR IZQUIERDO (REFINADO) */
+        #hud { 
+            position: absolute; top: 15px; left: 15px; background: var(--beige); 
+            padding: 10px; border: 3px solid var(--dark); border-radius: 2px;
+            box-shadow: 0 0 10px var(--glow); z-index: 10;
+        }
+        .hud-label { color: #000; font-size: 11px; font-weight: bold; margin-bottom: 2px; }
+        .bar { 
+            width: 180px; height: 14px; background: #333; border: 2px solid #000; 
+            margin-bottom: 6px; position: relative;
+        }
+        .fill { height: 100%; position: relative; }
+        .glow-effect { position: absolute; top:0; left:0; right:0; bottom:0; box-shadow: inset 0 0 8px rgba(255,255,255,0.5); }
         
-        .actions { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 80px); gap: 12px; }
-        .btn { width: 80px; height: 80px; background: var(--ui-bg); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+        /* BOTONES DE ACCIÓN RETRO-TECH */
+        .actions { position: absolute; bottom: 30px; right: 30px; display: grid; grid-template-columns: repeat(2, 85px); gap: 15px; }
+        .btn { 
+            width: 85px; height: 85px; background: var(--beige); border: 3px solid var(--dark); 
+            border-radius: 8px; display: flex; align-items: center; justify-content: center; 
+            font-size: 13px; font-weight: bold; color: #fff; text-shadow: 2px 2px #000;
+            box-shadow: 0 0 10px var(--glow), inset 0 0 10px rgba(0,0,0,0.2);
+        }
+        .btn:active { box-shadow: 0 0 2px var(--glow); transform: translateY(2px); }
+
+        /* JOYSTICK TECH */
+        #joy { position: absolute; bottom: 45px; left: 45px; width: 130px; height: 130px; background: rgba(229, 211, 179, 0.1); border-radius: 50%; border: 2px solid var(--beige); }
+        #stick { position: absolute; top: 40px; left: 40px; width: 50px; height: 50px; background: var(--beige); border-radius: 50%; box-shadow: 0 0 15px var(--glow); }
+
+        /* MENÚ INTELIGENTE */
+        #menu-ui { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 80%; max-width: 400px; background: var(--beige); border: 4px solid var(--dark);
+            padding: 20px; color: #000; display: none; z-index: 100;
+        }
+        .close-btn { float: right; cursor: pointer; font-weight: bold; }
+
+        #chat { position: absolute; bottom: 150px; left: 15px; width: 200px; height: 80px; font-size: 10px; color: #fff; text-shadow: 1px 1px #000; pointer-events: none; }
     </style>
 </head>
 <body>
 
     <div id="setup">
-        <h1 style="color: var(--gold); text-shadow: 0 0 10px gold;">MYTHICA ONLINE</h1>
+        <h1 style="color: var(--beige); text-shadow: 0 0 20px var(--glow);">MYTHICA ONLINE</h1>
         <div style="display: flex; flex-wrap: wrap; justify-content: center;">
             <div class="card" onclick="start('WARRIOR')">GUERRERO</div>
             <div class="card" onclick="start('MAGE')">MAGO</div>
@@ -40,43 +72,49 @@
     </div>
 
     <div id="hud" style="display:none">
-        <div id="p-tag">Cargando...</div>
-        <div class="bar"><div id="hp-f" class="fill" style="background:var(--health)"></div></div>
-        <div class="bar"><div id="mp-f" class="fill" style="background:var(--mana)"></div></div>
-        <div class="bar" style="height:4px"><div id="ex-f" class="fill" style="background:var(--exp)"></div></div>
-        <div id="gold-txt" style="color:var(--gold); font-size:12px; margin-top:5px;">Oro: 0</div>
+        <div class="hud-label" id="p-name">HERO LV. 1</div>
+        <div class="bar"><div id="hp-f" class="fill" style="background:var(--health); width:100%"><div class="glow-effect"></div></div></div>
+        <div class="bar"><div id="mp-f" class="fill" style="background:var(--mana); width:100%"><div class="glow-effect"></div></div></div>
+        <div class="bar" style="height:6px"><div id="ex-f" class="fill" style="background:var(--exp); width:0%"></div></div>
+        <div style="color: #000; font-size: 12px; font-weight: bold;" id="gold-txt">💰 0000</div>
+    </div>
+
+    <div id="menu-ui">
+        <span class="close-btn" onclick="toggleMenu()">[X]</span>
+        <h3>ESTADÍSTICAS</h3>
+        <hr border="1">
+        <div id="stats-content"></div>
     </div>
 
     <div id="chat"></div>
     <canvas id="game"></canvas>
+    
     <div id="joy" style="display:none"><div id="stick"></div></div>
     
     <div class="actions" id="btns" style="display:none">
-        <div class="btn" onclick="tryAttack()">ATTACK</div>
-        <div class="btn" style="color:var(--mana)" onclick="trySpell()">SPELL</div>
-        <div class="btn" style="color:#2ecc71">BAG</div>
-        <div class="btn" style="color:var(--gold)">MAP</div>
+        <div class="btn" style="background: #a33;" onclick="tryAttack()">ATAQUE</div>
+        <div class="btn" style="background: #33a;" onclick="trySpell()">PODER</div>
+        <div class="btn" style="background: #3a3;" onclick="toggleMenu()">ITEMS</div>
+        <div class="btn" style="background: #888;">MENÚ</div>
     </div>
 
 <script>
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     
-    // TORRE DE CÁLCULOS (Sistema Lawl)
+    // TORRE DE CÁLCULOS
     const CLASSES = {
-        WARRIOR: { name: "Guerrero", hpIn: 350, hpL: 80, mpIn: 60, mpL: 15, spd: 4.8, dmg: 32 },
-        MAGE:    { name: "Mago", hpIn: 190, hpL: 35, mpIn: 320, mpL: 90, spd: 4.2, dmg: 58 },
-        ARCHER:  { name: "Arquero", hpIn: 270, hpL: 55, mpIn: 130, mpL: 40, spd: 5.8, dmg: 42 },
-        HEALER:  { name: "Sanador", hpIn: 240, hpL: 45, mpIn: 260, mpL: 70, spd: 4.5, dmg: 26 }
+        WARRIOR: { name: "Guerrero", hpIn: 350, hpL: 80, mpIn: 60, mpL: 15, spd: 4.8, dmg: 35 },
+        MAGE:    { name: "Mago", hpIn: 190, hpL: 35, mpIn: 320, mpL: 90, spd: 4.2, dmg: 60 },
+        ARCHER:  { name: "Arquero", hpIn: 270, hpL: 55, mpIn: 130, mpL: 40, spd: 5.8, dmg: 45 },
+        HEALER:  { name: "Sanador", hpIn: 240, hpL: 45, mpIn: 260, mpL: 70, spd: 4.5, dmg: 25 }
     };
 
     let p = { x: 2000, y: 2000, lvl: 1, exp: 0, gold: 0, class: 'WARRIOR', target: null };
-    let world = { w: 4000, h: 4000 };
-    let obstacles = []; // Paredes y árboles
+    let obstacles = [];
     let mobs = [];
-    let loot = [];
+    let world = { w: 5000, h: 5000 };
 
-    // IMÁGENES
     const imgP = new Image(); imgP.src = 'player.png';
     const imgF = new Image(); imgF.src = 'floor1.png';
     const imgE = new Image(); imgE.src = 'floor2.png';
@@ -87,189 +125,94 @@
         p.hp = p.maxHp = c.hpIn;
         p.mp = p.maxMp = c.mpIn;
         p.spd = c.spd;
-        
         document.getElementById('setup').style.display = 'none';
         ['hud','joy','btns'].forEach(i => document.getElementById(i).style.display = 'block');
-        
-        generateEcosystem();
+        generateMap();
         for(let i=0; i<30; i++) spawnMob();
-        addChat("Bienvenido, " + CLASSES[p.class].name);
         loop();
     }
 
-    function generateEcosystem() {
-        // Generar muros y árboles aleatorios
-        for(let i=0; i<100; i++) {
-            obstacles.push({
-                x: Math.random() * world.w,
-                y: Math.random() * world.h,
-                w: 60, h: 60,
-                type: Math.random() > 0.5 ? 'WALL' : 'TREE'
-            });
+    function toggleMenu() {
+        const m = document.getElementById('menu-ui');
+        const isVisible = m.style.display === 'block';
+        m.style.display = isVisible ? 'none' : 'block';
+        if(!isVisible) {
+            document.getElementById('stats-content').innerHTML = `
+                <p>Clase: ${CLASSES[p.class].name}</p>
+                <p>Nivel: ${p.lvl}</p>
+                <p>Oro: ${p.gold}</p>
+                <p>Ataque: ${CLASSES[p.class].dmg + (p.lvl * 2)}</p>
+            `;
         }
+    }
+
+    function generateMap() {
+        for(let i=0; i<80; i++) obstacles.push({ x: Math.random()*world.w, y: Math.random()*world.h, w: 80, h: 80 });
     }
 
     function spawnMob() {
-        mobs.push({ x: Math.random()*world.w, y: Math.random()*world.h, hp: 130, max: 130, d: false });
+        mobs.push({ x: Math.random()*world.w, y: Math.random()*world.h, hp: 120, max: 120, d: false });
     }
 
-    function addChat(t) {
-        const c = document.getElementById('chat');
-        c.innerHTML = `<div>> ${t}</div>` + c.innerHTML;
+    function updateHUD() {
+        document.getElementById('p-name').innerText = `${p.class} LV. ${p.lvl}`;
+        document.getElementById('hp-f').style.width = (p.hp/p.maxHp)*100 + "%";
+        document.getElementById('mp-f').style.width = (p.mp/p.maxMp)*100 + "%";
+        document.getElementById('ex-f').style.width = (p.exp/(p.lvl*300))*100 + "%";
+        document.getElementById('gold-txt').innerText = `💰 ${String(p.gold).padStart(4, '0')}`;
     }
-
-    function showDmg(x, y, v, c) {
-        const d = document.createElement('div');
-        d.className = 'dmg';
-        d.style.left = (x - (p.x - canvas.width/2)) + 'px';
-        d.style.top = (y - (p.y - canvas.height/2)) + 'px';
-        d.style.color = c; d.innerText = v;
-        document.body.appendChild(d);
-        setTimeout(() => d.remove(), 750);
-    }
-
-    // TARGETING: Tocar monstruo para marcarlo
-    canvas.addEventListener('touchstart', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const tx = e.touches[0].clientX - rect.left + (p.x - canvas.width/2);
-        const ty = e.touches[0].clientY - rect.top + (p.y - canvas.height/2);
-        
-        p.target = null;
-        mobs.forEach(m => {
-            if(!m.d && Math.hypot(tx - m.x, ty - m.y) < 50) {
-                p.target = m;
-                addChat("Objetivo fijado.");
-            }
-        });
-    });
 
     function tryAttack() {
-        if(!p.target || p.target.d) {
-            // Auto-target si no hay uno seleccionado
-            mobs.forEach(m => {
-                if(!m.d && Math.hypot(p.x - m.x, p.y - m.y) < 100) p.target = m;
-            });
-        }
-
-        if(p.target && !p.target.d) {
-            let dist = Math.hypot(p.x - p.target.x, p.y - p.target.y);
-            if(dist < 90) {
-                let d = CLASSES[p.class].dmg + Math.floor(Math.random()*15);
-                p.target.hp -= d;
-                showDmg(p.target.x, p.target.y, d, "white");
-                if(p.target.hp <= 0) {
-                    p.target.d = true; p.exp += 60;
-                    loot.push({x: p.target.x, y: p.target.y, v: 10});
-                    addChat("Enemigo derrotado +60 XP");
-                    checkLvl();
-                    p.target = null;
-                    setTimeout(() => { spawnMob(); }, 5000);
-                }
-            } else { addChat("Muy lejos..."); }
-        }
-        updateHUD();
-    }
-
-    function trySpell() {
-        if(p.mp >= 25) {
-            p.mp -= 25;
-            showDmg(p.x, p.y, "SPELL!", "#00ffff");
-            mobs.forEach(m => {
-                if(!m.d && Math.hypot(p.x - m.x, p.y - m.y) < 180) {
-                    m.hp -= 50; showDmg(m.x, m.y, 50, "cyan");
-                }
-            });
-        }
+        mobs.forEach(m => {
+            if(!m.d && Math.hypot(p.x - m.x, p.y - m.y) < 100) {
+                m.hp -= CLASSES[p.class].dmg;
+                if(m.hp <= 0) { m.d = true; p.exp += 100; p.gold += 15; checkLvl(); setTimeout(spawnMob, 5000); }
+            }
+        });
         updateHUD();
     }
 
     function checkLvl() {
-        let n = p.lvl * 250;
-        if(p.exp >= n) {
-            p.lvl++; p.exp = 0;
-            const c = CLASSES[p.class];
-            p.maxHp += c.hpL; p.maxMp += c.mpL;
-            p.hp = p.maxHp; p.mp = p.maxMp;
-            addChat("¡SUBISTE DE NIVEL!");
-            showDmg(p.x, p.y, "LVL UP", "gold");
+        if(p.exp >= p.lvl * 300) { 
+            p.lvl++; p.exp = 0; 
+            p.maxHp += CLASSES[p.class].hpL;
+            p.hp = p.maxHp;
         }
     }
 
-    function updateHUD() {
-        document.getElementById('p-tag').innerText = `${CLASSES[p.class].name} [Lv ${p.lvl}]`;
-        document.getElementById('hp-f').style.width = (p.hp/p.maxHp)*100 + "%";
-        document.getElementById('mp-f').style.width = (p.mp/p.maxMp)*100 + "%";
-        document.getElementById('ex-f').style.width = (p.exp/(p.lvl*250))*100 + "%";
-        document.getElementById('gold-txt').innerText = `Oro: ${p.gold}`;
-    }
-
-    // Movimiento
+    // Joystick 
     let joyMove = { x: 0, y: 0 };
     const jA = document.getElementById('joy');
     const jS = document.getElementById('stick');
     jA.ontouchmove = (e) => {
         const r = jA.getBoundingClientRect();
-        let x = e.touches[0].clientX - (r.left + 60), y = e.touches[0].clientY - (r.top + 60);
-        let d = Math.hypot(x,y); if(d > 40) { x *= 40/d; y *= 40/d; }
+        let x = e.touches[0].clientX - (r.left + 65), y = e.touches[0].clientY - (r.top + 65);
+        let d = Math.hypot(x,y); if(d > 45) { x *= 45/d; y *= 45/d; }
         jS.style.transform = `translate(${x}px, ${y}px)`;
-        joyMove = { x: x/40, y: y/40 };
+        joyMove = { x: x/45, y: y/45 };
     };
     jA.ontouchend = () => { joyMove = { x: 0, y: 0 }; jS.style.transform = 'translate(0,0)'; };
 
-    function checkCollision(nx, ny) {
-        let collision = false;
-        obstacles.forEach(o => {
-            if(nx > o.x - 20 && nx < o.x + o.w + 20 && ny > o.y - 20 && ny < o.y + o.h + 20) collision = true;
-        });
-        return collision;
-    }
-
     function loop() {
         ctx.clearRect(0,0,canvas.width,canvas.height);
-        
-        let nextX = p.x + joyMove.x * p.spd;
-        let nextY = p.y + joyMove.y * p.spd;
-        
-        if(!checkCollision(nextX, p.y)) p.x = nextX;
-        if(!checkCollision(p.x, nextY)) p.y = nextY;
-
+        p.x += joyMove.x * p.spd; p.y += joyMove.y * p.spd;
         let cx = p.x - canvas.width/2, cy = p.y - canvas.height/2;
         ctx.save(); ctx.translate(-cx, -cy);
-
-        // Piso
+        
         if(imgF.complete) {
-            for(let i=0; i<world.w; i+=40) for(let j=0; j<world.h; j+=40) {
-                if(i > cx-40 && i < cx+canvas.width && j > cy-40 && j < cy+canvas.height) ctx.drawImage(imgF, i, j, 41, 41);
-            }
+            for(let i=Math.floor(cx/40)*40; i<cx+canvas.width; i+=40) 
+            for(let j=Math.floor(cy/40)*40; j<cy+canvas.height; j+=40) ctx.drawImage(imgF, i, j, 41, 41);
         }
 
-        // Obstáculos (Ecosistema)
         obstacles.forEach(o => {
-            if(o.type === 'WALL') {
-                ctx.fillStyle = "#444";
-                ctx.fillRect(o.x, o.y, o.w, o.h);
-                ctx.strokeStyle = "#222"; ctx.strokeRect(o.x, o.y, o.w, o.h);
-            } else {
-                ctx.fillStyle = "#1b4d1b";
-                ctx.beginPath(); ctx.arc(o.x+30, o.y+30, 25, 0, 7); ctx.fill();
-            }
+            ctx.fillStyle = "#3e2723"; ctx.fillRect(o.x, o.y, o.w, o.h);
+            ctx.strokeStyle = var(--beige); ctx.strokeRect(o.x, o.y, o.w, o.h);
         });
 
-        // Loot
-        loot.forEach((l, i) => {
-            ctx.fillStyle = "gold"; ctx.beginPath(); ctx.arc(l.x, l.y, 6, 0, 7); ctx.fill();
-            if(Math.hypot(p.x - l.x, p.y - l.y) < 35) { p.gold += l.v; loot.splice(i, 1); updateHUD(); }
-        });
-
-        // Mobs IA
         mobs.forEach(m => {
             if(m.d) return;
-            let d = Math.hypot(p.x - m.x, p.y - m.y);
-            if(d < 300) { m.x += (p.x - m.x)*0.015; m.y += (p.y - m.y)*0.015; }
-            if(d < 35 && Math.random() < 0.05) { p.hp -= 6; updateHUD(); showDmg(p.x, p.y, 6, "red"); }
             ctx.drawImage(imgE, m.x-20, m.y-20, 40, 40);
             ctx.fillStyle = "red"; ctx.fillRect(m.x-15, m.y-25, (m.hp/m.max)*30, 4);
-            if(p.target === m) { ctx.strokeStyle = "red"; ctx.lineWidth = 2; ctx.strokeRect(m.x-22, m.y-22, 44, 44); }
         });
 
         ctx.drawImage(imgP, p.x-25, p.y-25, 50, 50);
