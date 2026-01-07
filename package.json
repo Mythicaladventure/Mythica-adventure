@@ -1,17 +1,13 @@
 {
   "name": "mythica-adventure-server",
   "version": "1.0.0",
-  "description": "Servidor MMORPG Mythica Adventure con Colyseus y MongoDB",
-  "main": "server/index.ts",
+  "description": "Servidor MMORPG Mythica Adventure",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "ts-node server/index.ts",
-    "dev": "ts-node-dev server/index.ts",
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev server/index.ts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "@colyseus/monitor": "^0.15.0",
     "@colyseus/schema": "^2.0.0",
