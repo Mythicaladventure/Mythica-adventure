@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mythica Adventure - Retro Tech</title>
+    <title>Mythica Adventure - Combat Pro</title>
     <style>
         :root { 
             --gold: #d4af37; --health: #ff3e3e; --mana: #3e93ff; --exp: #4caf50;
@@ -11,68 +11,49 @@
         }
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Courier New', monospace; }
         
-        /* Pantalla de Inicio Mythica Adventure */
         #setup { position: absolute; inset: 0; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        #setup h1 { color: var(--beige); text-shadow: 0 0 20px var(--glow); margin-bottom: 30px; letter-spacing: 3px; font-size: 2.5em; text-align: center; }
+        #setup h1 { color: var(--beige); text-shadow: 0 0 20px var(--glow); text-align: center; font-size: 2.5em; margin-bottom: 20px; }
         
-        .card { 
-            background: var(--beige); border: 3px solid #000; padding: 20px; width: 180px; text-align: center; 
-            margin: 10px; cursor: pointer; color: #000; font-weight: bold; 
-            box-shadow: 0 0 15px var(--glow); transition: 0.2s;
-        }
-        .card:active { transform: scale(0.95); background: #fff; }
+        .card { background: var(--beige); border: 3px solid #000; padding: 15px; width: 160px; text-align: center; margin: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 0 10px var(--glow); }
 
-        /* HUD Superior Izquierdo */
-        #hud { 
-            position: absolute; top: 15px; left: 15px; background: var(--beige); 
-            padding: 12px; border: 3px solid var(--dark); border-radius: 2px;
-            box-shadow: 0 0 12px var(--glow); z-index: 10; display: none;
-        }
-        .hud-label { color: #000; font-size: 12px; font-weight: bold; margin-bottom: 4px; }
-        .bar { width: 190px; height: 16px; background: #222; border: 2px solid #000; margin-bottom: 8px; overflow: hidden; }
-        .fill { height: 100%; transition: width 0.4s ease-out; }
+        #hud { position: absolute; top: 15px; left: 15px; background: var(--beige); padding: 10px; border: 3px solid var(--dark); box-shadow: 0 0 10px var(--glow); z-index: 10; display: none; }
+        .bar { width: 180px; height: 14px; background: #222; border: 2px solid #000; margin-bottom: 5px; }
+        .fill { height: 100%; transition: width 0.3s; }
 
-        /* Botones de Acción Retro-Tech */
-        .actions { position: absolute; bottom: 35px; right: 35px; display: none; grid-template-columns: repeat(2, 90px); gap: 15px; }
-        .btn { 
-            width: 90px; height: 90px; background: var(--beige); border: 3px solid var(--dark); 
-            border-radius: 10px; display: flex; align-items: center; justify-content: center; 
-            font-size: 13px; font-weight: bold; color: #fff; text-shadow: 2px 2px #000;
-            box-shadow: 0 0 15px var(--glow);
-        }
-        .btn:active { transform: translateY(3px); box-shadow: 0 0 5px var(--glow); }
+        .dmg { position: absolute; font-weight: bold; pointer-events: none; animation: float 0.8s forwards; font-size: 22px; text-shadow: 2px 2px #000; z-index: 100; }
+        @keyframes float { to { transform: translateY(-80px); opacity: 0; } }
 
-        #joy { position: absolute; bottom: 50px; left: 50px; width: 130px; height: 130px; background: rgba(229,211,179,0.15); border-radius: 50%; border: 2px solid var(--beige); display: none; }
-        #stick { position: absolute; top: 40px; left: 40px; width: 50px; height: 50px; background: var(--beige); border-radius: 50%; box-shadow: 0 0 10px var(--glow); }
+        .actions { position: absolute; bottom: 30px; right: 30px; display: none; grid-template-columns: repeat(2, 85px); gap: 15px; }
+        .btn { width: 85px; height: 85px; background: var(--beige); border: 3px solid var(--dark); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; color: #fff; text-shadow: 2px 2px #000; box-shadow: 0 0 10px var(--glow); }
 
-        canvas { display: block; }
+        #joy { position: absolute; bottom: 45px; left: 45px; width: 120px; height: 120px; background: rgba(229,211,179,0.1); border-radius: 50%; border: 2px solid var(--beige); display: none; }
+        #stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: var(--beige); border-radius: 50%; }
     </style>
 </head>
 <body>
 
     <div id="setup">
         <h1>MYTHICA<br>ADVENTURE</h1>
-        <div class="card" onclick="startGame('WARRIOR')">GUERRERO</div>
-        <div class="card" onclick="startGame('MAGE')">MAGO</div>
-        <div class="card" onclick="startGame('ARCHER')">ARQUERO</div>
-        <div class="card" onclick="startGame('HEALER')">SANADOR</div>
+        <div class="card" onclick="start('WARRIOR')">GUERRERO</div>
+        <div class="card" onclick="start('MAGE')">MAGO</div>
+        <div class="card" onclick="start('ARCHER')">ARQUERO</div>
+        <div class="card" onclick="start('HEALER')">SANADOR</div>
     </div>
 
     <div id="hud">
-        <div class="hud-label" id="p-tag">HERO LV. 1</div>
+        <div id="p-tag" style="color:#000; font-weight:bold; font-size:12px"></div>
         <div class="bar"><div id="hp-f" class="fill" style="background:var(--health)"></div></div>
         <div class="bar"><div id="mp-f" class="fill" style="background:var(--mana)"></div></div>
-        <div class="bar" style="height:6px"><div id="ex-f" class="fill" style="background:var(--exp)"></div></div>
-        <div style="color: #000; font-size: 13px; font-weight: bold; margin-top: 5px;" id="gold-txt">💰 0000</div>
+        <div class="bar" style="height:5px"><div id="ex-f" class="fill" style="background:var(--exp)"></div></div>
+        <div id="gold-txt" style="color:#000; font-weight:bold; font-size:12px">💰 0000</div>
     </div>
 
     <div id="joy"><div id="stick"></div></div>
-    
     <div class="actions" id="btns">
-        <div class="btn" style="background: #a44;" onclick="doAttack()">ATK</div>
-        <div class="btn" style="background: #44a;" onclick="doSpell()">MAG</div>
-        <div class="btn" style="background: #4a4;">INV</div>
-        <div class="btn" style="background: #666;">OPT</div>
+        <div class="btn" style="background:#a44" onclick="doAttack()">ATK</div>
+        <div class="btn" style="background:#44a">MAG</div>
+        <div class="btn" style="background:#4a4">INV</div>
+        <div class="btn" style="background:#666">OPT</div>
     </div>
 
     <canvas id="game"></canvas>
@@ -82,38 +63,67 @@
     const ctx = canvas.getContext('2d');
     
     const CLASSES = {
-        WARRIOR: { hp: 400, mp: 80, spd: 5.0, dmg: 38 },
-        MAGE:    { hp: 200, mp: 350, spd: 4.2, dmg: 65 },
-        ARCHER:  { hp: 280, mp: 150, spd: 6.2, dmg: 48 },
-        HEALER:  { hp: 250, mp: 280, spd: 4.8, dmg: 28 }
+        WARRIOR: { hp: 350, mp: 60, spd: 4.8, dmg: 35 },
+        MAGE:    { hp: 190, mp: 320, spd: 4.2, dmg: 55 },
+        ARCHER:  { hp: 270, mp: 130, spd: 5.8, dmg: 42 },
+        HEALER:  { hp: 240, mp: 260, spd: 4.5, dmg: 25 }
     };
 
-    let p = { x: 2500, y: 2500, lvl: 1, exp: 0, gold: 0, class: 'WARRIOR' };
-    let mobs = [];
+    let p = { x: 2500, y: 2500, lvl: 1, exp: 0, gold: 0, class: 'WARRIOR', target: null };
+    let mobs = [], active = false, move = { x: 0, y: 0 }, auraTick = 0;
     let world = { w: 5000, h: 5000 };
-    let active = false;
 
-    // Imágenes con precarga
     const imgP = new Image(); imgP.src = 'player.png';
     const imgF = new Image(); imgF.src = 'floor1.png';
     const imgM = new Image(); imgM.src = 'floor2.png';
 
-    function startGame(cl) {
-        p.class = cl;
-        p.hp = p.maxHp = CLASSES[cl].hp;
-        p.mp = p.maxMp = CLASSES[cl].mp;
-        
+    function start(cl) {
+        p.class = cl; p.hp = p.maxHp = CLASSES[cl].hp; p.mp = p.maxMp = CLASSES[cl].mp;
         document.getElementById('setup').style.display = 'none';
-        ['hud', 'joy', 'btns'].forEach(id => document.getElementById(id).style.display = (id === 'btns' ? 'grid' : 'block'));
-        
-        for(let i=0; i<35; i++) spawnMob();
-        active = true;
-        updateUI();
-        loop();
+        ['hud', 'joy', 'btns'].forEach(id => document.getElementById(id).style.display = (id==='btns'?'grid':'block'));
+        for(let i=0; i<30; i++) spawnMob();
+        active = true; updateUI(); loop();
     }
 
     function spawnMob() {
-        mobs.push({ x: Math.random()*world.w, y: Math.random()*world.h, hp: 110, max: 110, d: false });
+        mobs.push({ x: Math.random()*world.w, y: Math.random()*world.h, hp: 120, max: 120, d: false, isAggro: false });
+    }
+
+    function showDmg(x, y, v, c) {
+        const d = document.createElement('div');
+        d.className = 'dmg';
+        d.style.left = (x - (p.x - canvas.width/2)) + 'px';
+        d.style.top = (y - (p.y - canvas.height/2)) + 'px';
+        d.style.color = c; d.innerText = v;
+        document.body.appendChild(d);
+        setTimeout(() => d.remove(), 800);
+    }
+
+    // TARGET + AGGRO: Al marcarlo, te persigue
+    canvas.addEventListener('touchstart', (e) => {
+        const r = canvas.getBoundingClientRect();
+        const tx = e.touches[0].clientX - r.left + (p.x - canvas.width/2);
+        const ty = e.touches[0].clientY - r.top + (p.y - canvas.height/2);
+        p.target = null;
+        mobs.forEach(m => {
+            if(!m.d && Math.hypot(tx - m.x, ty - m.y) < 50) {
+                p.target = m;
+                m.isAggro = true; // Activa persecución inmediata estilo Tibia/Lawl
+            }
+        });
+    });
+
+    function doAttack() {
+        if(!p.target || p.target.d) {
+            mobs.forEach(m => { if(!m.d && Math.hypot(p.x - m.x, p.y - m.y) < 100) { p.target = m; m.isAggro = true; } });
+        }
+        if(p.target && !p.target.d) {
+            if(Math.hypot(p.x - p.target.x, p.y - p.target.y) < 100) {
+                let d = CLASSES[p.class].dmg + Math.floor(Math.random()*10);
+                p.target.hp -= d; showDmg(p.target.x, p.target.y, d, "white");
+                if(p.target.hp <= 0) { p.target.d = true; p.exp += 80; p.gold += 10; p.target = null; spawnMob(); updateUI(); }
+            }
+        }
     }
 
     function updateUI() {
@@ -124,57 +134,63 @@
         document.getElementById('gold-txt').innerText = "💰 " + String(p.gold).padStart(4, '0');
     }
 
-    function doAttack() {
-        mobs.forEach(m => {
-            if(!m.d && Math.hypot(p.x - m.x, p.y - m.y) < 110) {
-                m.hp -= CLASSES[p.class].dmg;
-                if(m.hp <= 0) { m.d = true; p.exp += 90; p.gold += 12; spawnMob(); updateUI(); }
-            }
-        });
-    }
-
-    // Controles
-    let move = { x: 0, y: 0 };
+    // Joystick
     const joy = document.getElementById('joy'), stick = document.getElementById('stick');
     joy.ontouchmove = (e) => {
         const r = joy.getBoundingClientRect();
-        let x = e.touches[0].clientX - (r.left + 65), y = e.touches[0].clientY - (r.top + 65);
-        let d = Math.hypot(x,y); if(d > 45) { x *= 45/d; y *= 45/d; }
+        let x = e.touches[0].clientX - (r.left + 60), y = e.touches[0].clientY - (r.top + 60);
+        let d = Math.hypot(x,y); if(d > 40) { x *= 40/d; y *= 40/d; }
         stick.style.transform = `translate(${x}px, ${y}px)`;
-        move = { x: x/45, y: y/45 };
+        move = { x: x/40, y: y/40 };
     };
     joy.ontouchend = () => { move = { x: 0, y: 0 }; stick.style.transform = 'translate(0,0)'; };
 
     function loop() {
         if(!active) return;
         ctx.clearRect(0,0,canvas.width,canvas.height);
-        
-        p.x += move.x * CLASSES[p.class].spd;
-        p.y += move.y * CLASSES[p.class].spd;
-
+        p.x += move.x * CLASSES[p.class].spd; p.y += move.y * CLASSES[p.class].spd;
         let cx = p.x - canvas.width/2, cy = p.y - canvas.height/2;
         ctx.save(); ctx.translate(-cx, -cy);
 
-        // Dibujar Mundo
         ctx.fillStyle = "#111"; ctx.fillRect(0,0,world.w,world.h);
         if(imgF.complete) {
             for(let i=Math.floor(cx/80)*80; i<cx+canvas.width; i+=80)
-            for(let j=Math.floor(cy/80)*80; j<cy+canvas.height; j+=80)
-            ctx.drawImage(imgF, i, j, 81, 81);
+            for(let j=Math.floor(cy/80)*80; j<cy+canvas.height; j+=80) ctx.drawImage(imgF, i, j, 81, 81);
         }
 
+        auraTick += 0.05;
         mobs.forEach(m => {
             if(m.d) return;
+            let dist = Math.hypot(p.x - m.x, p.y - m.y);
+            
+            // Lógica de IA: Si está cerca o es el Target, persigue
+            if(dist < 250 || m.isAggro) { 
+                m.x += (p.x - m.x)*0.012; 
+                m.y += (p.y - m.y)*0.012; 
+            }
+            
+            // Ataque del monstruo
+            if(dist < 40 && Math.random() < 0.02) { p.hp -= 5; updateUI(); showDmg(p.x, p.y, 5, "red"); }
+            
+            // AURA ROJA PULSANTE (Target)
+            if(p.target === m) {
+                let auraSize = 35 + Math.sin(auraTick) * 5;
+                ctx.beginPath();
+                ctx.arc(m.x, m.y, auraSize, 0, Math.PI * 2);
+                ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                // Resplandor interno
+                ctx.fillStyle = "rgba(255, 0, 0, 0.15)";
+                ctx.fill();
+            }
+
             if(imgM.complete) ctx.drawImage(imgM, m.x-25, m.y-25, 50, 50);
-            else { ctx.fillStyle = "red"; ctx.fillRect(m.x-25, m.y-25, 50, 50); }
             ctx.fillStyle = "red"; ctx.fillRect(m.x-20, m.y-35, (m.hp/m.max)*40, 5);
         });
 
         if(imgP.complete) ctx.drawImage(imgP, p.x-30, p.y-30, 60, 60);
-        else { ctx.fillStyle = "cyan"; ctx.fillRect(p.x-30, p.y-30, 60, 60); }
-
-        ctx.restore();
-        requestAnimationFrame(loop);
+        ctx.restore(); requestAnimationFrame(loop);
     }
 
     window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
