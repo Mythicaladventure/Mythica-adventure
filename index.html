@@ -2,45 +2,48 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mythica MMORPG</title>
+    <title>Mythica Adventure - Online</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
     <script src="https://unpkg.com/colyseus.js@0.15.0/dist/colyseus.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
-    
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
         #login-screen {
-            position: fixed; inset: 0; background: #111;
+            position: fixed; inset: 0; background: radial-gradient(circle, #1a1a1a, #000);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000; color: #00ffcc;
+            z-index: 1000; color: #00ffcc; text-shadow: 0 0 10px #00ffcc;
         }
-        input { padding: 15px; margin: 20px; border: 2px solid #00ffcc; background: #000; color: #fff; border-radius: 8px; }
-        button { padding: 15px 30px; background: #00ffcc; border: none; font-weight: bold; border-radius: 8px; cursor: pointer; }
-        #status-text { margin-top: 15px; color: #888; font-size: 14px; }
+        h1 { font-size: 2.5em; letter-spacing: 5px; margin-bottom: 30px; }
+        input { 
+            padding: 15px; width: 220px; border: 2px solid #00ffcc; background: rgba(0,0,0,0.7); 
+            color: #fff; border-radius: 12px; text-align: center; font-size: 1.1em; outline: none;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+        }
+        button { 
+            padding: 15px 40px; background: #00ffcc; border: none; font-weight: bold; 
+            border-radius: 12px; cursor: pointer; font-size: 1em; color: #000;
+            box-shadow: 0 0 20px #00ffcc; transition: transform 0.2s;
+        }
+        button:active { transform: scale(0.95); }
+        #status-text { margin-top: 20px; color: #666; font-size: 0.9em; text-shadow: none; }
         
-        #world { position: relative; width: 100vw; height: 100vh; display: none; background: #222; }
-        .player { width: 32px; height: 32px; position: absolute; background: #00ffcc; border: 1px solid #fff; }
-        .player::after { content: attr(data-name); position: absolute; top: -20px; color: #fff; font-size: 10px; width: 100px; text-align: center; left: -34px; }
+        #world { position: relative; width: 100vw; height: 100vh; display: none; background: #111; }
+        .player { width: 32px; height: 32px; position: absolute; background: #00ffcc; border-radius: 5px; box-shadow: 0 0 10px #00ffcc; }
         #touch-zone { position: fixed; inset: 0; z-index: 100; display: none; }
     </style>
 </head>
 <body>
-
     <div id="login-screen">
-        <h1>MYTHICA</h1>
-        <input type="text" id="p-name" placeholder="Nombre" maxlength="12">
+        <h1>MYTHICA ADVENTURE</h1>
+        <input type="text" id="p-name" placeholder="Tu Nombre de Héroe" maxlength="12">
         <button id="start-btn">ENTRAR AL MUNDO</button>
-        <p id="status-text">Esperando interacción...</p>
+        <p id="status-text">Esperando al viajero...</p>
     </div>
-
     <div id="world"></div>
     <div id="touch-zone"></div>
 
     <script>
-        // Usamos el objeto global de Colyseus correctamente
-        const ColyseusClient = window.Colyseus ? window.Colyseus.Client : null;
-        const client = new ColyseusClient("wss://mythica-adventure.onrender.com");
+        const client = new Colyseus.Client("wss://mythica-adventure.onrender.com");
         let room;
 
         document.getElementById('start-btn').onclick = async function() {
@@ -48,27 +51,19 @@
             const status = document.getElementById('status-text');
             const nombre = document.getElementById('p-name').value || "Viajero";
 
-            // 1. Feedback inmediato
             btn.disabled = true;
-            btn.innerText = "CONECTANDO...";
-            status.innerText = "Llamando al servidor en Render...";
+            status.innerText = "Conectando al servidor...";
 
             try {
-                // 2. Intento de conexión
                 room = await client.joinOrCreate("mundo_mythica", { nombre: nombre });
-                
-                // 3. Éxito
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('world').style.display = 'block';
                 document.getElementById('touch-zone').style.display = 'block';
                 iniciarJuego();
-                
             } catch (e) {
-                console.error("Error de conexión:", e);
                 btn.disabled = false;
-                btn.innerText = "ENTRAR AL MUNDO";
-                status.style.color = "red";
-                status.innerText = "El servidor sigue dormido. ¡Reintenta en 5 segundos!";
+                status.style.color = "#ff4444";
+                status.innerText = "El servidor está despertando. Reintenta en 5 segundos.";
             }
         };
 
@@ -77,21 +72,16 @@
                 const div = document.createElement("div");
                 div.className = "player";
                 div.id = "p-" + sessionId;
-                div.setAttribute('data-name', player.nombre);
                 document.getElementById("world").appendChild(div);
-                
                 player.onChange(() => {
                     div.style.left = player.x + "px";
                     div.style.top = player.y + "px";
                 });
             });
-
             room.state.players.onRemove((player, sessionId) => {
                 const el = document.getElementById("p-" + sessionId);
                 if (el) el.remove();
             });
-
-            // Joystick básico integrado
             const joystick = nipplejs.create({ zone: document.getElementById('touch-zone'), mode: 'dynamic', color: '#00ffcc' });
             let moving = false;
             joystick.on('move', (evt, data) => {
@@ -102,7 +92,6 @@
                 if (data.direction.angle === "down") dy = 32;
                 if (data.direction.angle === "left") dx = -32;
                 if (data.direction.angle === "right") dx = 32;
-                
                 const p = room.state.players.get(room.sessionId);
                 room.send("mover", { x: p.x + dx, y: p.y + dy });
                 setTimeout(() => { moving = false; }, 200);
