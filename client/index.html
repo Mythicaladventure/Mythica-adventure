@@ -9,136 +9,155 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     
     <style>
-        body { margin: 0; background: #0a0a0a; overflow: hidden; touch-action: none; font-family: sans-serif; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Segoe UI', sans-serif; }
         
-        /* El mundo con rejilla de 32px (Estilo Tibia/Lawl) */
+        /* PANTALLA DE INICIO */
+        #login-screen {
+            position: fixed; inset: 0; background: radial-gradient(circle, #1a1a1a, #000);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000; color: #00ffcc;
+        }
+        input#p-name { 
+            padding: 15px; border-radius: 8px; border: 2px solid #00ffcc; 
+            background: #111; color: white; margin: 20px; text-align: center; width: 200px;
+        }
+        #start-btn { padding: 12px 40px; background: #00ffcc; border: none; border-radius: 8px; font-weight: bold; box-shadow: 0 0 15px #00ffcc; cursor: pointer; }
+
+        /* MUNDO Y REJILLA */
         #world { 
-            width: 100vw; height: 100vh; 
+            width: 100vw; height: 100vh; position: relative; display: none;
             background-color: #1a1a1a;
-            background-image: 
-                linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+            background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
             background-size: 32px 32px;
-            position: relative;
         }
 
+        /* JUGADORES */
         .player { 
-            width: 32px; height: 32px; 
-            background: #00ffcc; position: absolute; 
-            border: 2px solid #008877; 
-            box-sizing: border-box;
-            transition: all 0.15s linear; /* Desplazamiento suave entre cuadros */
-            z-index: 10;
-            border-radius: 4px;
+            width: 32px; height: 32px; position: absolute; background: #00ffcc;
+            transition: all 0.18s linear; border-radius: 4px; border: 1px solid #fff;
         }
+        .player::after {
+            content: attr(data-name); position: absolute; top: -22px; left: 50%;
+            transform: translateX(-50%); font-size: 11px; color: #fff; text-shadow: 2px 2px 2px #000; white-space: nowrap;
+        }
+        .local-player { background: #fff; box-shadow: 0 0 15px #00ffcc; }
 
-        .local-player {
-            box-shadow: 0 0 15px #00ffcc;
-            background: #ffffff;
-        }
+        /* INTERFAZ HUD */
+        #ui { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 500; display: none; }
+        .bars { position: absolute; top: 20px; left: 20px; width: 150px; pointer-events: auto; }
+        .bar { height: 10px; background: #111; margin-bottom: 5px; border-radius: 5px; border: 1px solid #333; overflow: hidden; }
+        .hp { width: 100%; height: 100%; background: linear-gradient(90deg, #ff416c, #ff4b2b); }
+        
+        /* CHAT */
+        #chat-container { position: absolute; bottom: 20px; left: 20px; width: 280px; pointer-events: auto; }
+        #chat-log { height: 100px; overflow-y: hidden; display: flex; flex-direction: column; justify-content: flex-end; mask-image: linear-gradient(transparent, black 40%); }
+        .msg { font-size: 12px; color: #fff; text-shadow: 1px 1px 1px #000; margin-bottom: 2px; }
+        #chat-input { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid #444; color: #fff; padding: 8px; border-radius: 4px; pointer-events: auto; }
 
-        /* Zona táctil para el Joystick */
-        #touch-zone { 
-            position: fixed; top: 0; left: 0; 
-            width: 100%; height: 100%; 
-            z-index: 100; 
-        }
-
-        #status {
-            position: fixed; top: 10px; left: 10px;
-            color: #00ffcc; font-size: 12px; z-index: 200;
-        }
+        #touch-zone { position: fixed; inset: 0; z-index: 100; display: none; }
     </style>
 </head>
 <body>
-    <div id="status">Conectando al Reino de Mythica...</div>
+
+    <div id="login-screen">
+        <h1>MYTHICA ADVENTURE</h1>
+        <input type="text" id="p-name" placeholder="Tu nombre de héroe" maxlength="12">
+        <button id="start-btn">ENTRAR AL MUNDO</button>
+    </div>
+
     <div id="world"></div>
+    
+    <div id="ui">
+        <div class="bars">
+            <div class="bar"><div class="hp"></div></div>
+        </div>
+        <div id="chat-container">
+            <div id="chat-log"></div>
+            <input type="text" id="chat-input" placeholder="Escribe un mensaje...">
+        </div>
+    </div>
+
     <div id="touch-zone"></div>
 
     <script>
         const client = new Colyseus.Client("wss://mythica-adventure.onrender.com");
         let room;
-        const players = {};
-        const TILE_SIZE = 32; 
-        let moveTimeout = false;
+        const TILE_SIZE = 32;
+        let isMoving = false;
 
-        // Inicializar el Joystick Dinámico
-        const manager = nipplejs.create({
-            zone: document.getElementById('touch-zone'),
-            mode: 'dynamic',
-            color: '#00ffcc',
-            threshold: 0.1
-        });
+        // --- INICIAR JUEGO ---
+        document.getElementById('start-btn').onclick = async () => {
+            const nombre = document.getElementById('p-name').value || "Viajero";
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('world').style.display = 'block';
+            document.getElementById('ui').style.display = 'block';
+            document.getElementById('touch-zone').style.display = 'block';
+            await connect(nombre);
+        };
 
-        async function connect() {
+        async function connect(nombre) {
             try {
-                room = await client.joinOrCreate("mundo_mythica");
-                document.getElementById('status').innerText = "⚔️ En línea - Mundo de Mythica";
+                room = await client.joinOrCreate("mundo_mythica", { nombre: nombre });
 
-                // Escuchar cuando entran jugadores
+                // Cuando entra un jugador
                 room.state.players.onAdd((player, sessionId) => {
                     const div = document.createElement("div");
                     div.className = "player" + (sessionId === room.sessionId ? " local-player" : "");
+                    div.setAttribute('data-name', player.nombre);
                     document.getElementById("world").appendChild(div);
-                    players[sessionId] = div;
 
-                    // Posición inicial
                     div.style.left = player.x + "px";
                     div.style.top = player.y + "px";
 
-                    // Actualizar cuando se muevan
                     player.onChange(() => {
                         div.style.left = player.x + "px";
                         div.style.top = player.y + "px";
                     });
                 });
 
-                room.state.players.onRemove((player, sessionId) => {
-                    if (players[sessionId]) {
-                        players[sessionId].remove();
-                        delete players[sessionId];
-                    }
+                // Escuchar Chat
+                room.onMessage("mensaje_chat", (data) => {
+                    const log = document.getElementById('chat-log');
+                    const m = document.createElement('div');
+                    m.className = 'msg';
+                    m.innerHTML = `<b>${data.desde}:</b> ${data.texto}`;
+                    log.appendChild(m);
                 });
 
-            } catch (e) {
-                document.getElementById('status').innerText = "❌ Error de conexión";
-                console.error(e);
-            }
+                // Enviar Chat
+                document.getElementById('chat-input').onkeypress = (e) => {
+                    if (e.key === 'Enter' && e.target.value !== "") {
+                        room.send("chat", e.target.value);
+                        e.target.value = "";
+                    }
+                };
+
+            } catch (e) { console.error("Error conectando:", e); }
         }
 
-        // Lógica de Movimiento Unificada
-        manager.on('move', (evt, data) => {
-            if (moveTimeout || !room) return;
-
-            // Solo nos movemos si el joystick se desplaza lo suficiente
-            if (data.distance > 15 && data.direction) {
-                moveTimeout = true;
-                let dx = 0, dy = 0;
-
-                const angle = data.direction.angle;
-                if (angle === "up") dy = -TILE_SIZE;
-                else if (angle === "down") dy = TILE_SIZE;
-                else if (angle === "left") dx = -TILE_SIZE;
-                else if (angle === "right") dx = TILE_SIZE;
-
-                if (dx !== 0 || dy !== 0) {
-                    const myPlayer = room.state.players.get(room.sessionId);
-                    room.send("mover", { 
-                        x: myPlayer.x + dx, 
-                        y: myPlayer.y + dy 
-                    });
-                }
-
-                // Ajustamos la velocidad de "caminata" (200ms es similar a Lawl/Tibia)
-                setTimeout(() => { moveTimeout = false; }, 200);
-            }
+        // --- CONTROLES (JOYSTICK) ---
+        const joystick = nipplejs.create({ 
+            zone: document.getElementById('touch-zone'), 
+            mode: 'dynamic', 
+            color: '#00ffcc' 
         });
 
-        manager.on('end', () => {
-            moveTimeout = false;
-        });
+        joystick.on('move', (evt, data) => {
+            if (isMoving || !room || !data.direction) return;
+            isMoving = true;
+            let dx = 0, dy = 0;
+            const dir = data.direction.angle;
 
-        connect();
+            if (dir === "up") dy = -TILE_SIZE;
+            else if (dir === "down") dy = TILE_SIZE;
+            else if (dir === "left") dx = -TILE_SIZE;
+            else if (dir === "right") dx = TILE_SIZE;
+
+            const myPlayer = room.state.players.get(room.sessionId);
+            room.send("mover", { x: myPlayer.x + dx, y: myPlayer.y + dy });
+            
+            setTimeout(() => { isMoving = false; }, 200);
+        });
     </script>
 </body>
 </html>
