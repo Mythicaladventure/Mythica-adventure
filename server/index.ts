@@ -3,25 +3,27 @@ import { Server, Room, Client } from "colyseus";
 import { createServer } from "http";
 import cors from "cors";
 import mongoose from "mongoose";
-import { Schema, type, MapSchema } from "@colyseus/schema";
+import { Schema, MapSchema, defineSchema } from "@colyseus/schema";
 
-// --- 1. DEFINICIÓN DE DATOS (ORDEN ESTRICTO) ---
-class Player extends Schema {
-    @type("number") x: number = 64;
-    @type("number") y: number = 64;
-    @type("string") nombre: string = "Viajero";
-}
+// --- 1. ESTADO SIN DECORADORES (Evita el error de Render) ---
+class Player extends Schema {}
+defineSchema(Player, {
+    x: "number",
+    y: "number",
+    nombre: "string"
+});
 
-class MyState extends Schema {
-    @type({ map: Player }) players = new MapSchema<Player>();
-}
+class MyState extends Schema {}
+defineSchema(MyState, {
+    players: { map: Player }
+});
 
 // --- 2. BASE DE DATOS ---
 const mongoURL = process.env.MONGODB_URL;
 if (mongoURL) {
     mongoose.connect(mongoURL)
-        .then(() => console.log("🍃 DB Conectada"))
-        .catch(err => console.log("❌ Error DB:", err));
+        .then(() => console.log("🍃 MongoDB Conectado"))
+        .catch(err => console.error("❌ Error DB:", err));
 }
 
 const PlayerAccount = mongoose.model('PlayerAccount', new mongoose.Schema({
@@ -29,7 +31,7 @@ const PlayerAccount = mongoose.model('PlayerAccount', new mongoose.Schema({
 }));
 
 // --- 3. LÓGICA DE LA SALA ---
-class SalaPrincipal extends Room<MyState> {
+class SalaPrincipal extends Room {
     onCreate() {
         this.setState(new MyState());
         
@@ -61,7 +63,7 @@ class SalaPrincipal extends Room<MyState> {
         nuevoPlayer.nombre = acc.nombre || nombreInput;
         
         this.state.players.set(client.sessionId, nuevoPlayer);
-        console.log(`✅ Entró: ${nuevoPlayer.nombre}`);
+        console.log(`✅ ${nuevoPlayer.nombre} unido con éxito.`);
     }
 
     onLeave(client: Client) {
@@ -69,7 +71,7 @@ class SalaPrincipal extends Room<MyState> {
     }
 }
 
-// --- 4. ARRANQUE ---
+// --- 4. SERVIDOR WEB ---
 const app = express();
 app.use(cors());
 const server = createServer(app);
@@ -79,5 +81,5 @@ gameServer.define("mundo_mythica", SalaPrincipal);
 
 const port = Number(process.env.PORT) || 10000;
 server.listen(port, "0.0.0.0", () => {
-    console.log(`🚀 Mythica listo en puerto ${port}`);
+    console.log(`🚀 SERVIDOR ACTIVO EN PUERTO ${port}`);
 });
