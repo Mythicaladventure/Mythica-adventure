@@ -7,36 +7,36 @@
     <script src="https://unpkg.com/colyseus.js@0.15.0/dist/colyseus.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; color: #00ffcc; }
         #login-screen {
-            position: fixed; inset: 0; background: radial-gradient(circle, #0a0a0a, #000);
+            position: fixed; inset: 0; background: radial-gradient(circle, #0f0f0f, #000);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             z-index: 1000;
         }
-        h1 { 
-            color: #00ffcc; font-size: 2.2em; letter-spacing: 4px; 
-            text-shadow: 0 0 15px #00ffcc; margin-bottom: 40px;
-        }
+        h1 { font-size: 2.2em; letter-spacing: 5px; text-shadow: 0 0 15px #00ffcc; margin-bottom: 30px; }
         input { 
-            padding: 15px; width: 240px; border: 2px solid #00ffcc; background: transparent; 
-            color: #fff; border-radius: 10px; text-align: center; margin-bottom: 20px; outline: none;
+            padding: 15px; width: 250px; border: 2px solid #00ffcc; background: rgba(0,0,0,0.5); 
+            color: #fff; border-radius: 12px; text-align: center; margin-bottom: 20px; outline: none;
         }
         button { 
-            padding: 15px 45px; background: #00ffcc; border: none; font-weight: bold; 
-            border-radius: 10px; cursor: pointer; color: #000; font-size: 1em;
-            box-shadow: 0 0 20px #00ffcc;
+            padding: 15px 50px; background: #00ffcc; border: none; font-weight: bold; 
+            border-radius: 12px; cursor: pointer; color: #000; font-size: 1.1em;
+            box-shadow: 0 0 20px #00ffcc; transition: 0.3s;
         }
-        #status-text { margin-top: 25px; color: #ff4444; font-size: 0.9em; text-align: center; width: 80%; }
+        #status-text { margin-top: 20px; color: #ff4444; font-size: 0.9em; height: 20px; }
         
         #world { position: relative; width: 100vw; height: 100vh; display: none; background: #111; }
-        .player { width: 32px; height: 32px; position: absolute; background: #00ffcc; border-radius: 5px; box-shadow: 0 0 10px #00ffcc; }
+        .player { 
+            width: 32px; height: 32px; position: absolute; background: #00ffcc; 
+            border-radius: 5px; box-shadow: 0 0 10px #00ffcc; transition: 0.1s linear;
+        }
         #touch-zone { position: fixed; inset: 0; z-index: 100; display: none; }
     </style>
 </head>
 <body>
     <div id="login-screen">
         <h1>MYTHICA ADVENTURE</h1>
-        <input type="text" id="p-name" placeholder="Tu Nombre" maxlength="12">
+        <input type="text" id="p-name" placeholder="Tu Nombre de Héroe" maxlength="12">
         <button id="start-btn">ENTRAR AL MUNDO</button>
         <p id="status-text"></p>
     </div>
@@ -53,49 +53,45 @@
             const nombre = document.getElementById('p-name').value || "Héroe";
 
             btn.disabled = true;
-            status.style.color = "#888";
-            status.innerText = "Conectando...";
+            btn.innerText = "CONECTANDO...";
+            status.innerText = "";
 
             try {
                 room = await client.joinOrCreate("mundo_mythica", { nombre: nombre });
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('world').style.display = 'block';
                 document.getElementById('touch-zone').style.display = 'block';
-                iniciarJuego();
+                
+                room.state.players.onAdd((player, sessionId) => {
+                    const div = document.createElement("div");
+                    div.className = "player";
+                    div.id = "p-" + sessionId;
+                    document.getElementById("world").appendChild(div);
+                    player.onChange(() => {
+                        div.style.left = player.x + "px";
+                        div.style.top = player.y + "px";
+                    });
+                });
+                
+                // Joystick
+                const joystick = nipplejs.create({ zone: document.getElementById('touch-zone'), mode: 'dynamic', color: '#00ffcc' });
+                joystick.on('move', (evt, data) => {
+                    if (!data.direction) return;
+                    let dx = 0, dy = 0;
+                    if (data.direction.angle === "up") dy = -8;
+                    if (data.direction.angle === "down") dy = 8;
+                    if (data.direction.angle === "left") dx = -8;
+                    if (data.direction.angle === "right") dx = 8;
+                    const p = room.state.players.get(room.sessionId);
+                    room.send("mover", { x: p.x + dx, y: p.y + dy });
+                });
+
             } catch (e) {
                 btn.disabled = false;
-                status.style.color = "#ff4444";
-                status.innerText = "El servidor está despertando. Reintenta en 10 segundos.";
+                btn.innerText = "ENTRAR AL MUNDO";
+                status.innerText = "El servidor está despertando. Reintenta en 5 segundos.";
             }
         };
-
-        function iniciarJuego() {
-            room.state.players.onAdd((player, sessionId) => {
-                const div = document.createElement("div");
-                div.className = "player";
-                div.id = "p-" + sessionId;
-                document.getElementById("world").appendChild(div);
-                player.onChange(() => {
-                    div.style.left = player.x + "px";
-                    div.style.top = player.y + "px";
-                });
-            });
-            room.state.players.onRemove((player, sessionId) => {
-                const el = document.getElementById("p-" + sessionId);
-                if (el) el.remove();
-            });
-            nipplejs.create({ zone: document.getElementById('touch-zone'), mode: 'dynamic', color: '#00ffcc' })
-            .on('move', (evt, data) => {
-                if (!data.direction) return;
-                let dx = 0, dy = 0;
-                if (data.direction.angle === "up") dy = -10;
-                if (data.direction.angle === "down") dy = 10;
-                if (data.direction.angle === "left") dx = -10;
-                if (data.direction.angle === "right") dx = 10;
-                const p = room.state.players.get(room.sessionId);
-                room.send("mover", { x: p.x + dx, y: p.y + dy });
-            });
-        }
     </script>
 </body>
 </html>
