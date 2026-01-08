@@ -9,7 +9,10 @@
     "strict": false,
     "noImplicitAny": false,
     "moduleResolution": "node",
-    "typeRoots": ["./node_modules/@types"]
+    "baseUrl": ".",
+    "paths": {
+      "*": ["node_modules/*"]
+    }
   },
   "include": ["server/**/*.ts"],
   "exclude": ["node_modules"]
