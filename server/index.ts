@@ -10,46 +10,38 @@ type("number")(Player.prototype, "x");
 type("number")(Player.prototype, "y");
 type("string")(Player.prototype, "nombre");
 
-class MyState extends Schema {}
+class MyState extends Schema {
+    constructor() {
+        super();
+        this.players = new MapSchema<Player>();
+    }
+}
 type({ map: Player })(MyState.prototype, "players");
 
 const mongoURL = process.env.MONGODB_URL;
 if (mongoURL) {
-    mongoose.connect(mongoURL, { serverSelectionTimeoutMS: 5000 })
-        .then(() => console.log("🍃 MongoDB Conectado"))
-        .catch(err => console.log("⚠️ Corriendo sin DB persistente por ahora."));
+    mongoose.connect(mongoURL).catch(err => console.log("DB Offline"));
 }
-
-const PlayerAccount = mongoose.model('PlayerAccount', new mongoose.Schema({
-    userId: String, nombre: String, x: Number, y: Number
-}));
 
 class SalaPrincipal extends Room<MyState> {
     onCreate() {
-        this.setState(new MyState());
+        this.setState(new MyState()); // Esto evita el error 'reading set'
         this.onMessage("mover", (client, pos) => {
             const p = this.state.players.get(client.sessionId);
-            if (p) {
-                p.x = pos.x; p.y = pos.y;
-                PlayerAccount.updateOne({ userId: client.sessionId }, { x: pos.x, y: pos.y }).catch(() => {});
-            }
+            if (p) { p.x = pos.x; p.y = pos.y; }
         });
     }
 
     async onJoin(client: Client, options: any) {
-        const nombreInput = options.nombre || "Viajero";
         const nuevoPlayer = new Player();
-        nuevoPlayer.x = 64; nuevoPlayer.y = 64;
-        nuevoPlayer.nombre = nombreInput;
-        
+        nuevoPlayer.x = 100; nuevoPlayer.y = 100;
+        nuevoPlayer.nombre = options.nombre || "Viajero";
         this.state.players.set(client.sessionId, nuevoPlayer);
-        console.log(`✅ Entró: ${nuevoPlayer.nombre}`);
+        console.log("Jugador unido:", nuevoPlayer.nombre);
     }
 
     onLeave(client: Client) {
-        if (this.state && this.state.players) {
-            this.state.players.delete(client.sessionId);
-        }
+        this.state.players.delete(client.sessionId);
     }
 }
 
@@ -58,7 +50,4 @@ app.use(cors());
 const server = createServer(app);
 const gameServer = new Server({ server });
 gameServer.define("mundo_mythica", SalaPrincipal);
-
-server.listen(Number(process.env.PORT) || 10000, "0.0.0.0", () => {
-    console.log(`🚀 SERVIDOR LISTO`);
-});
+server.listen(Number(process.env.PORT) || 10000, "0.0.0.0");
