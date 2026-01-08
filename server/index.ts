@@ -2,25 +2,40 @@ import express from "express";
 import { Server, Room, Client } from "colyseus";
 import { createServer } from "http";
 import cors from "cors";
-// Importamos lo que acabas de crear
+import mongoose from "mongoose"; // <--- Nueva pieza
 import { MyState, Player } from "./MyState"; 
 
+// --- SEGURIDAD ---
 process.on('unhandledRejection', (reason) => console.log('⚠️ Error:', reason));
 process.on('uncaughtException', (err) => console.log('⚠️ Error Crítico:', err));
+
+// --- CONEXIÓN A MONGODB ---
+const mongoURL = process.env.MONGODB_URL;
+if (mongoURL) {
+    mongoose.connect(mongoURL)
+        .then(() => console.log("🍃 MongoDB Conectado y listo para guardar datos"))
+        .catch((err) => console.log("❌ Error en MongoDB:", err));
+}
+
+// --- ESQUEMA DE BASE DE DATOS (Lo que se guarda permanentemente) ---
+const PlayerModel = mongoose.model('PlayerAccount', new mongoose.Schema({
+    username: String,
+    level: Number,
+    gold: Number,
+    posX: Number,
+    posY: Number
+}));
 
 const port = Number(process.env.PORT) || 10000;
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- LÓGICA DEL MUNDO ---
 class SalaPrincipal extends Room<MyState> {
     onCreate(options: any) {
-        // Le decimos a la sala que use tu MyState
         this.setState(new MyState());
         console.log("🏰 Mundo de Mythica sincronizado.");
 
-        // Escucha cuando un jugador se mueve desde la APK
         this.onMessage("mover", (client, datos) => {
             const player = this.state.players.get(client.sessionId);
             if (player) {
@@ -30,23 +45,23 @@ class SalaPrincipal extends Room<MyState> {
         });
     }
 
-    onJoin(client: Client) {
-        console.log("👤 Jugador nuevo:", client.sessionId);
-        // Creamos al jugador en el mapa al entrar
+    async onJoin(client: Client, options: any) {
+        console.log("👤 Jugador entrando:", client.sessionId);
+        
+        // Aquí es donde ocurre la magia: busca o crea al jugador en la base de datos
+        // Por ahora lo creamos de forma básica
         this.state.players.set(client.sessionId, new Player());
     }
 
     onLeave(client: Client) {
-        console.log("🏃 Jugador salió:", client.sessionId);
         this.state.players.delete(client.sessionId);
     }
 }
 
 const servidorWeb = createServer(app);
 const gameServer = new Server({ server: servidorWeb });
-
 gameServer.define("mundo_mythica", SalaPrincipal);
 
-app.get("/", (req, res) => res.send("⚔️ Servidor MMORPG Sincronizado"));
+app.get("/", (req, res) => res.send("⚔️ Servidor MMORPG con Base de Datos Activa"));
 
 gameServer.listen(port);
