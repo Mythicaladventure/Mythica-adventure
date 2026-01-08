@@ -5,74 +5,63 @@ import cors from "cors";
 import mongoose from "mongoose";
 import { Schema, type, MapSchema } from "@colyseus/schema";
 
-// 1. PRIMERO DEFINIMOS EL ESTADO (Para evitar el error de Render)
-export class Player extends Schema {
-    @type("number") x: number = 0;
-    @type("number") y: number = 0;
+// --- 1. DEFINICIÓN DE DATOS (ORDEN ESTRICTO) ---
+class Player extends Schema {
+    @type("number") x: number = 64;
+    @type("number") y: number = 64;
     @type("string") nombre: string = "Viajero";
 }
 
-export class MyState extends Schema {
+class MyState extends Schema {
     @type({ map: Player }) players = new MapSchema<Player>();
 }
 
-// 2. CONEXIÓN A BASE DE DATOS
+// --- 2. BASE DE DATOS ---
 const mongoURL = process.env.MONGODB_URL;
 if (mongoURL) {
     mongoose.connect(mongoURL)
-        .then(() => console.log("🍃 MongoDB Conectado con éxito"))
-        .catch((err) => console.error("❌ Error MongoDB:", err));
+        .then(() => console.log("🍃 DB Conectada"))
+        .catch(err => console.log("❌ Error DB:", err));
 }
 
 const PlayerAccount = mongoose.model('PlayerAccount', new mongoose.Schema({
-    userId: String,
-    nombre: String,
-    x: Number,
-    y: Number
+    userId: String, nombre: String, x: Number, y: Number
 }));
 
-// 3. DEFINICIÓN DE LA SALA
+// --- 3. LÓGICA DE LA SALA ---
 class SalaPrincipal extends Room<MyState> {
-    onCreate(options: any) {
+    onCreate() {
         this.setState(new MyState());
         
-        this.onMessage("mover", async (client, datos) => {
-            const player = this.state.players.get(client.sessionId);
-            if (player) {
-                player.x = datos.x;
-                player.y = datos.y;
-                await PlayerAccount.updateOne({ userId: client.sessionId }, { x: datos.x, y: datos.y });
+        this.onMessage("mover", async (client, pos) => {
+            const p = this.state.players.get(client.sessionId);
+            if (p) {
+                p.x = pos.x; p.y = pos.y;
+                await PlayerAccount.updateOne({ userId: client.sessionId }, { x: pos.x, y: pos.y });
             }
         });
 
-        this.onMessage("chat", (client, mensaje) => {
-            const player = this.state.players.get(client.sessionId);
-            this.broadcast("mensaje_chat", {
-                desde: player?.nombre || "Anónimo",
-                texto: mensaje
-            });
+        this.onMessage("chat", (client, msg) => {
+            const p = this.state.players.get(client.sessionId);
+            this.broadcast("mensaje_chat", { desde: p?.nombre || "Nadie", texto: msg });
         });
     }
 
     async onJoin(client: Client, options: any) {
-        const nombreElegido = options.nombre || "Viajero";
+        const nombreInput = options.nombre || "Viajero";
+        let acc = await PlayerAccount.findOne({ userId: client.sessionId });
         
-        let account = await PlayerAccount.findOne({ userId: client.sessionId });
-        if (!account) {
-            account = await PlayerAccount.create({ 
-                userId: client.sessionId, 
-                nombre: nombreElegido,
-                x: 64, y: 64 
-            });
+        if (!acc) {
+            acc = await PlayerAccount.create({ userId: client.sessionId, nombre: nombreInput, x: 64, y: 64 });
         }
 
-        const player = new Player();
-        player.x = account.x || 64;
-        player.y = account.y || 64;
-        player.nombre = account.nombre || nombreElegido;
+        const nuevoPlayer = new Player();
+        nuevoPlayer.x = acc.x || 64;
+        nuevoPlayer.y = acc.y || 64;
+        nuevoPlayer.nombre = acc.nombre || nombreInput;
         
-        this.state.players.set(client.sessionId, player);
-        console.log(`✅ ${player.nombre} ha entrado.`);
+        this.state.players.set(client.sessionId, nuevoPlayer);
+        console.log(`✅ Entró: ${nuevoPlayer.nombre}`);
     }
 
     onLeave(client: Client) {
@@ -80,14 +69,15 @@ class SalaPrincipal extends Room<MyState> {
     }
 }
 
-// 4. ARRANQUE DEL SERVIDOR
+// --- 4. ARRANQUE ---
 const app = express();
 app.use(cors());
-const servidorWeb = createServer(app);
-const gameServer = new Server({ server: servidorWeb });
+const server = createServer(app);
+const gameServer = new Server({ server });
+
 gameServer.define("mundo_mythica", SalaPrincipal);
 
-const PORT = Number(process.env.PORT) || 10000;
-servidorWeb.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Mythica Engine operando en puerto ${PORT}`);
+const port = Number(process.env.PORT) || 10000;
+server.listen(port, "0.0.0.0", () => {
+    console.log(`🚀 Mythica listo en puerto ${port}`);
 });
