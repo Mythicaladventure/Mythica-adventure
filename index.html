@@ -2,41 +2,38 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mythica Adventure</title>
+    <title>Mythica Adventure - Oficial</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://unpkg.com/colyseus.js@0.15.0/dist/colyseus.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
-    
     <style>
-        /* --- ESTÉTICA SAGRADA (No cambiar) --- */
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Orbitron', sans-serif; }
+        /* ESTÉTICA MYTHICA ADVENTURE */
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
         #login-screen {
-            position: fixed; inset: 0; background: radial-gradient(circle, #0a0a0a, #000);
+            position: fixed; inset: 0; background: radial-gradient(circle, #0f0f0f, #000);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             z-index: 1000;
         }
         h1 { 
-            color: #00ffcc; font-size: 2.2em; letter-spacing: 4px; 
-            text-shadow: 0 0 20px rgba(0, 255, 204, 0.6); margin-bottom: 40px;
+            color: #00ffcc; font-size: 2.5em; letter-spacing: 5px; 
+            text-shadow: 0 0 20px #00ffcc; margin-bottom: 40px; text-align: center;
         }
         input { 
-            padding: 15px; width: 240px; border: 2px solid #00ffcc; background: transparent; 
-            color: #fff; border-radius: 10px; text-align: center; margin-bottom: 20px;
-            box-shadow: inset 0 0 10px rgba(0, 255, 204, 0.1); outline: none;
+            padding: 15px; width: 250px; border: 2px solid #00ffcc; background: rgba(0,0,0,0.5); 
+            color: #fff; border-radius: 12px; text-align: center; margin-bottom: 20px; outline: none;
         }
         button { 
-            padding: 15px 45px; background: #00ffcc; border: none; font-weight: bold; 
-            border-radius: 10px; cursor: pointer; color: #000;
-            box-shadow: 0 0 25px #00ffcc; transition: 0.3s;
+            padding: 15px 50px; background: #00ffcc; border: none; font-weight: bold; 
+            border-radius: 12px; cursor: pointer; color: #000; font-size: 1.1em;
+            box-shadow: 0 0 20px #00ffcc; transition: 0.3s;
         }
-        button:hover { transform: scale(1.05); box-shadow: 0 0 40px #00ffcc; }
-        #status-text { margin-top: 25px; color: #ff4444; font-size: 0.9em; height: 20px; }
+        button:active { transform: scale(0.9); }
+        #status-text { margin-top: 20px; color: #ff4444; font-size: 0.9em; height: 20px; }
         
-        /* --- MUNDO Y JUGADORES --- */
         #world { position: relative; width: 100vw; height: 100vh; display: none; background: #111; }
         .player { 
             width: 32px; height: 32px; position: absolute; background: #00ffcc; 
-            border-radius: 6px; box-shadow: 0 0 15px #00ffcc; transition: 0.2s linear; 
+            border-radius: 4px; box-shadow: 0 0 10px #00ffcc; 
         }
         #touch-zone { position: fixed; inset: 0; z-index: 100; display: none; }
     </style>
@@ -44,7 +41,7 @@
 <body>
     <div id="login-screen">
         <h1>MYTHICA ADVENTURE</h1>
-        <input type="text" id="p-name" placeholder="NOMBRE DEL HÉROE" maxlength="12">
+        <input type="text" id="p-name" placeholder="Escribe tu nombre..." maxlength="12">
         <button id="start-btn">ENTRAR AL MUNDO</button>
         <p id="status-text"></p>
     </div>
@@ -56,10 +53,13 @@
         let room;
 
         document.getElementById('start-btn').onclick = async function() {
-            const nombre = document.getElementById('p-name').value || "Viajero";
+            const btn = this;
             const status = document.getElementById('status-text');
-            this.innerText = "CARGANDO...";
-            
+            const nombre = document.getElementById('p-name').value || "Héroe";
+
+            btn.innerText = "CONECTANDO...";
+            status.innerText = "";
+
             try {
                 room = await client.joinOrCreate("mundo_mythica", { nombre: nombre });
                 document.getElementById('login-screen').style.display = 'none';
@@ -77,7 +77,7 @@
                     });
                 });
             } catch (e) {
-                this.innerText = "ENTRAR AL MUNDO";
+                btn.innerText = "ENTRAR AL MUNDO";
                 status.innerText = "El servidor está despertando. Reintenta en 5 segundos.";
             }
         };
