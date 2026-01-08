@@ -5,10 +5,11 @@
   "main": "server/index.ts",
   "scripts": {
     "start": "ts-node --transpile-only server/index.ts",
-    "build": "npm install && npm install colyseus @colyseus/schema express"
+    "build": "npm install"
   },
   "dependencies": {
     "colyseus": "^0.15.0",
+    "@colyseus/monitor": "^0.15.0",
     "@colyseus/schema": "^2.0.0",
     "express": "^4.18.2",
     "dotenv": "^16.3.1",
