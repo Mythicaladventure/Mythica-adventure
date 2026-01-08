@@ -7,10 +7,10 @@
     "rootDir": "./",
     "strict": false,
     "noImplicitAny": false,
-    "ignoreDeprecations": "5.0",
-    "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node"
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules"]
