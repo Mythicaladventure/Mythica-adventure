@@ -1,7 +1,7 @@
 {
   "name": "mythica-adventure-server",
   "version": "1.0.0",
-  "description": "Servidor Mythica Adventure",
+  "description": "Servidor MMORPG Mythica Adventure",
   "main": "server/index.ts",
   "scripts": {
     "start": "ts-node --transpile-only server/index.ts",
