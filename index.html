@@ -2,42 +2,51 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mythica Adventure - Online</title>
+    <title>Mythica Adventure</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://unpkg.com/colyseus.js@0.15.0/dist/colyseus.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+    
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        /* --- ESTÉTICA SAGRADA (No cambiar) --- */
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Orbitron', sans-serif; }
         #login-screen {
-            position: fixed; inset: 0; background: radial-gradient(circle, #1a1a1a, #000);
+            position: fixed; inset: 0; background: radial-gradient(circle, #0a0a0a, #000);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000; color: #00ffcc; text-shadow: 0 0 10px #00ffcc;
+            z-index: 1000;
         }
-        h1 { font-size: 2.5em; letter-spacing: 5px; margin-bottom: 30px; }
+        h1 { 
+            color: #00ffcc; font-size: 2.2em; letter-spacing: 4px; 
+            text-shadow: 0 0 20px rgba(0, 255, 204, 0.6); margin-bottom: 40px;
+        }
         input { 
-            padding: 15px; width: 220px; border: 2px solid #00ffcc; background: rgba(0,0,0,0.7); 
-            color: #fff; border-radius: 12px; text-align: center; font-size: 1.1em; outline: none;
-            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+            padding: 15px; width: 240px; border: 2px solid #00ffcc; background: transparent; 
+            color: #fff; border-radius: 10px; text-align: center; margin-bottom: 20px;
+            box-shadow: inset 0 0 10px rgba(0, 255, 204, 0.1); outline: none;
         }
         button { 
-            padding: 15px 40px; background: #00ffcc; border: none; font-weight: bold; 
-            border-radius: 12px; cursor: pointer; font-size: 1em; color: #000;
-            box-shadow: 0 0 20px #00ffcc; transition: transform 0.2s;
+            padding: 15px 45px; background: #00ffcc; border: none; font-weight: bold; 
+            border-radius: 10px; cursor: pointer; color: #000;
+            box-shadow: 0 0 25px #00ffcc; transition: 0.3s;
         }
-        button:active { transform: scale(0.95); }
-        #status-text { margin-top: 20px; color: #666; font-size: 0.9em; text-shadow: none; }
+        button:hover { transform: scale(1.05); box-shadow: 0 0 40px #00ffcc; }
+        #status-text { margin-top: 25px; color: #ff4444; font-size: 0.9em; height: 20px; }
         
+        /* --- MUNDO Y JUGADORES --- */
         #world { position: relative; width: 100vw; height: 100vh; display: none; background: #111; }
-        .player { width: 32px; height: 32px; position: absolute; background: #00ffcc; border-radius: 5px; box-shadow: 0 0 10px #00ffcc; }
+        .player { 
+            width: 32px; height: 32px; position: absolute; background: #00ffcc; 
+            border-radius: 6px; box-shadow: 0 0 15px #00ffcc; transition: 0.2s linear; 
+        }
         #touch-zone { position: fixed; inset: 0; z-index: 100; display: none; }
     </style>
 </head>
 <body>
     <div id="login-screen">
         <h1>MYTHICA ADVENTURE</h1>
-        <input type="text" id="p-name" placeholder="Tu Nombre de Héroe" maxlength="12">
+        <input type="text" id="p-name" placeholder="NOMBRE DEL HÉROE" maxlength="12">
         <button id="start-btn">ENTRAR AL MUNDO</button>
-        <p id="status-text">Esperando al viajero...</p>
+        <p id="status-text"></p>
     </div>
     <div id="world"></div>
     <div id="touch-zone"></div>
@@ -47,56 +56,31 @@
         let room;
 
         document.getElementById('start-btn').onclick = async function() {
-            const btn = this;
-            const status = document.getElementById('status-text');
             const nombre = document.getElementById('p-name').value || "Viajero";
-
-            btn.disabled = true;
-            status.innerText = "Conectando al servidor...";
-
+            const status = document.getElementById('status-text');
+            this.innerText = "CARGANDO...";
+            
             try {
                 room = await client.joinOrCreate("mundo_mythica", { nombre: nombre });
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('world').style.display = 'block';
                 document.getElementById('touch-zone').style.display = 'block';
-                iniciarJuego();
+                
+                room.state.players.onAdd((player, sessionId) => {
+                    const div = document.createElement("div");
+                    div.className = "player";
+                    div.id = "p-" + sessionId;
+                    document.getElementById("world").appendChild(div);
+                    player.onChange(() => {
+                        div.style.left = player.x + "px";
+                        div.style.top = player.y + "px";
+                    });
+                });
             } catch (e) {
-                btn.disabled = false;
-                status.style.color = "#ff4444";
+                this.innerText = "ENTRAR AL MUNDO";
                 status.innerText = "El servidor está despertando. Reintenta en 5 segundos.";
             }
         };
-
-        function iniciarJuego() {
-            room.state.players.onAdd((player, sessionId) => {
-                const div = document.createElement("div");
-                div.className = "player";
-                div.id = "p-" + sessionId;
-                document.getElementById("world").appendChild(div);
-                player.onChange(() => {
-                    div.style.left = player.x + "px";
-                    div.style.top = player.y + "px";
-                });
-            });
-            room.state.players.onRemove((player, sessionId) => {
-                const el = document.getElementById("p-" + sessionId);
-                if (el) el.remove();
-            });
-            const joystick = nipplejs.create({ zone: document.getElementById('touch-zone'), mode: 'dynamic', color: '#00ffcc' });
-            let moving = false;
-            joystick.on('move', (evt, data) => {
-                if (moving || !data.direction) return;
-                moving = true;
-                let dx = 0, dy = 0;
-                if (data.direction.angle === "up") dy = -32;
-                if (data.direction.angle === "down") dy = 32;
-                if (data.direction.angle === "left") dx = -32;
-                if (data.direction.angle === "right") dx = 32;
-                const p = room.state.players.get(room.sessionId);
-                room.send("mover", { x: p.x + dx, y: p.y + dy });
-                setTimeout(() => { moving = false; }, 200);
-            });
-        }
     </script>
 </body>
 </html>
