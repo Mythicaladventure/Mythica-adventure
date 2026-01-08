@@ -2,117 +2,84 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mythica MMORPG - Engine 2026</title>
+    <title>Mythica MMORPG</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <script src="https://unpkg.com/colyseus.js@^0.15.0/dist/colyseus.js"></script>
+    <script src="https://unpkg.com/colyseus.js@0.15.0/dist/colyseus.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     
     <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Segoe UI', sans-serif; }
-        
+        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
         #login-screen {
-            position: fixed; inset: 0; background: radial-gradient(circle, #1a1a1a, #000);
+            position: fixed; inset: 0; background: #111;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             z-index: 1000; color: #00ffcc;
         }
-        input#p-name { 
-            padding: 15px; border-radius: 8px; border: 2px solid #00ffcc; 
-            background: #111; color: white; margin: 20px; text-align: center; width: 200px;
-        }
-        #start-btn { padding: 12px 40px; background: #00ffcc; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #status-text { margin-top: 15px; font-size: 12px; color: #888; }
-
-        #world { 
-            width: 100vw; height: 100vh; position: relative; display: none;
-            background-color: #1a1a1a;
-            background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
-            background-size: 32px 32px;
-        }
-
-        .player { 
-            width: 32px; height: 32px; position: absolute; background: #00ffcc;
-            transition: all 0.18s linear; border-radius: 4px; border: 1px solid #fff;
-        }
-        .player::after {
-            content: attr(data-name); position: absolute; top: -22px; left: 50%;
-            transform: translateX(-50%); font-size: 11px; color: #fff; text-shadow: 2px 2px 2px #000; white-space: nowrap;
-        }
-        .local-player { background: #fff; box-shadow: 0 0 15px #00ffcc; }
-
-        #ui { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 500; display: none; }
-        .bars { position: absolute; top: 20px; left: 20px; width: 150px; pointer-events: auto; }
-        .bar { height: 10px; background: #111; margin-bottom: 5px; border-radius: 5px; border: 1px solid #333; overflow: hidden; }
-        .hp { width: 100%; height: 100%; background: linear-gradient(90deg, #ff416c, #ff4b2b); }
+        input { padding: 15px; margin: 20px; border: 2px solid #00ffcc; background: #000; color: #fff; border-radius: 8px; }
+        button { padding: 15px 30px; background: #00ffcc; border: none; font-weight: bold; border-radius: 8px; cursor: pointer; }
+        #status-text { margin-top: 15px; color: #888; font-size: 14px; }
         
-        #chat-container { position: absolute; bottom: 20px; left: 20px; width: 280px; pointer-events: auto; }
-        #chat-log { height: 100px; overflow-y: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
-        .msg { font-size: 12px; color: #fff; margin-bottom: 2px; }
-        #chat-input { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid #444; color: #fff; padding: 8px; border-radius: 4px; }
-
+        #world { position: relative; width: 100vw; height: 100vh; display: none; background: #222; }
+        .player { width: 32px; height: 32px; position: absolute; background: #00ffcc; border: 1px solid #fff; }
+        .player::after { content: attr(data-name); position: absolute; top: -20px; color: #fff; font-size: 10px; width: 100px; text-align: center; left: -34px; }
         #touch-zone { position: fixed; inset: 0; z-index: 100; display: none; }
     </style>
 </head>
 <body>
 
     <div id="login-screen">
-        <h1>MYTHICA ADVENTURE</h1>
-        <input type="text" id="p-name" placeholder="Tu nombre de héroe" maxlength="12">
+        <h1>MYTHICA</h1>
+        <input type="text" id="p-name" placeholder="Nombre" maxlength="12">
         <button id="start-btn">ENTRAR AL MUNDO</button>
-        <div id="status-text">Listo para conectar</div>
+        <p id="status-text">Esperando interacción...</p>
     </div>
 
     <div id="world"></div>
-    <div id="ui">
-        <div class="bars"><div class="bar"><div class="hp"></div></div></div>
-        <div id="chat-container">
-            <div id="chat-log"></div>
-            <input type="text" id="chat-input" placeholder="Escribe un mensaje...">
-        </div>
-    </div>
     <div id="touch-zone"></div>
 
     <script>
-        // URL Corregida: Asegúrate de que termine en render.com sin barras extras
-        const SERVER_URL = "wss://mythica-adventure.onrender.com";
-        const client = new Colyseus.Client(SERVER_URL);
+        // Usamos el objeto global de Colyseus correctamente
+        const ColyseusClient = window.Colyseus ? window.Colyseus.Client : null;
+        const client = new ColyseusClient("wss://mythica-adventure.onrender.com");
         let room;
-        const TILE_SIZE = 32;
-        let isMoving = false;
 
-        document.getElementById('start-btn').onclick = async () => {
-            const nombre = document.getElementById('p-name').value || "Viajero";
+        document.getElementById('start-btn').onclick = async function() {
+            const btn = this;
             const status = document.getElementById('status-text');
-            status.innerText = "Conectando al reino... (espera 30s)";
-            
+            const nombre = document.getElementById('p-name').value || "Viajero";
+
+            // 1. Feedback inmediato
+            btn.disabled = true;
+            btn.innerText = "CONECTANDO...";
+            status.innerText = "Llamando al servidor en Render...";
+
             try {
-                // Intentamos unirnos o crear la sala
+                // 2. Intento de conexión
                 room = await client.joinOrCreate("mundo_mythica", { nombre: nombre });
                 
-                // Si llegamos aquí, la conexión fue exitosa
+                // 3. Éxito
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('world').style.display = 'block';
-                document.getElementById('ui').style.display = 'block';
                 document.getElementById('touch-zone').style.display = 'block';
+                iniciarJuego();
                 
-                setupGame();
             } catch (e) {
-                console.error(e);
-                status.style.color = "#ff4444";
-                status.innerText = "Error: El servidor está despertando. Reintenta en 10 segundos.";
+                console.error("Error de conexión:", e);
+                btn.disabled = false;
+                btn.innerText = "ENTRAR AL MUNDO";
+                status.style.color = "red";
+                status.innerText = "El servidor sigue dormido. ¡Reintenta en 5 segundos!";
             }
         };
 
-        function setupGame() {
+        function iniciarJuego() {
             room.state.players.onAdd((player, sessionId) => {
                 const div = document.createElement("div");
-                div.className = "player" + (sessionId === room.sessionId ? " local-player" : "");
-                div.setAttribute('data-name', player.nombre);
+                div.className = "player";
                 div.id = "p-" + sessionId;
+                div.setAttribute('data-name', player.nombre);
                 document.getElementById("world").appendChild(div);
-                div.style.left = player.x + "px";
-                div.style.top = player.y + "px";
-
+                
                 player.onChange(() => {
                     div.style.left = player.x + "px";
                     div.style.top = player.y + "px";
@@ -124,41 +91,23 @@
                 if (el) el.remove();
             });
 
-            room.onMessage("mensaje_chat", (data) => {
-                const log = document.getElementById('chat-log');
-                const m = document.createElement('div');
-                m.className = 'msg';
-                m.innerHTML = `<b>${data.desde}:</b> ${data.texto}`;
-                log.appendChild(m);
-            });
-
-            document.getElementById('chat-input').onkeypress = (e) => {
-                if (e.key === 'Enter' && e.target.value !== "") {
-                    room.send("chat", e.target.value);
-                    e.target.value = "";
-                }
-            };
-        }
-
-        const joystick = nipplejs.create({ zone: document.getElementById('touch-zone'), mode: 'dynamic', color: '#00ffcc' });
-        joystick.on('move', (evt, data) => {
-            if (isMoving || !room || !data.direction) return;
-            if (data.distance > 20) {
-                isMoving = true;
+            // Joystick básico integrado
+            const joystick = nipplejs.create({ zone: document.getElementById('touch-zone'), mode: 'dynamic', color: '#00ffcc' });
+            let moving = false;
+            joystick.on('move', (evt, data) => {
+                if (moving || !data.direction) return;
+                moving = true;
                 let dx = 0, dy = 0;
-                const dir = data.direction.angle;
-                if (dir === "up") dy = -TILE_SIZE;
-                else if (dir === "down") dy = TILE_SIZE;
-                else if (dir === "left") dx = -TILE_SIZE;
-                else if (dir === "right") dx = TILE_SIZE;
-
-                const myPlayer = room.state.players.get(room.sessionId);
-                if (myPlayer) {
-                    room.send("mover", { x: myPlayer.x + dx, y: myPlayer.y + dy });
-                }
-                setTimeout(() => { isMoving = false; }, 200);
-            }
-        });
+                if (data.direction.angle === "up") dy = -32;
+                if (data.direction.angle === "down") dy = 32;
+                if (data.direction.angle === "left") dx = -32;
+                if (data.direction.angle === "right") dx = 32;
+                
+                const p = room.state.players.get(room.sessionId);
+                room.send("mover", { x: p.x + dx, y: p.y + dy });
+                setTimeout(() => { moving = false; }, 200);
+            });
+        }
     </script>
 </body>
 </html>
