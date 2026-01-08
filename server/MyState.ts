@@ -1,10 +1,17 @@
-import { Schema, type, MapSchema } from "@colyseus/schema";
+import { Schema, MapSchema, defineTypes } from "@colyseus/schema";
 
 export class Player extends Schema {
-    @type("number") x: number = 0;
-    @type("number") y: number = 0;
+    x: number = 0;
+    y: number = 0;
 }
+defineTypes(Player, {
+    x: "number",
+    y: "number"
+});
 
 export class MyState extends Schema {
-    @type({ map: Player }) players = new MapSchema<Player>();
+    players = new MapSchema<Player>();
 }
+defineTypes(MyState, {
+    players: { map: Player }
+});
