@@ -2,27 +2,143 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <title>Mythica MMORPG - Engine 2026</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mythica Adventure</title>
+    
+    <script src="https://unpkg.com/colyseus.js@^0.15.0/dist/colyseus.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+    
     <style>
-        body { 
-            margin: 0; 
-            background: #000; 
-            overflow: hidden; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
+        body { margin: 0; background: #0a0a0a; overflow: hidden; touch-action: none; font-family: sans-serif; }
+        
+        /* El mundo con rejilla de 32px (Estilo Tibia/Lawl) */
+        #world { 
+            width: 100vw; height: 100vh; 
+            background-color: #1a1a1a;
+            background-image: 
+                linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+            background-size: 32px 32px;
+            position: relative;
         }
-        #game-container {
-            width: 100%;
-            height: 100%;
+
+        .player { 
+            width: 32px; height: 32px; 
+            background: #00ffcc; position: absolute; 
+            border: 2px solid #008877; 
+            box-sizing: border-box;
+            transition: all 0.15s linear; /* Desplazamiento suave entre cuadros */
+            z-index: 10;
+            border-radius: 4px;
+        }
+
+        .local-player {
+            box-shadow: 0 0 15px #00ffcc;
+            background: #ffffff;
+        }
+
+        /* Zona táctil para el Joystick */
+        #touch-zone { 
+            position: fixed; top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            z-index: 100; 
+        }
+
+        #status {
+            position: fixed; top: 10px; left: 10px;
+            color: #00ffcc; font-size: 12px; z-index: 200;
         }
     </style>
 </head>
 <body>
-    <div id="game-container"></div>
-    
-    <script type="module" src="index.js"></script>
+    <div id="status">Conectando al Reino de Mythica...</div>
+    <div id="world"></div>
+    <div id="touch-zone"></div>
+
+    <script>
+        const client = new Colyseus.Client("wss://mythica-adventure.onrender.com");
+        let room;
+        const players = {};
+        const TILE_SIZE = 32; 
+        let moveTimeout = false;
+
+        // Inicializar el Joystick Dinámico
+        const manager = nipplejs.create({
+            zone: document.getElementById('touch-zone'),
+            mode: 'dynamic',
+            color: '#00ffcc',
+            threshold: 0.1
+        });
+
+        async function connect() {
+            try {
+                room = await client.joinOrCreate("mundo_mythica");
+                document.getElementById('status').innerText = "⚔️ En línea - Mundo de Mythica";
+
+                // Escuchar cuando entran jugadores
+                room.state.players.onAdd((player, sessionId) => {
+                    const div = document.createElement("div");
+                    div.className = "player" + (sessionId === room.sessionId ? " local-player" : "");
+                    document.getElementById("world").appendChild(div);
+                    players[sessionId] = div;
+
+                    // Posición inicial
+                    div.style.left = player.x + "px";
+                    div.style.top = player.y + "px";
+
+                    // Actualizar cuando se muevan
+                    player.onChange(() => {
+                        div.style.left = player.x + "px";
+                        div.style.top = player.y + "px";
+                    });
+                });
+
+                room.state.players.onRemove((player, sessionId) => {
+                    if (players[sessionId]) {
+                        players[sessionId].remove();
+                        delete players[sessionId];
+                    }
+                });
+
+            } catch (e) {
+                document.getElementById('status').innerText = "❌ Error de conexión";
+                console.error(e);
+            }
+        }
+
+        // Lógica de Movimiento Unificada
+        manager.on('move', (evt, data) => {
+            if (moveTimeout || !room) return;
+
+            // Solo nos movemos si el joystick se desplaza lo suficiente
+            if (data.distance > 15 && data.direction) {
+                moveTimeout = true;
+                let dx = 0, dy = 0;
+
+                const angle = data.direction.angle;
+                if (angle === "up") dy = -TILE_SIZE;
+                else if (angle === "down") dy = TILE_SIZE;
+                else if (angle === "left") dx = -TILE_SIZE;
+                else if (angle === "right") dx = TILE_SIZE;
+
+                if (dx !== 0 || dy !== 0) {
+                    const myPlayer = room.state.players.get(room.sessionId);
+                    room.send("mover", { 
+                        x: myPlayer.x + dx, 
+                        y: myPlayer.y + dy 
+                    });
+                }
+
+                // Ajustamos la velocidad de "caminata" (200ms es similar a Lawl/Tibia)
+                setTimeout(() => { moveTimeout = false; }, 200);
+            }
+        });
+
+        manager.on('end', () => {
+            moveTimeout = false;
+        });
+
+        connect();
+    </script>
 </body>
 </html>
