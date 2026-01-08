@@ -2,54 +2,51 @@ import express from "express";
 import { Server, Room, Client } from "colyseus";
 import { createServer } from "http";
 import cors from "cors";
+// Importamos lo que acabas de crear
+import { MyState, Player } from "./MyState"; 
 
-// --- 1. SEGURIDAD PARA QUE TU APK NO SE DESCONECTE ---
-process.on('unhandledRejection', (reason) => console.log('⚠️ Error de red:', reason));
-process.on('uncaughtException', (err) => console.log('⚠️ Error crítico:', err));
+process.on('unhandledRejection', (reason) => console.log('⚠️ Error:', reason));
+process.on('uncaughtException', (err) => console.log('⚠️ Error Crítico:', err));
 
 const port = Number(process.env.PORT) || 10000;
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
-// --- 2. DEFINICIÓN DE LA SALA DEL JUEGO (Aquí vivirán los jugadores) ---
-class SalaPrincipal extends Room {
-    // Esto se ejecuta cuando alguien entra al juego desde la APK
+// --- LÓGICA DEL MUNDO ---
+class SalaPrincipal extends Room<MyState> {
     onCreate(options: any) {
-        console.log("🏰 ¡Mundo de Mythica creado!");
-        
-        // Aquí el servidor escucha lo que hace el jugador
+        // Le decimos a la sala que use tu MyState
+        this.setState(new MyState());
+        console.log("🏰 Mundo de Mythica sincronizado.");
+
+        // Escucha cuando un jugador se mueve desde la APK
         this.onMessage("mover", (client, datos) => {
-            // Cuando un jugador se mueve, le avisa a todos los demás
-            this.broadcast("jugador_movido", { 
-                id: client.sessionId, 
-                x: datos.x, 
-                y: datos.y 
-            });
+            const player = this.state.players.get(client.sessionId);
+            if (player) {
+                player.x = datos.x;
+                player.y = datos.y;
+            }
         });
     }
 
     onJoin(client: Client) {
-        console.log("👤 Jugador conectado con ID: " + client.sessionId);
+        console.log("👤 Jugador nuevo:", client.sessionId);
+        // Creamos al jugador en el mapa al entrar
+        this.state.players.set(client.sessionId, new Player());
     }
 
     onLeave(client: Client) {
-        console.log("🏃 Jugador desconectado: " + client.sessionId);
+        console.log("🏃 Jugador salió:", client.sessionId);
+        this.state.players.delete(client.sessionId);
     }
 }
 
-// --- 3. ARRANCAR EL MOTOR DEL JUEGO ---
 const servidorWeb = createServer(app);
-const gameServer = new Server({
-    server: servidorWeb,
-});
+const gameServer = new Server({ server: servidorWeb });
 
-// Registramos el nombre de la sala que buscará tu APK
 gameServer.define("mundo_mythica", SalaPrincipal);
 
-app.get("/", (req, res) => res.send("⚔️ Servidor MMORPG Mythica Activo y listo para la APK"));
+app.get("/", (req, res) => res.send("⚔️ Servidor MMORPG Sincronizado"));
 
-gameServer.listen(port).then(() => {
-    console.log(`🚀 Servidor funcionando en puerto ${port}`);
-});
+gameServer.listen(port);
