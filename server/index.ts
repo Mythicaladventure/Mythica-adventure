@@ -5,7 +5,7 @@ import cors from "cors";
 import mongoose from "mongoose";
 import { Schema, type, MapSchema } from "@colyseus/schema";
 
-// --- ESTADO ---
+// 1. PRIMERO DEFINIMOS EL ESTADO (Para evitar el error de Render)
 export class Player extends Schema {
     @type("number") x: number = 0;
     @type("number") y: number = 0;
@@ -16,12 +16,12 @@ export class MyState extends Schema {
     @type({ map: Player }) players = new MapSchema<Player>();
 }
 
-// --- DB ---
+// 2. CONEXIÓN A BASE DE DATOS
 const mongoURL = process.env.MONGODB_URL;
 if (mongoURL) {
     mongoose.connect(mongoURL)
-        .then(() => console.log("🍃 MongoDB Conectado"))
-        .catch((err) => console.log("❌ Error MongoDB:", err));
+        .then(() => console.log("🍃 MongoDB Conectado con éxito"))
+        .catch((err) => console.error("❌ Error MongoDB:", err));
 }
 
 const PlayerAccount = mongoose.model('PlayerAccount', new mongoose.Schema({
@@ -31,7 +31,7 @@ const PlayerAccount = mongoose.model('PlayerAccount', new mongoose.Schema({
     y: Number
 }));
 
-// --- SALA ---
+// 3. DEFINICIÓN DE LA SALA
 class SalaPrincipal extends Room<MyState> {
     onCreate(options: any) {
         this.setState(new MyState());
@@ -55,7 +55,6 @@ class SalaPrincipal extends Room<MyState> {
     }
 
     async onJoin(client: Client, options: any) {
-        // Aquí estaba el detalle: nos aseguramos de capturar el nombre
         const nombreElegido = options.nombre || "Viajero";
         
         let account = await PlayerAccount.findOne({ userId: client.sessionId });
@@ -73,7 +72,7 @@ class SalaPrincipal extends Room<MyState> {
         player.nombre = account.nombre || nombreElegido;
         
         this.state.players.set(client.sessionId, player);
-        console.log(`${player.nombre} ha entrado al mundo.`);
+        console.log(`✅ ${player.nombre} ha entrado.`);
     }
 
     onLeave(client: Client) {
@@ -81,12 +80,14 @@ class SalaPrincipal extends Room<MyState> {
     }
 }
 
+// 4. ARRANQUE DEL SERVIDOR
 const app = express();
 app.use(cors());
 const servidorWeb = createServer(app);
 const gameServer = new Server({ server: servidorWeb });
 gameServer.define("mundo_mythica", SalaPrincipal);
 
-servidorWeb.listen(Number(process.env.PORT) || 10000, "0.0.0.0", () => {
-    console.log("🚀 Servidor de Mythica saltando al hiperespacio...");
+const PORT = Number(process.env.PORT) || 10000;
+servidorWeb.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 Mythica Engine operando en puerto ${PORT}`);
 });
