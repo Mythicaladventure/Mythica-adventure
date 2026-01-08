@@ -2,110 +2,205 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <title>Mythica MMORPG - Engine 2026</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mythica Adventure - Infinite</title>
+    
+    <script src="https://unpkg.com/colyseus.js@^0.15.0/dist/colyseus.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+    
     <style>
-        body { background: #000; color: white; font-family: monospace; margin: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
-        #game-container { position: relative; border: 2px solid #333; margin-top: 10px; overflow: hidden; width: 320px; height: 320px; }
-        canvas { display: block; image-rendering: pixelated; background: #111; }
-        #ui-overlay { position: absolute; top: 5px; left: 5px; pointer-events: none; }
-        .bar-container { width: 100px; height: 8px; background: #222; border: 1px solid #000; margin-bottom: 3px; }
-        #hp-bar { background: #45e645; height: 100%; width: 100%; }
-        #joystick { position: fixed; bottom: 30px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; touch-action: none; }
-        #stick { width: 40px; height: 40px; background: rgba(255,255,255,0.3); border-radius: 50%; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Segoe UI', sans-serif; }
+        
+        /* PANTALLA DE INICIO */
+        #login-screen {
+            position: fixed; inset: 0; background: radial-gradient(circle, #1a1a1a, #000);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000; color: #00ffcc;
+        }
+        input#p-name { 
+            padding: 15px; border-radius: 8px; border: 2px solid #00ffcc; 
+            background: #111; color: white; margin: 20px; text-align: center; width: 200px;
+        }
+        #start-btn { 
+            padding: 12px 40px; background: #00ffcc; border: none; border-radius: 8px; 
+            font-weight: bold; box-shadow: 0 0 15px #00ffcc; cursor: pointer; 
+        }
+
+        /* MUNDO Y REJILLA */
+        #world { 
+            width: 100vw; height: 100vh; position: relative; display: none;
+            background-color: #1a1a1a;
+            background-image: 
+                linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), 
+                linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+
+        /* JUGADORES */
+        .player { 
+            width: 32px; height: 32px; position: absolute; background: #00ffcc;
+            transition: all 0.18s linear; border-radius: 4px; border: 1px solid #fff;
+            box-sizing: border-box;
+        }
+        .player::after {
+            content: attr(data-name); position: absolute; top: -22px; left: 50%;
+            transform: translateX(-50%); font-size: 11px; color: #fff; 
+            text-shadow: 2px 2px 2px #000; white-space: nowrap; font-weight: bold;
+        }
+        .local-player { background: #fff; box-shadow: 0 0 15px #00ffcc; border-color: #fff; }
+
+        /* INTERFAZ HUD */
+        #ui { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 500; display: none; }
+        .bars { position: absolute; top: 20px; left: 20px; width: 150px; pointer-events: auto; }
+        .bar { height: 10px; background: #111; margin-bottom: 5px; border-radius: 5px; border: 1px solid #333; overflow: hidden; }
+        .hp { width: 100%; height: 100%; background: linear-gradient(90deg, #ff416c, #ff4b2b); }
+        
+        /* CHAT */
+        #chat-container { position: absolute; bottom: 20px; left: 20px; width: 280px; pointer-events: auto; }
+        #chat-log { 
+            height: 100px; overflow-y: hidden; display: flex; flex-direction: column; 
+            justify-content: flex-end; mask-image: linear-gradient(transparent, black 40%); 
+        }
+        .msg { font-size: 12px; color: #fff; text-shadow: 1px 1px 1px #000; margin-bottom: 2px; }
+        #chat-input { 
+            width: 100%; background: rgba(0,0,0,0.5); border: 1px solid #444; 
+            color: #fff; padding: 8px; border-radius: 4px; pointer-events: auto; outline: none;
+        }
+
+        #touch-zone { position: fixed; inset: 0; z-index: 100; display: none; }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <canvas id="gameCanvas" width="320" height="320"></canvas>
-        <div id="ui-overlay">
-            <div style="font-size: 10px;">Lvl 1 - Knight</div>
-            <div class="bar-container"><div id="hp-bar"></div></div>
+    <div id="login-screen">
+        <h1>MYTHICA ADVENTURE</h1>
+        <input type="text" id="p-name" placeholder="Tu nombre de héroe" maxlength="12">
+        <button id="start-btn">ENTRAR AL MUNDO</button>
+    </div>
+
+    <div id="world"></div>
+    
+    <div id="ui">
+        <div class="bars">
+            <div class="bar"><div class="hp"></div></div>
+        </div>
+        <div id="chat-container">
+            <div id="chat-log"></div>
+            <input type="text" id="chat-input" placeholder="Escribe un mensaje...">
         </div>
     </div>
 
-    <div id="joystick"><div id="stick"></div></div>
+    <div id="touch-zone"></div>
 
-<script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const TILE_SIZE = 32;
+    <script>
+        // Configuración de conexión con Render
+        const client = new Colyseus.Client("wss://mythica-adventure.onrender.com");
+        let room;
+        const TILE_SIZE = 32;
+        let isMoving = false;
 
-// --- 1. PERSONAJE GENERADO (64px de alto) ---
-const playerSprite = new Image();
-playerSprite.src = 'https://i.imgur.com/vH7Z1mG.png'; // Sprite genérico estilo retro 32x64
+        // --- MANEJO DE LOGIN ---
+        document.getElementById('start-btn').onclick = async () => {
+            const nombreElegido = document.getElementById('p-name').value || "Viajero";
+            
+            // Cambio de vista
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('world').style.display = 'block';
+            document.getElementById('ui').style.display = 'block';
+            document.getElementById('touch-zone').style.display = 'block';
+            
+            await connect(nombreElegido);
+        };
 
-// --- 2. TILES DE TU GITHUB ---
-const tiles = {};
-const tileNames = ['pasto y grama 001.png', 'piedra 001.png', 'baldosa piso.png'];
-tileNames.forEach(n => { tiles[n] = new Image(); tiles[n].src = n; });
+        async function connect(nombre) {
+            try {
+                // Unirse a la sala mundo_mythica
+                room = await client.joinOrCreate("mundo_mythica", { nombre: nombre });
+                console.log("Conectado con éxito como:", nombre);
 
-// --- 3. LÓGICA DE MAPA INFINITO ---
-// Generamos tiles basados en coordenadas X, Y
-function getTileAt(x, y) {
-    // Generador pseudo-aleatorio simple
-    let v = Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
-    if (v > 0.85) return 'piedra 001.png'; // Obstáculo
-    if (v > 0.70) return 'baldosa piso.png'; // Decoración
-    return 'pasto y grama 001.png'; // Suelo base
-}
+                // Manejar aparición de jugadores
+                room.state.players.onAdd((player, sessionId) => {
+                    const div = document.createElement("div");
+                    div.className = "player" + (sessionId === room.sessionId ? " local-player" : "");
+                    div.setAttribute('data-name', player.nombre || "Héroe");
+                    div.id = "p-" + sessionId;
+                    document.getElementById("world").appendChild(div);
 
-const player = { x: 0, y: 0, screenX: 5, screenY: 5, moving: false };
+                    // Posicionar
+                    div.style.left = player.x + "px";
+                    div.style.top = player.y + "px";
 
-function move(dx, dy) {
-    if (player.moving) return;
-    let targetTile = getTileAt(player.x + dx, player.y + dy);
-    
-    if (targetTile !== 'piedra 001.png') {
-        player.x += dx;
-        player.y += dy;
-        player.moving = true;
-        setTimeout(() => player.moving = false, 150);
-    }
-}
+                    // Sincronizar movimientos
+                    player.onChange(() => {
+                        div.style.left = player.x + "px";
+                        div.style.top = player.y + "px";
+                    });
+                });
 
-// --- 4. RENDERIZADO ---
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                // Manejar desconexiones
+                room.state.players.onRemove((player, sessionId) => {
+                    const el = document.getElementById("p-" + sessionId);
+                    if (el) el.remove();
+                });
 
-    const offset = 5; // Centro de la pantalla
-    for (let iy = -1; iy < 11; iy++) {
-        for (let ix = -1; ix < 11; ix++) {
-            let worldX = player.x + ix - offset;
-            let worldY = player.y + iy - offset;
-            let tileImg = tiles[getTileAt(worldX, worldY)];
+                // Escuchar Chat
+                room.onMessage("mensaje_chat", (data) => {
+                    const log = document.getElementById('chat-log');
+                    const m = document.createElement('div');
+                    m.className = 'msg';
+                    m.innerHTML = `<b>${data.desde}:</b> ${data.texto}`;
+                    log.appendChild(m);
+                });
 
-            if (tileImg && tileImg.complete) {
-                ctx.drawImage(tileImg, ix * TILE_SIZE, iy * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                // Enviar Chat con Enter
+                document.getElementById('chat-input').onkeypress = (e) => {
+                    if (e.key === 'Enter' && e.target.value.trim() !== "") {
+                        room.send("chat", e.target.value);
+                        e.target.value = "";
+                    }
+                };
+
+            } catch (e) { 
+                alert("Error de conexión con el servidor. Verifica que Render esté activo.");
+                console.error(e); 
             }
         }
-    }
 
-    // Dibujar Personaje (centrado)
-    // Se dibuja en la posición 5,5 pero con offset de -32px en Y porque mide 64px
-    if (playerSprite.complete) {
-        ctx.drawImage(playerSprite, 5 * TILE_SIZE, 5 * TILE_SIZE - 32, 32, 64);
-    } else {
-        ctx.fillStyle = "red";
-        ctx.fillRect(5 * TILE_SIZE + 4, 5 * TILE_SIZE + 4, 24, 24);
-    }
-}
+        // --- SISTEMA DE JOYSTICK DINÁMICO ---
+        const joystick = nipplejs.create({ 
+            zone: document.getElementById('touch-zone'), 
+            mode: 'dynamic', 
+            color: '#00ffcc' 
+        });
 
-// --- 5. JOYSTICK ---
-const joy = document.getElementById('joystick');
-let sX, sY;
-joy.addEventListener('touchstart', e => { sX = e.touches[0].clientX; sY = e.touches[0].clientY; });
-joy.addEventListener('touchmove', e => {
-    let dx = e.touches[0].clientX - sX;
-    let dy = e.touches[0].clientY - sY;
-    if (Math.abs(dx) > 30) { move(dx > 0 ? 1 : -1, 0); sX = e.touches[0].clientX; }
-    if (Math.abs(dy) > 30) { move(0, dy > 0 ? 1 : -1); sY = e.touches[0].clientY; }
-});
+        joystick.on('move', (evt, data) => {
+            if (isMoving || !room || !data.direction) return;
+            
+            // Distancia mínima para activar el movimiento
+            if (data.distance > 20) {
+                isMoving = true;
+                let dx = 0, dy = 0;
+                const dir = data.direction.angle;
 
-function loop() { draw(); requestAnimationFrame(loop); }
-loop();
-</script>
+                if (dir === "up") dy = -TILE_SIZE;
+                else if (dir === "down") dy = TILE_SIZE;
+                else if (dir === "left") dx = -TILE_SIZE;
+                else if (dir === "right") dx = TILE_SIZE;
+
+                const myPlayer = room.state.players.get(room.sessionId);
+                if (myPlayer) {
+                    room.send("mover", { 
+                        x: myPlayer.x + dx, 
+                        y: myPlayer.y + dy 
+                    });
+                }
+                
+                // Tiempo de espera para el siguiente paso (estilo Tibia)
+                setTimeout(() => { isMoving = false; }, 200);
+            }
+        });
+
+        joystick.on('end', () => { isMoving = false; });
+    </script>
 </body>
 </html>
-
