@@ -1,19 +1,34 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "commonjs",
-    "lib": ["ES2020", "DOM"],
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": false,
-    "noImplicitAny": false,
-    "moduleResolution": "node",
+    /* 1. NÚCLEO DE RENDIMIENTO */
+    "target": "ESNext",                     // Usa la versión más moderna y rápida de JavaScript
+    "module": "CommonJS",                   // Estándar de máxima compatibilidad con Node.js
+    "lib": ["ESNext", "DOM"],               // Acceso a las librerías más recientes del lenguaje
+    "moduleResolution": "Node",             // Resolución de módulos de alta velocidad
+    
+    /* 2. POTENCIA PARA COLYSEUS Y DATOS */
+    "experimentalDecorators": true,         // Activa la magia de @type para velocidad binaria
+    "emitDecoratorMetadata": true,          // Permite que el servidor entienda datos complejos en tiempo real
+    
+    /* 3. OPTIMIZACIÓN DE RECURSOS (Para que Render vuele) */
+    "incremental": true,                    // Solo compila lo que cambió (ahorra tiempo de CPU)
+    "removeComments": true,                 // Elimina basura del código para ganar ligereza
+    "sourceMap": false,                     // Reduce el uso de disco y RAM al mínimo
+    "skipLibCheck": true,                   // Ignora errores menores en librerías externas (más rápido)
+    
+    /* 4. SEGURIDAD Y ROBUSTEZ (Código Indestructible) */
+    "strict": true,                         // Obliga a que el código sea perfecto (Cero errores nulos)
+    "noImplicitAny": true,                  // Evita variables "fantasma" que rompen el servidor
+    "alwaysStrict": true,                   // Ejecuta el código en modo estricto de JS
+    "noUnusedLocals": true,                 // Limpia la memoria de variables que no usas
+    "noUnusedParameters": true,             // Optimiza las funciones para máxima eficiencia
+    
+    /* 5. ARQUITECTURA DE ARCHIVOS */
     "baseUrl": ".",
-    "paths": {
-      "*": ["node_modules/*"]
-    }
+    "outDir": "./dist",                     // Organiza el código compilado para ejecución rápida
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true
   },
-  "include": ["server/**/*.ts"],
-  "exclude": ["node_modules"]
-}
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+  }
