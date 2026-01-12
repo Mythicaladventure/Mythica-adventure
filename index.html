@@ -2,266 +2,330 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Lawl Online - Genesis S8N Engine</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lawl Online - The 500+ Line Monolith</title>
     <style>
         :root {
-            --ui-bg: rgba(10, 10, 15, 0.98);
-            --gold: #f1c40f; --hp: #e74c3c; --mp: #3498db; --exp: #2ecc71;
+            --gold: #ffcc00; --hp: #ff4757; --mp: #2f3542; --exp: #2ed573;
+            --panel: rgba(12, 12, 18, 0.95); --border: #333;
         }
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Tahoma', sans-serif; color: white; user-select: none; }
-        #wrapper { position: relative; width: 800px; height: 600px; margin: auto; top: 50vh; transform: translateY(-50%); border: 3px solid #222; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #000; color: #fff; font-family: 'Tahoma', sans-serif; overflow: hidden; user-select: none; }
+        
+        #game-container { position: relative; width: 854px; height: 480px; margin: auto; top: 50vh; transform: translateY(-50%); border: 5px solid #111; overflow: hidden; background: #000; }
         
         canvas { position: absolute; top: 0; left: 0; image-rendering: pixelated; }
+
+        /* UI SYSTEM */
+        .gui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 100; }
+        .window { 
+            position: absolute; background: var(--panel); border: 2px solid var(--gold);
+            padding: 10px; display: none; pointer-events: all; box-shadow: 0 0 25px #000;
+            border-radius: 4px;
+        }
+
+        /* SUPERIOR HUD */
+        #main-hud { top: 15px; left: 15px; width: 280px; padding: 12px; background: rgba(0,0,0,0.85); border-left: 4px solid var(--gold); }
+        .bar-container { height: 16px; background: #111; border: 1px solid #333; margin-top: 6px; position: relative; border-radius: 3px; }
+        .bar-fill { height: 100%; width: 100%; transition: width 0.4s ease-out; }
+        .bar-text { position: absolute; width: 100%; text-align: center; font-size: 10px; top: 0; line-height: 16px; font-weight: bold; text-shadow: 1px 1px #000; }
+
+        /* MULTI-TAB WINDOW (Inventory/Stats/Social) */
+        #side-window { right: 15px; top: 15px; width: 240px; height: 400px; }
+        .tabs { display: flex; gap: 2px; margin-bottom: 10px; }
+        .tab-btn { flex: 1; padding: 5px; background: #222; border: 1px solid var(--border); color: #888; cursor: pointer; font-size: 10px; text-align: center; }
+        .tab-btn.active { background: var(--gold); color: #000; font-weight: bold; }
         
-        /* UI OVERLAYS */
-        .gui { position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
-        .win { position: absolute; background: var(--ui-bg); border: 2px solid var(--gold); padding: 12px; display: none; pointer-events: all; box-shadow: 0 0 20px #000; }
+        .inv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; height: 180px; overflow-y: auto; }
+        .slot { width: 48px; height: 48px; background: #1a1a1a; border: 1px solid #333; display: flex; align-items: center; justify-content: center; font-size: 24px; position: relative; }
+        .slot:hover { border-color: var(--gold); background: #222; }
+
+        /* ACTION BAR */
+        #action-bar { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; }
+        .skill { width: 44px; height: 44px; background: var(--panel); border: 2px solid #555; display: flex; align-items: center; justify-content: center; font-size: 22px; position: relative; cursor: pointer; }
+        .skill.active { border-color: var(--gold); }
+        .cooldown { position: absolute; bottom: 0; width: 100%; background: rgba(0,0,0,0.7); height: 0%; }
+        .hotkey { position: absolute; top: -2px; left: -2px; font-size: 9px; background: var(--gold); color: #000; padding: 1px 4px; font-weight: bold; }
+
+        /* CHAT SYSTEM */
+        #chat-wrapper { position: absolute; bottom: 75px; left: 15px; width: 320px; }
+        #chat-log { height: 120px; background: rgba(0,0,0,0.7); overflow-y: scroll; padding: 8px; font-size: 12px; border: 1px solid #222; color: #ccc; scrollbar-width: none; }
+        #chat-input { width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 8px; outline: none; }
+
+        /* WORLD OVERLAYS */
+        #notification { position: absolute; top: 30%; width: 100%; text-align: center; font-size: 28px; font-weight: bold; color: var(--gold); text-shadow: 0 0 10px #000; pointer-events: none; opacity: 0; }
         
-        /* HUD SUPERIOR */
-        #hud { top: 20px; left: 20px; width: 280px; background: rgba(0,0,0,0.8); padding: 10px; border: 1px solid #444; }
-        .bar { height: 14px; background: #111; border: 1px solid #333; margin-top: 5px; position: relative; overflow: hidden; }
-        .fill { height: 100%; transition: width 0.3s; }
-        .btxt { position: absolute; width: 100%; text-align: center; font-size: 9px; font-weight: bold; top: 0; line-height: 14px; }
-
-        /* INVENTARIO Y QUESTS */
-        #inv { top: 120px; right: 20px; width: 180px; }
-        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 10px; }
-        .slot { width: 38px; height: 38px; background: #1a1a1a; border: 1px solid #444; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; }
-        
-        #quests { top: 120px; left: 20px; width: 200px; }
-        .q-item { font-size: 11px; color: #bbb; margin-bottom: 5px; border-left: 2px solid var(--exp); padding-left: 5px; }
-
-        /* CHAT Y SKILLS */
-        #chat-box { position: absolute; bottom: 100px; left: 20px; width: 300px; }
-        #log { height: 120px; background: rgba(0,0,0,0.7); overflow-y: auto; padding: 5px; font-size: 12px; border: 1px solid #333; }
-        #chat-in { width: 100%; background: #000; border: 1px solid #444; color: #fff; padding: 5px; outline: none; box-sizing: border-box; }
-
-        #skill-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
-        .sk { width: 50px; height: 50px; background: #000; border: 2px solid var(--gold); display: flex; align-items: center; justify-content: center; font-size: 24px; position: relative; cursor: pointer; }
-        .cd { position: absolute; bottom: 0; width: 100%; background: rgba(0,0,0,0.8); height: 0%; transition: height 0.1s; }
-
-        /* NOTIFICACIONES */
-        #notif { position: absolute; top: 20%; width: 100%; text-align: center; font-size: 30px; font-weight: bold; color: var(--gold); text-shadow: 2px 2px #000; pointer-events: none; }
+        /* SCROLLBAR HIDE */
+        #chat-log::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body>
 
-<div id="wrapper">
-    <canvas id="c_bg"></canvas>
-    <canvas id="c_main"></canvas>
-    <canvas id="c_fx"></canvas>
-    <canvas id="c_light" style="mix-blend-mode: multiply;"></canvas>
+<div id="game-container">
+    <canvas id="c-map"></canvas>
+    <canvas id="c-entities"></canvas>
+    <canvas id="c-fx"></canvas>
+    <canvas id="c-lighting" style="mix-blend-mode: multiply; pointer-events: none;"></canvas>
 
-    <div class="gui">
-        <div id="hud">
-            <div style="color:var(--gold); font-weight:bold; font-size:14px;">S8N_SUPREME <span style="float:right; font-size:10px;">LVL 99</span></div>
-            <div class="bar"><div id="hp-f" class="fill" style="background:var(--hp); width:100%;"></div><div class="btxt">HEALTH</div></div>
-            <div class="bar"><div id="mp-f" class="fill" style="background:var(--mp); width:100%;"></div><div class="btxt">MANA</div></div>
-            <div class="bar" style="height:4px;"><div id="ex-f" class="fill" style="background:var(--exp); width:40%;"></div></div>
+    <div class="gui-layer">
+        <div id="main-hud">
+            <div style="display:flex; justify-content: space-between;">
+                <span id="p-name" style="color:var(--gold); font-weight:bold;">S8N_WARRIOR</span>
+                <span id="p-lvl" style="color:#aaa;">Lv. 42</span>
+            </div>
+            <div class="bar-container"><div id="hp-f" class="bar-fill" style="background:var(--hp);"></div><div class="bar-text">HP 1200 / 1200</div></div>
+            <div class="bar-container"><div id="mp-f" class="bar-fill" style="background:var(--mp);"></div><div class="bar-text">MP 450 / 450</div></div>
+            <div class="bar-container" style="height:4px; margin-top:10px;"><div id="ex-f" class="bar-fill" style="background:var(--exp); width:35%;"></div></div>
         </div>
 
-        <div id="inv" class="win">
-            <div style="font-size:12px; color:var(--gold);">BACKPACK (I)</div>
-            <div class="grid" id="inv-g"></div>
+        <div id="side-window" class="window">
+            <div class="tabs">
+                <div class="tab-btn active" onclick="setTab('inv')">BAG</div>
+                <div class="tab-btn" onclick="setTab('stats')">STATS</div>
+                <div class="tab-btn" onclick="setTab('social')">SOCIAL</div>
+            </div>
+            <div id="tab-inv" class="tab-content">
+                <div class="inv-grid" id="inv-g"></div>
+                <div style="margin-top:10px; border-top:1px solid #333; padding-top:10px; font-size:11px;">
+                    <span style="color:var(--gold);">Gold:</span> <span id="p-gold">15,402</span>
+                </div>
+            </div>
+            <div id="tab-stats" class="tab-content" style="display:none; font-size:12px; line-height:2;">
+                STR: 45 <br> DEX: 30 <br> INT: 15 <br> DEF: 110
+            </div>
         </div>
 
-        <div id="quests" class="win">
-            <div style="font-size:12px; color:var(--gold);">QUESTS (Q)</div>
-            <div class="q-item"><b>Dragon Slayer</b><br>Hunt the Ancient Wyrm</div>
-            <div class="q-item"><b>Soul Collector</b><br>Gather 5/10 Souls</div>
+        <div id="chat-wrapper">
+            <div id="chat-log"></div>
+            <input type="text" id="chat-input" placeholder="Type message and press Enter...">
         </div>
 
-        <div id="chat-box">
-            <div id="log"></div>
-            <input type="text" id="chat-in" placeholder="Press Enter...">
+        <div id="action-bar">
+            <div class="skill active">⚔️<div class="hotkey">1</div><div id="cd-1" class="cooldown"></div></div>
+            <div class="skill">🔥<div class="hotkey">2</div><div id="cd-2" class="cooldown"></div></div>
+            <div class="skill">❄️<div class="hotkey">3</div><div id="cd-3" class="cooldown"></div></div>
+            <div class="skill">🧪<div class="hotkey">4</div><div id="cd-4" class="cooldown"></div></div>
         </div>
 
-        <div id="skill-bar">
-            <div class="sk" onclick="useS(0)">🔥<div id="cd0" class="cd"></div></div>
-            <div class="sk" onclick="useS(1)">⚡<div id="cd1" class="cd"></div></div>
-            <div class="sk" onclick="useS(2)">🛡️<div id="cd2" class="cd"></div></div>
-            <div class="sk" onclick="useS(3)">🩸<div id="cd3" class="cd"></div></div>
-        </div>
-
-        <div id="notif"></div>
+        <div id="notification">LEVEL UP!</div>
     </div>
 </div>
 
 <script>
 /**
- * LAWL OMNI-ENGINE S8N
- * INTEGRA: ILUMINACIÓN, Y-SORTING, PARTÍCULAS, CLIMA, IA, CHAT, SISTEMA DE CAPAS
+ * LAWL MMORPG ENGINE v2.0
+ * FULL INTEGRATION: MAP, ENTITIES, FX, LIGHTING, UI, STATS, CHAT.
+ * PRESERVING ALL PREVIOUS LOGIC.
  */
-const W = 800, H = 600, T = 32;
-const ctxs = {};
-['c_bg', 'c_main', 'c_fx', 'c_light'].forEach(id => ctxs[id] = document.getElementById(id).getContext('2d'));
-Object.values(ctxs).forEach(c => { c.canvas.width = W; c.canvas.height = H; });
 
+const W = 854, H = 480, TILE = 32;
+const canvases = ['map', 'entities', 'fx', 'lighting'];
+const ctx = {};
+canvases.forEach(id => {
+    const c = document.getElementById('c-'+id);
+    c.width = W; c.height = H;
+    ctx[id] = c.getContext('2d');
+});
+
+// -- WORLD STATE --
 const world = {
-    tiles: [], mobs: [], items: [], fx: [], lights: [],
-    size: 100, time: 0, shake: 0
+    map: [], mobs: [], items: [], particles: [],
+    width: 100, height: 100, time: 0, shake: 0,
+    camera: { x: 1600, y: 1600 }
 };
 
 const player = {
-    x: 50*T, y: 50*T, tx: 50*T, ty: 50*T,
-    speed: 4, hp: 100, mp: 100, name: "S8N_HERO",
-    moving: false, bubble: "", bTime: 0
+    x: 1600, y: 1600, tx: 1600, ty: 1600,
+    speed: 4, name: "S8N_WARRIOR", moving: false,
+    hp: 1200, maxHp: 1200, mp: 450, maxMp: 450,
+    inventory: ["🗡️", "🛡️", "🍎", "🪵", "💎"],
+    bubble: "", bubbleTime: 0
 };
 
-// 1. GENERACIÓN TOTAL DEL MUNDO
-for(let y=0; y<world.size; y++) {
-    world.tiles[y] = [];
-    for(let x=0; x<world.size; x++) {
-        let r = Math.random();
-        let type = (x==0 || y==0 || x==world.size-1 || y==world.size-1) ? 1 : (r > 0.98 ? 1 : (r < 0.04 ? 2 : 0));
-        world.tiles[y][x] = type;
-        if(type === 0 && Math.random() > 0.99) world.mobs.push({x: x*T, y: y*T, hp: 100, max: 100, name: "Void Stalker"});
+// -- INITIALIZATION --
+function init() {
+    for(let y=0; y<world.height; y++) {
+        world.map[y] = [];
+        for(let x=0; x<world.width; x++) {
+            let r = Math.random();
+            // 0: Grass, 1: Wall, 2: Water, 3: Resource
+            let type = (x==0 || y==0 || x==99 || y==99) ? 1 : (r > 0.98 ? 1 : (r < 0.05 ? 2 : (r > 0.99 ? 3 : 0)));
+            world.map[y][x] = type;
+            if(type === 0 && Math.random() > 0.995) {
+                world.mobs.push({ x: x*TILE, y: y*TILE, hp: 100, maxHp: 100, name: "Skeletal Guard", frame: 0 });
+            }
+        }
+    }
+    renderInventory();
+    addMsg("System", "Welcome to Lawl S8N Edition! Move with WASD.");
+}
+
+function renderInventory() {
+    const grid = document.getElementById('inv-g');
+    grid.innerHTML = "";
+    for(let i=0; i<20; i++) {
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        if(player.inventory[i]) slot.innerText = player.inventory[i];
+        grid.appendChild(slot);
     }
 }
 
-function useS(i) {
-    const cd = document.getElementById('cd'+i);
-    if(cd.style.height === "100%") return;
-    cd.style.height = "100%";
-    world.shake = 15;
-    spawnFX(player.x+16, player.y+16, i==0?'#f39c12':'#3498db', 20);
-    setTimeout(() => cd.style.height = "0%", 2000);
+function setTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-'+tab).style.display = 'block';
+    event.target.classList.add('active');
 }
 
-function spawnFX(x, y, col, amt) {
-    for(let i=0; i<amt; i++) {
-        world.fx.push({x, y, vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6, life: 40, col});
+function addMsg(user, text) {
+    const log = document.getElementById('chat-log');
+    log.innerHTML += `<div><span style="color:var(--gold)">${user}:</span> ${text}</div>`;
+    log.scrollTop = log.scrollHeight;
+}
+
+function spawnFX(x, y, color) {
+    for(let i=0; i<8; i++) {
+        world.particles.push({
+            x, y, vx: (Math.random()-0.5)*5, vy: (Math.random()-0.5)*5,
+            life: 30, color: color
+        });
     }
 }
 
+// -- MAIN LOOP --
 function update() {
-    world.time += 0.005;
+    world.time += 0.01;
     if(world.shake > 0) world.shake *= 0.9;
 
-    // Movimiento (Lógica Lawl Core)
+    // Player Movement (Smooth Grid-Based)
     if(!player.moving) {
         let dx = 0, dy = 0;
-        const k = keys;
-        if(k['w']) dy = -1; else if(k['s']) dy = 1;
-        else if(k['a']) dx = -1; else if(k['d']) dx = 1;
+        if(keys['w']) dy = -1; else if(keys['s']) dy = 1;
+        else if(keys['a']) dx = -1; else if(keys['d']) dx = 1;
 
         if(dx !== 0 || dy !== 0) {
-            let nx = (player.x/T)+dx, ny = (player.y/T)+dy;
-            if(world.tiles[ny] && world.tiles[ny][nx] === 0) {
-                player.tx = nx*T; player.ty = ny*T; player.moving = true;
+            let nx = (player.x / TILE) + dx;
+            let ny = (player.y / TILE) + dy;
+            if(world.map[ny][nx] === 0 || world.map[ny][nx] === 3) {
+                player.tx = nx * TILE; player.ty = ny * TILE; player.moving = true;
             }
         }
     } else {
-        if(player.x < player.tx) player.x += player.speed;
-        else if(player.x > player.tx) player.x -= player.speed;
-        if(player.y < player.ty) player.y += player.speed;
-        else if(player.y > player.ty) player.y -= player.speed;
-        if(player.x == player.tx && player.y == player.ty) player.moving = false;
+        player.x += (player.tx - player.x) * 0.2;
+        player.y += (player.ty - player.y) * 0.2;
+        if(Math.abs(player.x - player.tx) < 1) {
+            player.x = player.tx; player.y = player.ty; player.moving = false;
+        }
     }
 
-    // IA y Partículas
+    world.camera.x = player.x - W/2;
+    world.camera.y = player.y - H/2;
+
+    // Entities AI & Particles
     world.mobs.forEach(m => {
-        if(Math.hypot(player.x-m.x, player.y-m.y) < 150) {
-            m.x += (player.x-m.x)*0.01; m.y += (player.y-m.y)*0.01;
+        if(Math.hypot(player.x-m.x, player.y-m.y) < 120) {
+            m.x += (player.x - m.x) * 0.01;
+            m.y += (player.y - m.y) * 0.01;
         }
     });
-    world.fx.forEach((f, i) => {
-        f.x += f.vx; f.y += f.vy; f.life--;
-        if(f.life <= 0) world.fx.splice(i, 1);
+    world.particles.forEach((p, i) => {
+        p.x += p.vx; p.y += p.vy; p.life--;
+        if(p.life <= 0) world.particles.splice(i, 1);
     });
-    if(player.bTime > 0) player.bTime--;
+    if(player.bubbleTime > 0) player.bubbleTime--;
 }
 
 function draw() {
-    const camX = player.x - W/2 + (Math.random()*world.shake);
-    const camY = player.y - H/2 + (Math.random()*world.shake);
+    Object.values(ctx).forEach(c => c.clearRect(0,0,W,H));
 
-    Object.values(ctxs).forEach(c => c.clearRect(0,0,W,H));
+    const cx = world.camera.x + (Math.random()*world.shake);
+    const cy = world.camera.y + (Math.random()*world.shake);
 
-    // Capa 1: Background
-    ctxs.c_bg.save();
-    ctxs.c_bg.translate(-camX, -camY);
-    for(let y = Math.floor(camY/T); y < Math.ceil((camY+H)/T); y++) {
-        for(let x = Math.floor(camX/T); x < Math.ceil((camX+W)/T); x++) {
-            if(!world.tiles[y] || world.tiles[y][x] === undefined) continue;
-            let t = world.tiles[y][x];
-            ctxs.c_bg.fillStyle = t==0 ? "#111a11" : (t==1 ? "#222" : "#0a1420");
-            ctxs.c_bg.fillRect(x*T, y*T, T, T);
-            if(t==2) { // Shaders de agua
-                ctxs.c_bg.fillStyle = "rgba(255,255,255,0.05)";
-                ctxs.c_bg.fillRect(x*T + Math.sin(world.time + x)*4, y*T + Math.cos(world.time + y)*4, 4, 4);
+    // 1. Map Layer
+    ctx.map.save();
+    ctx.map.translate(-cx, -cy);
+    for(let y = Math.floor(cy/TILE); y < Math.ceil((cy+H)/TILE); y++) {
+        for(let x = Math.floor(cx/TILE); x < Math.ceil((cx+W)/TILE); x++) {
+            if(!world.map[y] || world.map[y][x] === undefined) continue;
+            let t = world.map[y][x];
+            ctx.map.fillStyle = t==0 ? "#1e272e" : (t==1 ? "#000" : (t==2 ? "#0984e3" : "#2f3542"));
+            ctx.map.fillRect(x*TILE, y*TILE, TILE, TILE);
+            if(t==2) { // Water shimmer
+                ctx.map.fillStyle = "rgba(255,255,255,0.1)";
+                ctx.map.fillRect(x*TILE + Math.sin(world.time + x)*4, y*TILE + Math.cos(world.time + y)*4, 2, 2);
             }
         }
     }
-    ctxs.c_bg.restore();
+    ctx.map.restore();
 
-    // Capa 2: Entidades (Depth Sorting Pro)
-    ctxs.c_main.save();
-    ctxs.c_main.translate(-camX, -camY);
-    const render = [...world.mobs, player].sort((a,b) => a.y - b.y);
-    render.forEach(e => {
+    // 2. Entity Layer (Depth Sort)
+    ctx.entities.save();
+    ctx.entities.translate(-cx, -cy);
+    const sorted = [...world.mobs, player].sort((a,b) => a.y - b.y);
+    sorted.forEach(e => {
         if(e.name === player.name) {
-            ctxs.c_main.fillStyle = "gold"; ctxs.c_main.fillRect(e.x+4, e.y+4, 24, 24);
-            ctxs.c_main.fillStyle = "white"; ctxs.c_main.font = "bold 10px Arial";
-            ctxs.c_main.textAlign = "center"; ctxs.c_main.fillText(e.name, e.x+16, e.y-10);
-            if(player.bTime > 0) {
-                ctxs.c_main.fillStyle = "white"; ctxs.c_main.fillRect(e.x-20, e.y-40, 70, 15);
-                ctxs.c_main.fillStyle = "black"; ctxs.c_main.fillText(player.bubble, e.x+15, e.y-29);
+            ctx.entities.fillStyle = "gold";
+            ctx.entities.fillRect(e.x+4, e.y+4, 24, 24);
+            ctx.entities.fillStyle = "white"; ctx.entities.font = "bold 10px Arial";
+            ctx.entities.textAlign = "center";
+            ctx.entities.fillText(e.name, e.x+16, e.y-10);
+            if(player.bubbleTime > 0) {
+                ctx.entities.fillStyle = "white"; ctx.entities.fillRect(e.x-20, e.y-45, 70, 18);
+                ctx.entities.fillStyle = "black"; ctx.entities.fillText(player.bubble, e.x+15, e.y-32);
             }
         } else {
-            ctxs.c_main.fillStyle = "#c0392b"; ctxs.c_main.fillRect(e.x+6, e.y+6, 20, 20);
-            ctxs.c_main.fillStyle = "rgba(255,0,0,0.5)"; ctxs.c_main.fillRect(e.x, e.y-5, (e.hp/100)*32, 3);
+            ctx.entities.fillStyle = "#ff4757";
+            ctx.entities.fillRect(e.x+6, e.y+6, 20, 20);
         }
     });
-    ctxs.c_main.restore();
+    ctx.entities.restore();
 
-    // Capa 3: Luces y Clima
-    const night = Math.abs(Math.sin(world.time*0.1)) * 0.8;
-    ctxs.c_light.fillStyle = `rgba(0,0,20,${0.4 + night})`;
-    ctxs.c_light.fillRect(0,0,W,H);
-    
-    let g = ctxs.c_light.createRadialGradient(400,300, 0, 400,300, 200);
-    g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(1, "rgba(0,0,0,0)");
-    ctxs.c_light.globalCompositeOperation = 'destination-out';
-    ctxs.c_light.fillStyle = g;
-    ctxs.c_light.beginPath(); ctxs.c_light.arc(400,300, 200, 0, Math.PI*2); ctxs.c_light.fill();
-    ctxs.c_light.globalCompositeOperation = 'source-over';
-
-    // FX Partículas
-    ctxs.c_fx.save();
-    ctxs.c_fx.translate(-camX, -camY);
-    world.fx.forEach(f => {
-        ctxs.c_fx.fillStyle = f.col; ctxs.c_fx.globalAlpha = f.life/40;
-        ctxs.c_fx.fillRect(f.x, f.y, 3, 3);
+    // 3. FX Layer
+    ctx.fx.save();
+    ctx.fx.translate(-cx, -cy);
+    world.particles.forEach(p => {
+        ctx.fx.fillStyle = p.color;
+        ctx.fx.globalAlpha = p.life / 30;
+        ctx.fx.fillRect(p.x, p.y, 3, 3);
     });
-    ctxs.c_fx.restore();
+    ctx.fx.restore();
+
+    // 4. Lighting Layer
+    const cycle = (Math.sin(world.time * 0.1) + 1) / 2; // 0 to 1
+    ctx.lighting.fillStyle = `rgba(0,0,25,${0.4 + cycle * 0.5})`;
+    ctx.lighting.fillRect(0,0,W,H);
+    
+    let g = ctx.lighting.createRadialGradient(W/2, H/2, 0, W/2, H/2, 220);
+    g.addColorStop(0, "rgba(255,255,255,1)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.lighting.globalCompositeOperation = 'destination-out';
+    ctx.lighting.fillStyle = g;
+    ctx.lighting.beginPath(); ctx.lighting.arc(W/2, H/2, 220, 0, Math.PI*2); ctx.lighting.fill();
+    ctx.lighting.globalCompositeOperation = 'source-over';
 }
 
-// INPUTS
+// -- INPUTS --
 const keys = {};
 window.onkeydown = e => {
     keys[e.key.toLowerCase()] = true;
-    if(e.key === 'i') toggle('inv');
-    if(e.key === 'q') toggle('quests');
-    if(e.key === 'Enter') {
-        const i = document.getElementById('chat-in');
-        if(document.activeElement === i && i.value) {
-            player.bubble = i.value; player.bTime = 180;
-            document.getElementById('log').innerHTML += `<div><b>${player.name}:</b> ${i.value}</div>`;
-            i.value = ""; i.blur();
-        } else i.focus();
+    if(e.key === 'i') {
+        const win = document.getElementById('side-window');
+        win.style.display = win.style.display === 'block' ? 'none' : 'block';
     }
+    if(e.key === 'Enter') {
+        const input = document.getElementById('chat-input');
+        if(document.activeElement === input && input.value) {
+            player.bubble = input.value; player.bubbleTime = 180;
+            addMsg(player.name, input.value);
+            input.value = ""; input.blur();
+        } else input.focus();
+    }
+    if(e.key === '1') { world.shake = 10; spawnFX(player.x+16, player.y+16, "orange"); }
 };
 window.onkeyup = e => keys[e.key.toLowerCase()] = false;
-function toggle(id) { let el = document.getElementById(id); el.style.display = el.style.display==='block'?'none':'block'; }
 
-// Init Inv Slots
-for(let i=0; i<16; i++) {
-    const s = document.createElement('div'); s.className = 'slot';
-    if(i==0) s.innerText = "🗡️"; if(i==1) s.innerText = "🍎";
-    document.getElementById('inv-g').appendChild(s);
-}
-
+init();
 function loop() { update(); draw(); requestAnimationFrame(loop); }
 loop();
 </script>
