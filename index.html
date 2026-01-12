@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mythica Adventure - PVP Edition</title>
+    <title>Mythica Adventure - Fix Edition</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://unpkg.com/colyseus.js@0.15.0/dist/colyseus.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
@@ -10,58 +10,54 @@
         :root { 
             --neon: #ff4444; 
             --mana: #4444ff;
-            --hp-color: #ff2222;
-            --panel-bg: rgba(15, 15, 15, 0.98);
+            --panel-bg: rgba(10, 10, 10, 0.95);
         }
         body { margin: 0; background: #000; overflow: hidden; font-family: 'Verdana', sans-serif; color: white; touch-action: none; }
 
-        /* --- LOGIN (SE MANTIENE IGUAL) --- */
-        #login-screen { position: fixed; inset: 0; background: radial-gradient(circle, #1a1a1a, #000); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; transition: opacity 0.5s; }
-        .dragon-logo { width: 130px; height: 130px; background: url('https://cdn-icons-png.flaticon.com/512/606/606540.png') no-repeat center/contain; filter: drop-shadow(0 0 15px var(--neon)); margin-bottom: 5px; }
-        h1 { font-size: 1.8em; letter-spacing: 4px; color: var(--neon); text-shadow: 0 0 15px rgba(255,68,68,0.6); margin-bottom: 35px; text-align: center; font-weight: 900; }
-        .neu-input { padding: 18px; width: 260px; border: none; background: #1a1a1a; color: #fff; border-radius: 20px; text-align: center; margin-bottom: 25px; box-shadow: inset 6px 6px 12px #080808, inset -6px -6px 12px #2c2c2c; outline: none; border: 1px solid rgba(255,68,68,0.2); }
-        .neu-btn { padding: 16px 55px; background: var(--neon); border: none; font-weight: bold; border-radius: 20px; cursor: pointer; color: #fff; font-size: 1.1em; box-shadow: 6px 6px 15px rgba(0,0,0,0.6); }
+        /* --- LOGIN --- */
+        #login-screen { position: fixed; inset: 0; background: radial-gradient(circle, #1a1a1a, #000); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.5s; }
+        .dragon-logo { width: 120px; height: 120px; background: url('https://cdn-icons-png.flaticon.com/512/606/606540.png') no-repeat center/contain; filter: drop-shadow(0 0 15px var(--neon)); margin-bottom: 10px; }
+        h1 { font-size: 1.8em; color: var(--neon); text-shadow: 0 0 15px rgba(255,68,68,0.6); margin-bottom: 30px; font-weight: 900; }
+        .neu-input { padding: 15px; width: 250px; border: none; background: #1a1a1a; color: #fff; border-radius: 15px; text-align: center; margin-bottom: 20px; box-shadow: inset 5px 5px 10px #080808, inset -5px -5px 10px #2c2c2c; outline: none; border: 1px solid rgba(255,68,68,0.2); }
+        .neu-btn { padding: 15px 50px; background: var(--neon); border: none; font-weight: bold; border-radius: 15px; cursor: pointer; color: #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
 
-        /* --- UI DE ACCIÓN RÁPIDA (BOTELLAS) --- */
-        #quick-actions {
-            position: fixed; bottom: 30px; right: 30px; 
-            display: flex; flex-direction: column; gap: 15px; z-index: 600;
-        }
-        .potion-btn {
-            width: 60px; height: 60px; border-radius: 50%; border: 3px solid #fff;
-            cursor: pointer; position: relative; transition: transform 0.1s;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
-        }
-        .potion-btn:active { transform: scale(0.9); }
-        .potion-hp { background: radial-gradient(circle, #ff5555, #880000); border-color: #ff9999; }
-        .potion-mana { background: radial-gradient(circle, #5555ff, #000088); border-color: #9999ff; }
-        /* Icono de botella simple */
-        .potion-btn::after { content: '🧪'; font-size: 24px; }
-
-        /* --- MUNDO Y PERSONAJES --- */
-        #viewport { position: relative; width: 100vw; height: 100vh; overflow: hidden; display: none; background: #050505; }
-        #world { position: absolute; top: 0; left: 0; transition: transform 0.1s linear; z-index: 1; }
-        .tile { position: absolute; width: 100px; height: 100px; background: #111; border: 1px solid #1a1a1a; box-sizing: border-box; }
+        /* --- MUNDO (EL FIX ESTÁ AQUÍ) --- */
+        #viewport { position: relative; width: 100vw; height: 100vh; overflow: hidden; display: none; background: #000; z-index: 1; }
         
-        .player { width: 32px; height: 32px; position: absolute; background: var(--neon); border-radius: 6px; box-shadow: 0 0 20px var(--neon); z-index: 100 !important; }
-        .player-name { position: absolute; top: -28px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: bold; color: #fff; text-shadow: 2px 2px 4px #000; white-space: nowrap; }
-
-        /* --- ANIMACIONES PVP --- */
-        .hit-effect { position: absolute; width: 50px; height: 50px; border: 3px solid #fff; border-radius: 50%; animation: hit 0.25s ease-out forwards; pointer-events: none; z-index: 150; }
-        @keyframes hit { 0% { transform: scale(0.5); opacity: 1; border-color: #ff0000; } 100% { transform: scale(1.5); opacity: 0; border-color: #fff; } }
+        /* El contenedor world ahora tiene z-index bajo para que no tape nada */
+        #world { position: absolute; top: 0; left: 0; transition: transform 0.1s linear; z-index: 5; transform-style: preserve-3d; }
         
-        .damage-text { position: absolute; color: #ff0000; font-weight: 900; font-size: 22px; text-shadow: 2px 2px #000; animation: floatDmg 0.6s ease-out forwards; pointer-events: none; z-index: 160; }
-        @keyframes floatDmg { 0% { transform: translateY(0) scale(1); } 50% { transform: translateY(-20px) scale(1.2); } 100% { transform: translateY(-40px) scale(1); opacity: 0; } }
+        .tile { position: absolute; width: 80px; height: 80px; background: #0a0a0a; border: 1px solid #151515; box-sizing: border-box; z-index: 1; }
 
-        /* --- UI BARRAS --- */
-        #menu-toggle { position: fixed; top: 20px; right: 20px; z-index: 500; background: var(--panel-bg); border: 2px solid var(--neon); color: var(--neon); padding: 12px 20px; border-radius: 12px; cursor: pointer; }
-        #sidebar { position: fixed; right: -300px; top: 0; width: 260px; height: 100vh; background: var(--panel-bg); z-index: 400; transition: 0.4s; border-left: 2px solid var(--neon); padding: 80px 20px 20px; }
+        /* Jugador con z-index altísimo y color rojo vibrante */
+        .player { 
+            width: 35px; height: 35px; position: absolute; 
+            background: #ff0000; border-radius: 8px; 
+            box-shadow: 0 0 25px #ff0000, 0 0 10px #ffffff; 
+            z-index: 999 !important; /* Asegura que esté por encima de los tiles */
+            display: block !important;
+        }
+        .player-name { position: absolute; top: -25px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: bold; color: #fff; text-shadow: 2px 2px 2px #000; white-space: nowrap; }
+
+        /* --- UI Y POCIONES --- */
+        #quick-actions { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 15px; z-index: 1000; }
+        .potion-btn { width: 55px; height: 55px; border-radius: 50%; border: 3px solid #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.8); }
+        .potion-hp { background: radial-gradient(circle, #ff4444, #880000); }
+        .potion-mana { background: radial-gradient(circle, #4444ff, #000088); }
+
+        #menu-toggle { position: fixed; top: 20px; right: 20px; z-index: 1000; background: var(--panel-bg); border: 2px solid var(--neon); color: var(--neon); padding: 10px 18px; border-radius: 10px; font-weight: bold; }
+        #sidebar { position: fixed; right: -280px; top: 0; width: 250px; height: 100vh; background: var(--panel-bg); z-index: 900; transition: 0.3s; border-left: 2px solid var(--neon); padding: 70px 15px; }
         #sidebar.open { right: 0; }
-        .bar-container { height: 20px; background: #333; border-radius: 10px; overflow: hidden; position: relative; margin-top: 5px; }
-        .bar-fill { height: 100%; transition: width 0.2s; }
-        .bar-text { position: absolute; width: 100%; text-align: center; font-size: 10px; line-height: 20px; font-weight: bold; color: white; }
 
-        #touch-zone { position: fixed; inset: 0; z-index: 50; display: none; }
+        .stat-bar { height: 18px; background: #222; border-radius: 9px; overflow: hidden; position: relative; margin: 5px 0 15px; border: 1px solid #333; }
+        .bar-fill { height: 100%; transition: width 0.3s; }
+        .bar-text { position: absolute; width: 100%; text-align: center; font-size: 9px; line-height: 18px; font-weight: bold; }
+
+        #touch-zone { position: fixed; inset: 0; z-index: 100; display: none; }
+        
+        /* Animación de Daño */
+        .damage-popup { position: absolute; color: #ff0000; font-weight: 900; font-size: 20px; text-shadow: 2px 2px #000; animation: floatUp 0.6s ease-out forwards; z-index: 2000; pointer-events: none; }
+        @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-50px); opacity: 0; } }
     </style>
 </head>
 <body>
@@ -71,29 +67,25 @@
         <h1>MYTHICA ADVENTURE</h1>
         <input type="text" id="p-name" class="neu-input" placeholder="Nombre de Héroe">
         <button id="start-btn" class="neu-btn">ENTRAR AL MUNDO</button>
-        <div id="loader-container" style="display:none; margin-top:20px;">
-            <div class="spinner" style="width:40px; height:40px; border:4px solid #333; border-left-color:var(--neon); border-radius:50%; animation:spin 1s infinite linear;"></div>
-        </div>
+        <div id="status-msg" style="margin-top: 15px; font-size: 0.8em; color: var(--neon);"></div>
     </div>
 
     <div id="quick-actions" style="display:none;">
-        <div class="potion-btn potion-hp" onclick="usePotion('hp')" title="Curar Vida"></div>
-        <div class="potion-btn potion-mana" onclick="usePotion('mana')" title="Recargar Maná"></div>
+        <div class="potion-btn potion-hp" onclick="usePotion('hp')">🧪</div>
+        <div class="potion-btn potion-mana" onclick="usePotion('mana')">🧪</div>
     </div>
 
     <button id="menu-toggle">MENÚ</button>
     <div id="sidebar">
-        <div style="background:rgba(0,0,0,0.5); padding:15px; border-radius:15px; border:1px solid #222;">
-            <h4 style="color:var(--neon); margin:0; font-size:0.8em;">HP</h4>
-            <div class="bar-container">
-                <div id="hp-bar" class="bar-fill" style="width: 100%; background: #ff4444;"></div>
-                <div id="hp-text" class="bar-text">100 / 100</div>
-            </div>
-            <h4 style="color:var(--mana); margin:15px 0 0 0; font-size:0.8em;">MANA</h4>
-            <div class="bar-container">
-                <div id="mana-bar" class="bar-fill" style="width: 100%; background: #4444ff;"></div>
-                <div id="mana-text" class="bar-text">100 / 100</div>
-            </div>
+        <h4 style="color:var(--neon); margin:0; font-size:0.75em;">HP (VIDA)</h4>
+        <div class="stat-bar">
+            <div id="hp-bar" class="bar-fill" style="width: 100%; background: #ff4444;"></div>
+            <div id="hp-text" class="bar-text">100 / 100</div>
+        </div>
+        <h4 style="color:var(--mana); margin:0; font-size:0.75em;">MANA</h4>
+        <div class="stat-bar">
+            <div id="mana-bar" class="bar-fill" style="width: 100%; background: #4444ff;"></div>
+            <div id="mana-text" class="bar-text">100 / 100</div>
         </div>
     </div>
 
@@ -105,73 +97,57 @@
     <script>
         const client = new Colyseus.Client("wss://mythica-adventure.onrender.com");
         let room;
-        let stats = { hp: 100, mana: 100 };
-
-        // Sistema de Pociones
-        function usePotion(type) {
-            if(type === 'hp' && stats.hp < 100) {
-                stats.hp = Math.min(100, stats.hp + 20);
-                updateUI();
-                showFloatText("CURADO", "#00ff00");
-            } else if(type === 'mana' && stats.mana < 100) {
-                stats.mana = Math.min(100, stats.mana + 30);
-                updateUI();
-                showFloatText("MANA+", "#4444ff");
-            }
-        }
-
-        function updateUI() {
-            document.getElementById('hp-bar').style.width = stats.hp + "%";
-            document.getElementById('hp-text').innerText = `${stats.hp} / 100`;
-            document.getElementById('mana-bar').style.width = stats.mana + "%";
-            document.getElementById('mana-text').innerText = `${stats.mana} / 100`;
-        }
-
-        function showFloatText(text, color) {
-            const p = room.state.players.get(room.sessionId);
-            if(!p) return;
-            const dmg = document.createElement('div');
-            dmg.className = 'damage-text';
-            dmg.innerText = text;
-            dmg.style.color = color;
-            dmg.style.left = (p.x + 16) + "px";
-            dmg.style.top = (p.y - 20) + "px";
-            document.getElementById('world').appendChild(dmg);
-            setTimeout(() => dmg.remove(), 600);
-        }
-
-        // Ataque PVP
-        function performAttack() {
-            const myPlayer = room.state.players.get(room.sessionId);
-            if(!myPlayer) return;
-
-            // Animación visual de golpe
-            const hit = document.createElement('div');
-            hit.className = 'hit-effect';
-            hit.style.left = (myPlayer.x + 16 - 25) + "px";
-            hit.style.top = (myPlayer.y + 16 - 25) + "px";
-            document.getElementById('world').appendChild(hit);
-            setTimeout(() => hit.remove(), 250);
-
-            // Lógica PVP: Buscar jugadores cercanos
-            room.state.players.forEach((player, id) => {
-                if(id !== room.sessionId) {
-                    const dist = Math.hypot(player.x - myPlayer.x, player.y - myPlayer.y);
-                    if(dist < 60) { // Rango de ataque tipo Tibia
-                        showFloatText("-15", "#ff0000");
-                        room.send("mover", { x: player.x, y: player.y }); // Efecto de empuje
-                    }
-                }
-            });
-        }
+        let myStats = { hp: 100, mana: 100 };
 
         document.getElementById('menu-toggle').onclick = () => document.getElementById('sidebar').classList.toggle('open');
 
+        function usePotion(type) {
+            if(type === 'hp') {
+                myStats.hp = Math.min(100, myStats.hp + 25);
+                showLocalText("¡CURADO!", "#00ff00");
+            } else {
+                myStats.mana = Math.min(100, myStats.mana + 30);
+                showLocalText("¡MANA!", "#4444ff");
+            }
+            updateBars();
+        }
+
+        function updateBars() {
+            document.getElementById('hp-bar').style.width = myStats.hp + "%";
+            document.getElementById('hp-text').innerText = `${myStats.hp} / 100`;
+            document.getElementById('mana-bar').style.width = myStats.mana + "%";
+            document.getElementById('mana-text').innerText = `${myStats.mana} / 100`;
+        }
+
+        function showLocalText(txt, color) {
+            const p = room.state.players.get(room.sessionId);
+            if(!p) return;
+            const d = document.createElement('div');
+            d.className = 'damage-popup';
+            d.innerText = txt; d.style.color = color;
+            d.style.left = (p.x + 10) + "px"; d.style.top = (p.y - 10) + "px";
+            document.getElementById('world').appendChild(d);
+            setTimeout(() => d.remove(), 600);
+        }
+
+        function createGrid() {
+            const world = document.getElementById('world');
+            world.innerHTML = '';
+            for(let x=0; x<25; x++) {
+                for(let y=0; y<25; y++) {
+                    const t = document.createElement('div');
+                    t.className = 'tile';
+                    t.style.left = (x * 80) + "px";
+                    t.style.top = (y * 80) + "px";
+                    world.appendChild(t);
+                }
+            }
+        }
+
         document.getElementById('start-btn').onclick = async function() {
-            const btn = this;
-            const loader = document.getElementById('loader-container');
-            loader.style.display = 'block';
-            btn.style.display = 'none';
+            const status = document.getElementById('status-msg');
+            status.innerText = "CONECTANDO AL REINO...";
+            this.style.display = 'none';
 
             try {
                 room = await client.joinOrCreate("mundo_mythica", { nombre: document.getElementById('p-name').value || "Héroe" });
@@ -181,59 +157,64 @@
                 document.getElementById('touch-zone').style.display = 'block';
                 document.getElementById('quick-actions').style.display = 'flex';
                 
-                // Mapa
-                const world = document.getElementById('world');
-                for(let x=0; x<20; x++) {
-                    for(let y=0; y<20; y++) {
-                        const t = document.createElement('div');
-                        t.className = 'tile'; t.style.left = (x*100)+"px"; t.style.top = (y*100)+"px";
-                        world.appendChild(t);
-                    }
-                }
+                createGrid();
 
-                // Click para atacar (PVP)
-                document.getElementById('viewport').onclick = performAttack;
-
+                // Lógica de Jugadores
                 room.state.players.onAdd((player, sessionId) => {
                     const div = document.createElement("div");
                     div.className = "player";
                     div.id = "p-" + sessionId;
                     div.innerHTML = `<div class="player-name">${player.nombre}</div>`;
-                    world.appendChild(div);
+                    document.getElementById("world").appendChild(div);
 
                     player.onChange(() => {
                         div.style.left = player.x + "px";
                         div.style.top = player.y + "px";
+                        
                         if (sessionId === room.sessionId) {
-                            const vx = window.innerWidth/2 - player.x - 16;
-                            const vy = window.innerHeight/2 - player.y - 16;
-                            world.style.transform = `translate(${vx}px, ${vy}px)`;
+                            const vx = window.innerWidth/2 - player.x - 17;
+                            const vy = window.innerHeight/2 - player.y - 17;
+                            document.getElementById('world').style.transform = `translate(${vx}px, ${vy}px)`;
                         }
                     });
                 });
 
-                room.state.players.onRemove((player, sessionId) => document.getElementById("p-" + sessionId)?.remove());
+                room.state.players.onRemove((player, sessionId) => {
+                    document.getElementById("p-" + sessionId)?.remove();
+                });
+
+                // PVP al hacer click
+                document.getElementById('viewport').onclick = () => {
+                    const me = room.state.players.get(room.sessionId);
+                    room.state.players.forEach((p, id) => {
+                        if(id !== room.sessionId) {
+                            const d = Math.hypot(p.x - me.x, p.y - me.y);
+                            if(d < 60) showLocalText("-15", "#ff0000");
+                        }
+                    });
+                };
 
                 // Joystick
-                const joystick = nipplejs.create({ zone: document.getElementById('touch-zone'), mode: 'dynamic', color: '#ff4444' });
-                let moveInterval;
-                joystick.on('move', (evt, data) => {
+                const joy = nipplejs.create({ zone: document.getElementById('touch-zone'), mode: 'dynamic', color: '#ff4444' });
+                let moveInt;
+                joy.on('move', (e, data) => {
                     if (!data.direction) return;
-                    clearInterval(moveInterval);
-                    moveInterval = setInterval(() => {
-                        let dx = 0, dy = 0; const step = 15;
-                        if (data.direction.angle === "up") dy = -step;
-                        if (data.direction.angle === "down") dy = step;
-                        if (data.direction.angle === "left") dx = -step;
-                        if (data.direction.angle === "right") dx = step;
+                    clearInterval(moveInt);
+                    moveInt = setInterval(() => {
+                        let dx = 0, dy = 0;
+                        if (data.direction.angle === "up") dy = -15;
+                        if (data.direction.angle === "down") dy = 15;
+                        if (data.direction.angle === "left") dx = -15;
+                        if (data.direction.angle === "right") dx = 15;
                         const p = room.state.players.get(room.sessionId);
                         if(p) room.send("mover", { x: p.x + dx, y: p.y + dy });
                     }, 50);
                 });
-                joystick.on('end', () => clearInterval(moveInterval));
+                joy.on('end', () => clearInterval(moveInt));
 
             } catch (e) {
-                btn.style.display = 'block'; loader.style.display = 'none';
+                this.style.display = 'block';
+                status.innerText = "EL SERVIDOR ESTÁ DURMIENDO, REINTENTA...";
             }
         };
     </script>
