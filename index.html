@@ -2,144 +2,171 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mythica Adventure - Tibia Edition</title>
+    <title>Mythica Adventure - Dragon Edition</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://unpkg.com/colyseus.js@0.15.0/dist/colyseus.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <style>
-        :root { --tibia-gold: #d4c5a1; --tibia-bg: #3e3e3e; }
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Verdana', sans-serif; color: white; }
-        
-        /* Pantalla de Login */
+        :root { 
+            --neon: #00ffcc; 
+            --bg: #0f0f0f;
+            --panel-bg: rgba(20, 20, 20, 0.95);
+        }
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; color: white; }
+
+        /* --- LOGIN NEUMÓRFICO --- */
         #login-screen {
-            position: fixed; inset: 0; background: #1a1a1a;
+            position: fixed; inset: 0; background: radial-gradient(circle, #1a1a1a, #000);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000; border: 10px solid #2a2a2a;
+            z-index: 1000; transition: opacity 0.5s;
         }
-        #login-screen h1 { color: var(--tibia-gold); letter-spacing: 2px; text-shadow: 2px 2px #000; }
-
-        /* Contenedor Principal (Layout Tibia) */
-        #game-container { display: none; width: 100vw; height: 100vh; grid-template-columns: 1fr 250px; }
         
-        /* Área del Mapa */
-        #viewport { 
-            position: relative; overflow: hidden; background: #111;
-            border: 4px solid #2a2a2a; outline: 2px solid #000;
+        /* Logo del Dragón */
+        .dragon-logo {
+            width: 120px; height: 120px;
+            background: url('https://cdn-icons-png.flaticon.com/512/606/606540.png') no-repeat center/contain;
+            filter: drop-shadow(0 0 15px var(--neon));
+            margin-bottom: 10px;
         }
-        #world { position: absolute; transition: transform 0.1s linear; }
-
-        /* Estilo de los Tiles (Suelo) */
-        .tile { 
-            position: absolute; width: 32px; height: 32px; 
-            box-sizing: border-box; border: 0.1px solid rgba(0,0,0,0.05);
+        h1 { 
+            font-size: 2.2em; letter-spacing: 5px; color: var(--neon);
+            text-shadow: 0 0 20px rgba(0,255,204,0.5); margin-bottom: 30px;
         }
-        .grass { background: #2d5a27; }
-        .dirt { background: #5a4627; }
 
-        /* Personajes */
+        .neu-input { 
+            padding: 15px; width: 260px; border: none; background: #1a1a1a; 
+            color: #fff; border-radius: 15px; text-align: center; margin-bottom: 20px;
+            box-shadow: inset 5px 5px 10px #0a0a0a, inset -5px -5px 10px #2a2a2a;
+            outline: none; border: 1px solid rgba(0,255,204,0.1);
+        }
+        .neu-btn { 
+            padding: 15px 50px; background: var(--neon); border: none; font-weight: bold; 
+            border-radius: 15px; cursor: pointer; color: #000; font-size: 1.1em;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.5); transition: 0.3s;
+        }
+        .neu-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px var(--neon); }
+
+        /* --- MUNDO Y JUEGO --- */
+        #viewport { position: relative; width: 100vw; height: 100vh; overflow: hidden; display: none; }
+        #world { position: absolute; top: 0; left: 0; transition: transform 0.1s linear; }
+        
+        .tile { position: absolute; width: 64px; height: 64px; background: #1a1a1a; border: 1px solid #222; }
         .player { 
-            width: 32px; height: 32px; position: absolute; 
-            background: #3498db; border-radius: 4px;
-            box-shadow: 0 4px 0 #1a4f72; z-index: 10;
-            transition: all 0.15s linear;
+            width: 32px; height: 32px; position: absolute; background: var(--neon); 
+            border-radius: 5px; box-shadow: 0 0 15px var(--neon); z-index: 10;
         }
         .player-name {
-            position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
-            font-size: 10px; font-weight: bold; text-shadow: 1px 1px #000; white-space: nowrap;
+            position: absolute; top: -25px; left: 50%; transform: translateX(-50%);
+            font-size: 12px; color: var(--neon); text-shadow: 2px 2px 2px #000; white-space: nowrap;
         }
 
-        /* Menú Lateral (Sidebar) */
-        #sidebar { 
-            background: var(--tibia-bg); border-left: 4px solid #2a2a2a;
-            display: flex; flex-direction: column; padding: 10px; gap: 15px;
+        /* --- MENÚ DESPLEGABLE --- */
+        #menu-toggle {
+            position: fixed; top: 20px; right: 20px; z-index: 110;
+            background: var(--panel-bg); border: 2px solid var(--neon);
+            color: var(--neon); padding: 10px 15px; border-radius: 10px; cursor: pointer;
         }
-        .ui-panel { background: #2a2a2a; border: 2px solid var(--tibia-gold); padding: 10px; border-radius: 4px; }
-        .stat-bar { height: 12px; background: #111; margin-top: 5px; border-radius: 3px; overflow: hidden; }
-        .hp { background: #ff4444; width: 80%; height: 100%; }
-        .mana { background: #4444ff; width: 60%; height: 100%; }
+        #sidebar { 
+            position: fixed; right: -280px; top: 0; width: 250px; height: 100vh;
+            background: var(--panel-bg); z-index: 105; transition: 0.4s;
+            border-left: 2px solid var(--neon); padding: 70px 15px 20px;
+        }
+        #sidebar.open { right: 0; }
+        .stat-card { background: #000; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; }
         
-        #touch-zone { position: fixed; bottom: 20px; left: 20px; width: 150px; height: 150px; z-index: 200; }
+        #touch-zone { position: fixed; inset: 0; z-index: 50; display: none; }
     </style>
 </head>
 <body>
 
     <div id="login-screen">
-        <h1>MYTHICA ADVENTURE</h1>
-        <input type="text" id="p-name" style="padding:10px; margin-bottom:10px;" placeholder="Nombre de Héroe">
-        <button id="start-btn" style="padding:10px 30px; cursor:pointer;">LOG IN</button>
-        <p id="status-text"></p>
+        <div class="dragon-logo"></div>
+        <h1>MYTHICA</h1>
+        <input type="text" id="p-name" class="neu-input" placeholder="Nombre de Héroe" maxlength="12">
+        <button id="start-btn" class="neu-btn">ENTRAR AL MUNDO</button>
+        <p id="status-text" style="color: #ff4444; margin-top: 20px;"></p>
     </div>
 
-    <div id="game-container">
-        <div id="viewport">
-            <div id="world"></div>
-        </div>
-
-        <div id="sidebar">
-            <div class="ui-panel">
-                <div style="color:var(--tibia-gold); font-size: 12px;">PERSONAJE</div>
-                <div class="stat-bar"><div class="hp"></div></div>
-                <div class="stat-bar"><div class="mana"></div></div>
+    <button id="menu-toggle">MENU</button>
+    <div id="sidebar">
+        <div class="stat-card">
+            <h3 style="color:var(--neon); margin:0 0 10px 0;">STATUS</h3>
+            <div style="height:10px; background:#222; border-radius:5px; margin-bottom:5px;">
+                <div style="width:80%; height:100%; background:#ff4444; border-radius:5px;"></div>
             </div>
-            <div class="ui-panel" style="height: 150px;">
-                <div style="color:var(--tibia-gold); font-size: 12px;">MINIMAPA</div>
-                <div id="minimap" style="width:100%; height:120px; background:#111; margin-top:5px;"></div>
+            <div style="height:10px; background:#222; border-radius:5px;">
+                <div style="width:60%; height:100%; background:#4444ff; border-radius:5px;"></div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <h3 style="color:var(--neon); margin:0 0 10px 0;">INVENTARIO</h3>
+            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:5px;">
+                <div style="aspect-ratio:1; background:#1a1a1a; border:1px solid #333;"></div>
+                <div style="aspect-ratio:1; background:#1a1a1a; border:1px solid #333;"></div>
+                <div style="aspect-ratio:1; background:#1a1a1a; border:1px solid #333;"></div>
             </div>
         </div>
     </div>
 
+    <div id="viewport">
+        <div id="world"></div>
+    </div>
+    
     <div id="touch-zone"></div>
 
     <script>
         const client = new Colyseus.Client("wss://mythica-adventure.onrender.com");
         let room;
         const TILE_SIZE = 32;
-        const worldDiv = document.getElementById("world");
-        const viewport = document.getElementById("viewport");
 
-        // Crear mapa base simple
-        function createBackground() {
-            for(let x=0; x<50; x+=2) {
-                for(let y=0; y<50; y+=2) {
-                    const t = document.createElement("div");
-                    t.className = `tile ${Math.random() > 0.1 ? 'grass' : 'dirt'}`;
-                    t.style.left = (x * TILE_SIZE) + "px";
-                    t.style.top = (y * TILE_SIZE) + "px";
-                    t.style.width = (TILE_SIZE * 2) + "px";
-                    t.style.height = (TILE_SIZE * 2) + "px";
-                    worldDiv.appendChild(t);
-                }
+        // Toggle Menú
+        document.getElementById('menu-toggle').onclick = () => {
+            document.getElementById('sidebar').classList.toggle('open');
+        };
+
+        // Generar Mapa simple
+        function createMap() {
+            const world = document.getElementById('world');
+            for(let i=0; i<400; i++) {
+                const t = document.createElement('div');
+                t.className = 'tile';
+                t.style.left = (i % 20) * 64 + "px";
+                t.style.top = Math.floor(i / 20) * 64 + "px";
+                world.appendChild(t);
             }
         }
 
         document.getElementById('start-btn').onclick = async function() {
             const btn = this;
-            const status = document.getElementById('status-text');
             const nombre = document.getElementById('p-name').value || "Héroe";
-
+            
             try {
                 room = await client.joinOrCreate("mundo_mythica", { nombre: nombre });
                 
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('game-container').style.display = 'grid';
-                createBackground();
+                document.getElementById('login-screen').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('login-screen').style.display = 'none';
+                    document.getElementById('viewport').style.display = 'block';
+                    document.getElementById('touch-zone').style.display = 'block';
+                }, 500);
+
+                createMap();
 
                 room.state.players.onAdd((player, sessionId) => {
                     const div = document.createElement("div");
                     div.className = "player";
                     div.id = "p-" + sessionId;
                     div.innerHTML = `<div class="player-name">${player.nombre || 'Héroe'}</div>`;
-                    worldDiv.appendChild(div);
+                    document.getElementById("world").appendChild(div);
 
                     player.onChange(() => {
                         div.style.left = player.x + "px";
                         div.style.top = player.y + "px";
                         
-                        // Centrar cámara si es mi jugador
                         if (sessionId === room.sessionId) {
-                            const centerX = (viewport.offsetWidth / 2) - player.x - (TILE_SIZE / 2);
-                            const centerY = (viewport.offsetHeight / 2) - player.y - (TILE_SIZE / 2);
-                            worldDiv.style.transform = `translate(${centerX}px, ${centerY}px)`;
+                            const vx = window.innerWidth/2 - player.x;
+                            const vy = window.innerHeight/2 - player.y;
+                            document.getElementById('world').style.transform = `translate(${vx}px, ${vy}px)`;
                         }
                     });
                 });
@@ -148,30 +175,30 @@
                     document.getElementById("p-" + sessionId)?.remove();
                 });
 
-                // Joystick mejorado
-                const joystick = nipplejs.create({ zone: document.getElementById('touch-zone'), mode: 'static', position: {left: '75px', bottom: '75px'}, color: '#d4c5a1' });
-                
+                // Joystick Movimiento
+                const joystick = nipplejs.create({ zone: document.getElementById('touch-zone'), mode: 'dynamic', color: '#00ffcc' });
                 let moveInterval;
+
                 joystick.on('move', (evt, data) => {
                     if (!data.direction) return;
                     clearInterval(moveInterval);
                     moveInterval = setInterval(() => {
                         let dx = 0, dy = 0;
-                        if (data.direction.angle === "up") dy = -TILE_SIZE;
-                        if (data.direction.angle === "down") dy = TILE_SIZE;
-                        if (data.direction.angle === "left") dx = -TILE_SIZE;
-                        if (data.direction.angle === "right") dx = TILE_SIZE;
+                        const dist = 10;
+                        if (data.direction.angle === "up") dy = -dist;
+                        if (data.direction.angle === "down") dy = dist;
+                        if (data.direction.angle === "left") dx = -dist;
+                        if (data.direction.angle === "right") dx = dist;
                         
                         const p = room.state.players.get(room.sessionId);
                         room.send("mover", { x: p.x + dx, y: p.y + dy });
-                    }, 150); // Velocidad de paso tipo Tibia
+                    }, 50);
                 });
-                
+
                 joystick.on('end', () => clearInterval(moveInterval));
 
             } catch (e) {
-                status.innerText = "Error de conexión. El servidor puede estar inactivo.";
-                console.error(e);
+                document.getElementById('status-text').innerText = "Servidor despertando... Reintenta.";
             }
         };
     </script>
