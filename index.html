@@ -9,71 +9,85 @@
     <style>
         :root { 
             --neon: #00ffcc; 
-            --bg: #0f0f0f;
-            --panel-bg: rgba(20, 20, 20, 0.95);
+            --bg: #0a0a0a;
+            --panel-bg: rgba(15, 15, 15, 0.98);
         }
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; color: white; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Verdana', sans-serif; color: white; }
 
         /* --- LOGIN NEUMÓRFICO --- */
         #login-screen {
             position: fixed; inset: 0; background: radial-gradient(circle, #1a1a1a, #000);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000; transition: opacity 0.5s;
+            z-index: 2000; transition: opacity 0.5s;
         }
         
-        /* Logo del Dragón */
         .dragon-logo {
-            width: 120px; height: 120px;
+            width: 130px; height: 130px;
             background: url('https://cdn-icons-png.flaticon.com/512/606/606540.png') no-repeat center/contain;
             filter: drop-shadow(0 0 15px var(--neon));
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
         h1 { 
-            font-size: 2.2em; letter-spacing: 5px; color: var(--neon);
-            text-shadow: 0 0 20px rgba(0,255,204,0.5); margin-bottom: 30px;
+            font-size: 1.8em; letter-spacing: 4px; color: var(--neon);
+            text-shadow: 0 0 15px rgba(0,255,204,0.6); margin-bottom: 35px;
+            text-align: center; font-weight: 900;
         }
 
         .neu-input { 
-            padding: 15px; width: 260px; border: none; background: #1a1a1a; 
-            color: #fff; border-radius: 15px; text-align: center; margin-bottom: 20px;
-            box-shadow: inset 5px 5px 10px #0a0a0a, inset -5px -5px 10px #2a2a2a;
-            outline: none; border: 1px solid rgba(0,255,204,0.1);
+            padding: 18px; width: 260px; border: none; background: #1a1a1a; 
+            color: #fff; border-radius: 20px; text-align: center; margin-bottom: 25px;
+            box-shadow: inset 6px 6px 12px #080808, inset -6px -6px 12px #2c2c2c;
+            outline: none; border: 1px solid rgba(0,255,204,0.2); font-size: 1em;
         }
         .neu-btn { 
-            padding: 15px 50px; background: var(--neon); border: none; font-weight: bold; 
-            border-radius: 15px; cursor: pointer; color: #000; font-size: 1.1em;
-            box-shadow: 5px 5px 15px rgba(0,0,0,0.5); transition: 0.3s;
+            padding: 16px 55px; background: var(--neon); border: none; font-weight: bold; 
+            border-radius: 20px; cursor: pointer; color: #000; font-size: 1.1em;
+            box-shadow: 6px 6px 15px rgba(0,0,0,0.6); transition: 0.3s;
+            letter-spacing: 1px;
         }
-        .neu-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px var(--neon); }
+        .neu-btn:hover { transform: translateY(-3px); box-shadow: 0 0 25px var(--neon); }
 
-        /* --- MUNDO Y JUEGO --- */
-        #viewport { position: relative; width: 100vw; height: 100vh; overflow: hidden; display: none; }
-        #world { position: absolute; top: 0; left: 0; transition: transform 0.1s linear; }
+        /* --- MUNDO Y PERSONAJES --- */
+        #viewport { position: relative; width: 100vw; height: 100vh; overflow: hidden; display: none; background: #050505; }
+        #world { position: absolute; top: 0; left: 0; transition: transform 0.15s ease-out; z-index: 1; }
         
-        .tile { position: absolute; width: 64px; height: 64px; background: #1a1a1a; border: 1px solid #222; }
+        .tile { 
+            position: absolute; width: 100px; height: 100px; 
+            background: #111; border: 1px solid #1a1a1a; box-sizing: border-box;
+            z-index: 1;
+        }
+
+        /* Jugador Asegurado */
         .player { 
-            width: 32px; height: 32px; position: absolute; background: var(--neon); 
-            border-radius: 5px; box-shadow: 0 0 15px var(--neon); z-index: 10;
+            width: 32px; height: 32px; position: absolute; 
+            background: var(--neon); border-radius: 6px; 
+            box-shadow: 0 0 20px var(--neon), 0 0 40px rgba(0,255,204,0.3); 
+            z-index: 100 !important; /* Prioridad máxima */
+            will-change: transform, left, top;
         }
         .player-name {
-            position: absolute; top: -25px; left: 50%; transform: translateX(-50%);
-            font-size: 12px; color: var(--neon); text-shadow: 2px 2px 2px #000; white-space: nowrap;
+            position: absolute; top: -28px; left: 50%; transform: translateX(-50%);
+            font-size: 12px; font-weight: bold; color: #fff;
+            text-shadow: 2px 2px 4px #000; white-space: nowrap; pointer-events: none;
         }
 
-        /* --- MENÚ DESPLEGABLE --- */
+        /* --- UI DESPLEGABLE --- */
         #menu-toggle {
-            position: fixed; top: 20px; right: 20px; z-index: 110;
+            position: fixed; top: 20px; right: 20px; z-index: 500;
             background: var(--panel-bg); border: 2px solid var(--neon);
-            color: var(--neon); padding: 10px 15px; border-radius: 10px; cursor: pointer;
+            color: var(--neon); padding: 12px 20px; border-radius: 12px; 
+            cursor: pointer; font-weight: bold; box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
         #sidebar { 
-            position: fixed; right: -280px; top: 0; width: 250px; height: 100vh;
-            background: var(--panel-bg); z-index: 105; transition: 0.4s;
-            border-left: 2px solid var(--neon); padding: 70px 15px 20px;
+            position: fixed; right: -300px; top: 0; width: 260px; height: 100vh;
+            background: var(--panel-bg); z-index: 400; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-left: 2px solid var(--neon); padding: 80px 20px 20px;
+            box-shadow: -10px 0 20px rgba(0,0,0,0.5);
         }
         #sidebar.open { right: 0; }
-        .stat-card { background: #000; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; }
+        .stat-card { background: rgba(0,0,0,0.5); padding: 15px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #222; }
         
+        /* Joystick Zona */
         #touch-zone { position: fixed; inset: 0; z-index: 50; display: none; }
     </style>
 </head>
@@ -81,29 +95,24 @@
 
     <div id="login-screen">
         <div class="dragon-logo"></div>
-        <h1>MYTHICA</h1>
+        <h1>MYTHICA ADVENTURE</h1>
         <input type="text" id="p-name" class="neu-input" placeholder="Nombre de Héroe" maxlength="12">
         <button id="start-btn" class="neu-btn">ENTRAR AL MUNDO</button>
-        <p id="status-text" style="color: #ff4444; margin-top: 20px;"></p>
+        <p id="status-text" style="color: #ff4444; margin-top: 20px; font-size: 0.8em;"></p>
     </div>
 
-    <button id="menu-toggle">MENU</button>
+    <button id="menu-toggle">MENÚ</button>
     <div id="sidebar">
         <div class="stat-card">
-            <h3 style="color:var(--neon); margin:0 0 10px 0;">STATUS</h3>
-            <div style="height:10px; background:#222; border-radius:5px; margin-bottom:5px;">
-                <div style="width:80%; height:100%; background:#ff4444; border-radius:5px;"></div>
-            </div>
-            <div style="height:10px; background:#222; border-radius:5px;">
-                <div style="width:60%; height:100%; background:#4444ff; border-radius:5px;"></div>
+            <h4 style="color:var(--neon); margin:0 0 10px 0; font-size: 0.9em;">SALUD DEL HÉROE</h4>
+            <div style="height:12px; background:#333; border-radius:6px; overflow:hidden;">
+                <div style="width:100%; height:100%; background: linear-gradient(90deg, #ff4444, #ff8888);"></div>
             </div>
         </div>
         <div class="stat-card">
-            <h3 style="color:var(--neon); margin:0 0 10px 0;">INVENTARIO</h3>
-            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:5px;">
-                <div style="aspect-ratio:1; background:#1a1a1a; border:1px solid #333;"></div>
-                <div style="aspect-ratio:1; background:#1a1a1a; border:1px solid #333;"></div>
-                <div style="aspect-ratio:1; background:#1a1a1a; border:1px solid #333;"></div>
+            <h4 style="color:var(--neon); margin:0 0 10px 0; font-size: 0.9em;">PODER MÁGICO</h4>
+            <div style="height:12px; background:#333; border-radius:6px; overflow:hidden;">
+                <div style="width:70%; height:100%; background: linear-gradient(90deg, #4444ff, #8888ff);"></div>
             </div>
         </div>
     </div>
@@ -116,91 +125,4 @@
 
     <script>
         const client = new Colyseus.Client("wss://mythica-adventure.onrender.com");
-        let room;
-        const TILE_SIZE = 32;
-
-        // Toggle Menú
-        document.getElementById('menu-toggle').onclick = () => {
-            document.getElementById('sidebar').classList.toggle('open');
-        };
-
-        // Generar Mapa simple
-        function createMap() {
-            const world = document.getElementById('world');
-            for(let i=0; i<400; i++) {
-                const t = document.createElement('div');
-                t.className = 'tile';
-                t.style.left = (i % 20) * 64 + "px";
-                t.style.top = Math.floor(i / 20) * 64 + "px";
-                world.appendChild(t);
-            }
-        }
-
-        document.getElementById('start-btn').onclick = async function() {
-            const btn = this;
-            const nombre = document.getElementById('p-name').value || "Héroe";
-            
-            try {
-                room = await client.joinOrCreate("mundo_mythica", { nombre: nombre });
-                
-                document.getElementById('login-screen').style.opacity = '0';
-                setTimeout(() => {
-                    document.getElementById('login-screen').style.display = 'none';
-                    document.getElementById('viewport').style.display = 'block';
-                    document.getElementById('touch-zone').style.display = 'block';
-                }, 500);
-
-                createMap();
-
-                room.state.players.onAdd((player, sessionId) => {
-                    const div = document.createElement("div");
-                    div.className = "player";
-                    div.id = "p-" + sessionId;
-                    div.innerHTML = `<div class="player-name">${player.nombre || 'Héroe'}</div>`;
-                    document.getElementById("world").appendChild(div);
-
-                    player.onChange(() => {
-                        div.style.left = player.x + "px";
-                        div.style.top = player.y + "px";
-                        
-                        if (sessionId === room.sessionId) {
-                            const vx = window.innerWidth/2 - player.x;
-                            const vy = window.innerHeight/2 - player.y;
-                            document.getElementById('world').style.transform = `translate(${vx}px, ${vy}px)`;
-                        }
-                    });
-                });
-
-                room.state.players.onRemove((player, sessionId) => {
-                    document.getElementById("p-" + sessionId)?.remove();
-                });
-
-                // Joystick Movimiento
-                const joystick = nipplejs.create({ zone: document.getElementById('touch-zone'), mode: 'dynamic', color: '#00ffcc' });
-                let moveInterval;
-
-                joystick.on('move', (evt, data) => {
-                    if (!data.direction) return;
-                    clearInterval(moveInterval);
-                    moveInterval = setInterval(() => {
-                        let dx = 0, dy = 0;
-                        const dist = 10;
-                        if (data.direction.angle === "up") dy = -dist;
-                        if (data.direction.angle === "down") dy = dist;
-                        if (data.direction.angle === "left") dx = -dist;
-                        if (data.direction.angle === "right") dx = dist;
-                        
-                        const p = room.state.players.get(room.sessionId);
-                        room.send("mover", { x: p.x + dx, y: p.y + dy });
-                    }, 50);
-                });
-
-                joystick.on('end', () => clearInterval(moveInterval));
-
-            } catch (e) {
-                document.getElementById('status-text').innerText = "Servidor despertando... Reintenta.";
-            }
-        };
-    </script>
-</body>
-</html>
+        
