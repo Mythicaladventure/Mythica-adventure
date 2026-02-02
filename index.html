@@ -3,376 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
     <title>Mythical Adventure - MMORPG</title>
     
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
-    <script src="https://raw.githubusercontent.com/rexrainbow/phaser3-rex-notes/master/dist/rexvirtualjoystickplugin.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <script src="https://unpkg.com/colyseus.js@^0.15.0/dist/colyseus.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/phaser3-rex-plugins@1.1.84/dist/rexvirtualjoystickplugin.min.js"></script>
     
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
-        /* === CORE & RESET === */
+        /* === ESTILOS VISUALES (Sin cambios, pero necesarios) === */
         * { box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; }
-        body { 
-            margin: 0; padding: 0; 
-            background-color: #000; 
-            overflow: hidden; 
-            font-family: 'Lato', sans-serif;
-            color: white;
-        }
+        body { margin: 0; padding: 0; background-color: #000; overflow: hidden; font-family: 'Lato', sans-serif; color: white; }
 
-        /* === PANTALLA DE LOGIN (LAUNCHER STYLE) === */
+        /* PANTALLA DE LOGIN */
         #login-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: radial-gradient(circle at center, #1a0b00 0%, #000000 100%);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 5000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5000;
         }
-
-        .game-logo {
-            font-family: 'Cinzel', serif; color: #ffcc00; 
-            text-shadow: 0 0 15px #ff6600, 0 4px 0 #331100; 
-            font-size: 3rem; margin-bottom: 10px; text-align: center;
-            letter-spacing: 2px;
-        }
-
-        .login-container {
-            background: rgba(20, 20, 20, 0.9);
-            border: 1px solid #444;
-            border-top: 2px solid #ffcc00;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            width: 90%; max-width: 400px;
-            display: flex; flex-direction: column; gap: 15px;
-        }
-
-        input { 
-            background: #111; border: 1px solid #555; color: #fff; padding: 12px; 
-            font-size: 16px; border-radius: 4px; text-align: center; width: 100%;
-            font-family: 'Cinzel', serif; transition: border 0.3s;
-        }
-        input:focus { border-color: #ffcc00; outline: none; }
-
-        /* SELECTOR DE CLASES PRO */
+        .game-logo { font-family: 'Cinzel', serif; color: #ffcc00; text-shadow: 0 0 15px #ff6600; font-size: 3rem; margin-bottom: 20px; text-align: center; }
+        .login-container { background: rgba(20,20,20,0.9); border: 1px solid #444; border-top: 2px solid #ffcc00; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; display: flex; flex-direction: column; gap: 15px; }
+        input { background: #111; border: 1px solid #555; color: #fff; padding: 12px; font-size: 16px; border-radius: 4px; text-align: center; width: 100%; font-family: 'Cinzel', serif; }
+        
         .class-selector { display: flex; gap: 8px; justify-content: center; }
-        .class-card {
-            width: 70px; height: 90px; background: #222; border: 1px solid #444;
-            border-radius: 6px; cursor: pointer; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; transition: all 0.2s;
-            position: relative; overflow: hidden;
-        }
-        .class-card:active { transform: scale(0.95); }
-        .class-card.selected { 
-            border-color: #ffcc00; background: linear-gradient(180deg, #3a2a00, #1a1a00); 
-            box-shadow: 0 0 10px #ffcc00aa; 
-        }
-        .class-icon { font-size: 28px; margin-bottom: 5px; filter: drop-shadow(0 2px 4px black); }
+        .class-card { width: 70px; height: 90px; background: #222; border: 1px solid #444; border-radius: 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .class-card.selected { border-color: #ffcc00; background: linear-gradient(180deg, #3a2a00, #1a1a00); box-shadow: 0 0 10px #ffcc00aa; }
+        .class-icon { font-size: 28px; margin-bottom: 5px; }
         .class-name { font-size: 9px; color: #aaa; text-transform: uppercase; font-weight: bold; }
-        .class-card.selected .class-name { color: #fff; }
 
-        /* PREVIEW DE STATS EN LOGIN */
-        #class-stats {
-            font-size: 12px; color: #ccc; text-align: center; height: 40px;
-            display: flex; flex-direction: column; justify-content: center;
-        }
-        .stat-bar-container { display: flex; align-items: center; gap: 5px; margin: 2px 0; }
-        .stat-label { width: 50px; text-align: right; font-size: 10px; opacity: 0.7; }
-        .stat-track { flex-grow: 1; height: 4px; background: #333; border-radius: 2px; }
-        .stat-val { height: 100%; border-radius: 2px; }
+        #start-btn { background: linear-gradient(90deg, #880000, #cc0000); color: white; border: none; padding: 15px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: 'Cinzel', serif; width: 100%; }
 
-        #start-btn {
-            background: linear-gradient(90deg, #880000, #cc0000); color: white; border: none;
-            padding: 15px; font-size: 16px; font-weight: bold; border-radius: 4px;
-            box-shadow: 0 4px 15px rgba(200, 0, 0, 0.4); cursor: pointer; 
-            font-family: 'Cinzel', serif; letter-spacing: 1px; border: 1px solid #ff4444;
-        }
-        #start-btn:active { transform: translateY(2px); box-shadow: none; }
-
-        /* === HUD DE JUEGO (GAMEPLAY) === */
+        /* HUD JUEGO */
         #game-ui { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
         #game-ui > * { pointer-events: auto; }
 
-        /* 1. PERFIL (Top Left) */
-        .player-profile {
-            position: absolute; top: 10px; left: 10px;
-            display: flex; align-items: center; gap: 8px;
-            background: rgba(0,0,0,0.6); padding: 5px 10px 5px 5px;
-            border-radius: 30px; border: 1px solid #444; backdrop-filter: blur(2px);
-        }
-        .avatar-frame {
-            width: 48px; height: 48px; border-radius: 50%;
-            border: 2px solid #ffd700; background: #111; overflow: hidden;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
-        }
-        .avatar-frame img { width: 100%; height: 100%; object-fit: cover; }
-        .bars { display: flex; flex-direction: column; gap: 3px; width: 120px; }
-        
-        .bar-container {
-            height: 10px; background: #222; border-radius: 3px; border: 1px solid #555;
-            position: relative; overflow: hidden;
-        }
-        .bar-fill { height: 100%; transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
-        .hp-fill { background: linear-gradient(90deg, #aa0000, #ff4444); }
-        .mp-fill { background: linear-gradient(90deg, #0044aa, #4488ff); }
-        .bar-text {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 8px; font-weight: bold; text-shadow: 1px 1px 0 #000; z-index: 2;
-        }
+        .player-profile { position: absolute; top: 10px; left: 10px; display: flex; gap: 8px; background: rgba(0,0,0,0.6); padding: 5px; border-radius: 30px; border: 1px solid #444; }
+        .avatar-frame { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #ffd700; background: #111; overflow: hidden; }
+        .avatar-frame img { width: 100%; height: 100%; }
+        .bars { display: flex; flex-direction: column; gap: 3px; width: 120px; justify-content: center; }
+        .bar-container { height: 10px; background: #222; border: 1px solid #555; position: relative; border-radius: 3px; }
+        .bar-fill { height: 100%; transition: width 0.3s; }
+        .hp-fill { background: #d32f2f; } .mp-fill { background: #1976d2; }
+        .bar-text { position: absolute; width: 100%; text-align: center; font-size: 8px; line-height: 10px; text-shadow: 1px 1px 0 #000; }
 
-        /* 2. MINIMAPA (Top Right Placeholder) */
-        .minimap-frame {
-            position: absolute; top: 10px; right: 10px;
-            width: 100px; height: 100px;
-            border: 2px solid #555; background: rgba(0,0,0,0.8);
-            border-radius: 4px; overflow: hidden;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .minimap-label { color: #555; font-size: 10px; }
+        /* CHAT */
+        #chat-system { position: absolute; bottom: 90px; left: 15px; width: 280px; display: flex; flex-direction: column; gap: 5px; pointer-events: none; }
+        #chat-log { height: 100px; overflow-y: auto; background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%); padding: 5px; display: flex; flex-direction: column-reverse; pointer-events: auto; font-size: 11px; text-shadow: 1px 1px 0 #000; }
+        .chat-input-row { display: flex; gap: 5px; pointer-events: auto; }
+        #chat-input { background: rgba(0,0,0,0.6); padding: 5px; color: white; border: 1px solid #555; flex-grow: 1; font-family: 'Lato', sans-serif; }
+        .msg-sys { color: #ffff00; } .msg-player { color: #fff; }
 
-        /* 3. CONSOLA DE CHAT (Bottom Left/Center) */
-        #chat-system {
-            position: absolute; bottom: 90px; left: 15px; width: 280px;
-            display: flex; flex-direction: column; gap: 5px;
-            pointer-events: none; /* Dejar pasar clicks si está vacío */
-        }
-        #chat-log {
-            height: 100px; overflow-y: scroll; 
-            background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
-            padding: 5px; border-radius: 5px;
-            font-size: 11px; text-shadow: 1px 1px 0 #000;
-            display: flex; flex-direction: column-reverse; /* Mensajes nuevos abajo */
-            pointer-events: auto;
-            mask-image: linear-gradient(to bottom, transparent, black 20%);
-            -webkit-mask-image: linear-gradient(to bottom, transparent, black 20%);
-        }
-        .chat-msg { margin-bottom: 2px; }
-        .msg-sys { color: #ffff00; }
-        .msg-player { color: #ffffff; }
-        .msg-spell { color: #ffaa00; font-style: italic; }
-
-        .chat-input-row {
-            display: flex; gap: 5px; pointer-events: auto;
-            opacity: 0.6; transition: opacity 0.2s;
-        }
-        .chat-input-row:focus-within { opacity: 1; }
-        #chat-input {
-            background: rgba(0,0,0,0.6); border: 1px solid #555; 
-            color: white; padding: 6px; font-size: 12px; border-radius: 4px; flex-grow: 1;
-            font-family: 'Lato', sans-serif;
-        }
-        #chat-send {
-            background: #444; color: white; border: 1px solid #666; 
-            border-radius: 4px; cursor: pointer; width: 30px;
-        }
-
-        /* 4. ACTION BAR (Bottom Right) */
-        .action-bar { 
-            position: absolute; bottom: 20px; right: 20px; 
-            display: flex; gap: 10px; align-items: flex-end; 
-        }
-        .action-slot {
-            position: relative; width: 55px; height: 55px;
-        }
-        .btn {
-            width: 100%; height: 100%; border-radius: 12px; border: 2px solid #666;
-            background: radial-gradient(circle, #333 0%, #111 100%);
-            color: white; font-size: 24px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
-            display: flex; align-items: center; justify-content: center;
-            transition: transform 0.1s, border-color 0.2s;
-        }
-        .btn:active { transform: scale(0.92); border-color: #ffd700; }
-        .attack-btn { 
-            width: 75px; height: 75px; border-color: #aa0000; 
-            background: radial-gradient(circle, #550000 0%, #220000 100%);
-            font-size: 32px; 
-        }
-        .hotkey-label {
-            position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
-            background: #000; border: 1px solid #444; color: #aaa;
-            font-size: 8px; padding: 1px 4px; border-radius: 4px;
-        }
-
-        /* SCROLLBAR OCULTO PERO FUNCIONAL */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+        /* BOTONES */
+        .action-bar { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; align-items: flex-end; }
+        .btn { width: 55px; height: 55px; border-radius: 12px; border: 2px solid #666; background: radial-gradient(circle, #333 0%, #111 100%); color: white; font-size: 24px; display: flex; align-items: center; justify-content: center; }
+        .btn:active { transform: scale(0.95); border-color: #ffd700; }
+        .attack-btn { width: 75px; height: 75px; background: radial-gradient(circle, #550000 0%, #220000 100%); border-color: #aa0000; }
     </style>
 </head>
 <body>
-
     <div id="game-container"></div>
 
     <div id="login-screen">
         <div class="game-logo">MYTHICAL<br>ADVENTURE</div>
-        
         <div class="login-container">
-            <div class="input-group">
-                <input type="text" id="username-input" placeholder="Nombre del Héroe" maxlength="12" autocomplete="off">
-            </div>
-
+            <input type="text" id="username-input" placeholder="Nombre del Héroe" maxlength="12">
+            
             <div class="class-selector">
-                <div class="class-card selected" onclick="selectClass('knight', this)">
-                    <div class="class-icon">🛡️</div>
-                    <div class="class-name">Knight</div>
-                </div>
-                <div class="class-card" onclick="selectClass('mage', this)">
-                    <div class="class-icon">🔥</div>
-                    <div class="class-name">Mage</div>
-                </div>
-                <div class="class-card" onclick="selectClass('paladin', this)">
-                    <div class="class-icon">🏹</div>
-                    <div class="class-name">Paladin</div>
-                </div>
-                <div class="class-card" onclick="selectClass('healer', this)">
-                    <div class="class-icon">✨</div>
-                    <div class="class-name">Healer</div>
-                </div>
+                <div class="class-card selected" onclick="selectClass('knight', this)"><div class="class-icon">🛡️</div><div class="class-name">Knight</div></div>
+                <div class="class-card" onclick="selectClass('mage', this)"><div class="class-icon">🔥</div><div class="class-name">Mage</div></div>
+                <div class="class-card" onclick="selectClass('paladin', this)"><div class="class-icon">🏹</div><div class="class-name">Paladin</div></div>
+                <div class="class-card" onclick="selectClass('healer', this)"><div class="class-icon">✨</div><div class="class-name">Healer</div></div>
             </div>
 
-            <div id="class-stats">
-                <div class="stat-bar-container">
-                    <span class="stat-label">VIDA</span>
-                    <div class="stat-track"><div class="stat-val" id="stat-hp" style="width: 90%; background: #d32f2f;"></div></div>
-                </div>
-                <div class="stat-bar-container">
-                    <span class="stat-label">MANÁ</span>
-                    <div class="stat-track"><div class="stat-val" id="stat-mp" style="width: 20%; background: #1976d2;"></div></div>
-                </div>
-            </div>
-
-            <button id="start-btn" onclick="startGame()">ENTRAR AL MUNDO</button>
-            <p style="color: #666; font-size: 10px; text-align: center; margin: 0;">Server Status: Online | v1.2.0 Pro</p>
+            <button id="start-btn" onclick="startGame()">JUGAR AHORA</button>
         </div>
     </div>
 
     <div id="game-ui">
-        
         <div class="player-profile">
-            <div class="avatar-frame"><img src="client/assets/player.png" id="ui-avatar" onerror="this.src='https://via.placeholder.com/48/333'"></div>
+            <div class="avatar-frame"><img src="client/assets/player.png" onerror="this.src='https://via.placeholder.com/48/333'"></div>
             <div class="bars">
-                <div class="bar-container">
-                    <div class="bar-text" id="hp-text">150/150</div>
-                    <div class="bar-fill hp-fill" id="hp-bar" style="width: 100%"></div>
-                </div>
-                <div class="bar-container">
-                    <div class="bar-text" id="mp-text">30/30</div>
-                    <div class="bar-fill mp-fill" id="mp-bar" style="width: 100%"></div>
-                </div>
+                <div class="bar-container"><div class="bar-text" id="hp-text">100/100</div><div class="bar-fill hp-fill" id="hp-bar" style="width: 100%"></div></div>
+                <div class="bar-container"><div class="bar-text" id="mp-text">50/50</div><div class="bar-fill mp-fill" id="mp-bar" style="width: 100%"></div></div>
             </div>
         </div>
-
-        <div class="minimap-frame">
-            <span class="minimap-label">Mini Map</span>
-        </div>
-
         <div id="chat-system">
-            <div id="chat-log">
-                <div class="chat-msg msg-sys">Bienvenido a Mythical Adventure.</div>
-                <div class="chat-msg msg-sys">Usa el joystick para moverte.</div>
-            </div>
+            <div id="chat-log"><div class="msg-sys">Bienvenido a Mythical Adventure.</div></div>
             <div class="chat-input-row">
-                <input type="text" id="chat-input" placeholder="Hablar (Enter)..." onkeydown="checkEnter(event)">
-                <button id="chat-send" onclick="sendChat()">➤</button>
+                <input type="text" id="chat-input" placeholder="Chat..." onkeydown="if(event.key==='Enter') sendChat()">
+                <button class="btn" style="width: 30px; height: 30px; font-size: 14px;" onclick="sendChat()">➤</button>
             </div>
         </div>
-
         <div class="action-bar">
-            <div class="action-slot">
-                <span class="hotkey-label">HEAL</span>
-                <button class="btn" onclick="emitAction('HEAL')">💊</button>
-            </div>
-            <div class="action-slot">
-                <span class="hotkey-label">FIRE</span>
-                <button class="btn" onclick="emitAction('SPELL_1')">🔥</button>
-            </div>
-            <div class="action-slot" style="width: 75px; height: 75px;"> <span class="hotkey-label">ATK</span>
-                <button class="btn attack-btn" onclick="emitAction('ATTACK')">⚔️</button>
-            </div>
+            <button class="btn" onclick="emitAction('HEAL')">💊</button>
+            <button class="btn" onclick="emitAction('SPELL_1')">🔥</button>
+            <button class="btn attack-btn" onclick="emitAction('ATTACK')">⚔️</button>
         </div>
     </div>
 
-    <script src="index.js"></script>
-    
     <script>
         let selectedClass = 'knight';
-
-        // Stats base para la preview visual
-        const classStats = {
-            knight: { hp: '95%', mp: '20%' },
-            mage: { hp: '40%', mp: '95%' },
-            paladin: { hp: '70%', mp: '60%' },
-            healer: { hp: '60%', mp: '80%' }
-        };
-
-        function selectClass(className, element) {
-            selectedClass = className;
-            
-            // Selección visual
-            document.querySelectorAll('.class-card').forEach(el => el.classList.remove('selected'));
-            element.classList.add('selected');
-
-            // Actualizar barras de stats en el login
-            document.getElementById('stat-hp').style.width = classStats[className].hp;
-            document.getElementById('stat-mp').style.width = classStats[className].mp;
+        function selectClass(role, el) {
+            selectedClass = role;
+            document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
         }
-
         function startGame() {
-            const nameInput = document.getElementById('username-input');
-            const name = nameInput.value.trim();
-            
-            if(!name) { 
-                nameInput.style.borderColor = "red";
-                setTimeout(() => nameInput.style.borderColor = "#555", 500);
-                return; 
-            }
-
-            // Efecto de sonido (Simulado)
-            // playSound('login'); 
-
-            // Comunicar al motor Phaser
-            window.dispatchEvent(new CustomEvent('start-game', { 
-                detail: { name: name, role: selectedClass } 
-            }));
+            const name = document.getElementById('username-input').value.trim();
+            if(!name) return alert("¡Elige un nombre!");
+            window.dispatchEvent(new CustomEvent('start-game', { detail: { name, role: selectedClass } }));
         }
-
-        function emitAction(type) {
-            // Vibración háptica para móviles
-            if (navigator.vibrate) navigator.vibrate(20); 
-            window.dispatchEvent(new CustomEvent('game-action', { detail: type }));
-        }
-
-        // --- SISTEMA DE CHAT ---
-        function checkEnter(e) {
-            if(e.key === "Enter") sendChat();
-        }
-
+        function emitAction(type) { window.dispatchEvent(new CustomEvent('game-action', { detail: type })); }
         function sendChat() {
             const input = document.getElementById('chat-input');
-            const text = input.value.trim();
-            if(text !== "") {
-                window.dispatchEvent(new CustomEvent('game-action', { detail: text })); // Enviamos como texto directo
-                
-                // Agregar al log local visualmente (feedback inmediato)
-                addLogMessage(`Tú: ${text}`, 'msg-player');
-                
-                input.value = "";
-                input.blur(); // Cerrar teclado móvil
+            if(input.value.trim()) {
+                window.dispatchEvent(new CustomEvent('game-action', { detail: input.value }));
+                addLog(`Tú: ${input.value}`, 'msg-player');
+                input.value = '';
             }
         }
-
-        // Función para que el JS del juego agregue mensajes al log
-        window.addLogMessage = function(msg, type = 'msg-sys') {
+        window.addLog = (msg, type='msg-sys') => {
             const log = document.getElementById('chat-log');
-            const div = document.createElement('div');
-            div.className = `chat-msg ${type}`;
-            div.innerText = msg;
-            log.prepend(div); // Nuevo mensaje arriba
-            if(log.children.length > 50) log.lastChild.remove(); // Limpiar antiguos
-        };
+            const div = document.createElement('div'); div.className = type; div.innerText = msg;
+            log.prepend(div);
+        }
     </script>
+
+    <script src="index.js"></script>
 </body>
 </html>
