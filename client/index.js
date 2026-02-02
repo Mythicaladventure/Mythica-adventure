@@ -2,138 +2,128 @@ import Phaser from "phaser";
 import * as Colyseus from "colyseus.js";
 
 // =============================================================================
-// MOTOR CLIENTE MYTHICA - VERSIÓN "ULTIMATE" (NON-BLOCKING IO + GRID + UI)
+// MOTOR CLIENTE MYTHICA - VERSIÓN "LEGENDARY" (LOGIN + CLASSES + GRID)
 // =============================================================================
 class MythicaClient extends Phaser.Scene {
     constructor() {
         super("MythicaClient");
         
-        // --- SISTEMA DE RED ---
+        // --- RED ---
         this.client = new Colyseus.Client("wss://mythica-adventure.onrender.com");
         this.room = null;
         
-        // --- ENTIDADES ---
-        this.player = null;       // Mi avatar local
-        this.otherPlayers = {};   // Mapa de otros jugadores
-        this.tileSprites = [];    // Cache visual del mapa
+        // --- DATA JUGADOR ---
+        this.player = null;
+        this.otherPlayers = {};
+        this.tileSprites = [];
+        this.userData = { name: "Guest", role: "knight" }; // Datos temporales
         
-        // --- INPUT & UI ---
-        this.joystick = null;     
-        this.cursorKeys = null;   
-        this.statusText = null;   // HUD de estado de conexión
+        // --- INPUTS ---
+        this.joystick = null;
+        this.cursorKeys = null;
+        this.isGameActive = false; // Bloqueo hasta loguearse
         
-        // --- LÓGICA TIBIA (GRID MOVEMENT) ---
-        this.isMoving = false;    
-        this.tileSize = 32;       
-        this.moveSpeed = 250;     
+        // --- LÓGICA TIBIA ---
+        this.isMoving = false;
+        this.tileSize = 32;
+        this.moveSpeed = 250; 
     }
 
-    // 1. CARGA DE RECURSOS
     preload() {
         // Plugin Joystick
         if (!this.plugins.get('rexVirtualJoystick')) {
             this.load.plugin('rexvirtualjoystickplugin', 'https://raw.githubusercontent.com/rexrainbow/phaser3-rex-notes/master/dist/rexvirtualjoystickplugin.min.js', true);
         }
 
-        // Assets Visuales
+        // Assets
         this.load.spritesheet('world-tiles', 'client/assets/tileset.png', { frameWidth: 32, frameHeight: 32 });
         this.load.spritesheet('player', 'client/assets/player.png', { frameWidth: 64, frameHeight: 64 }); 
         this.load.image('pixel', 'https://labs.phaser.io/assets/sprites/white_pixel.png');
     }
 
-    // 2. INICIALIZACIÓN (ARQUITECTURA NO BLOQUEANTE)
     create() {
-        // PASO A: Renderizar lo visual INMEDIATAMENTE (Sin esperar internet)
-        console.log("Inicializando motor gráfico...");
+        // 1. INICIALIZAR PERO NO CONECTAR AÚN
+        console.log("Motor Gráfico Listo. Esperando Login...");
+        this.createProceduralGround(); // Fondo visible detrás del login
         
-        this.createProceduralGround(); // Suelo base
-        this.initializeInputs();       // Joystick
-        this.initializeUIListener();   // Botones HTML
-        
-        // PASO B: Mostrar estado de carga (Feedback al usuario)
-        this.statusText = this.add.text(window.innerWidth / 2, window.innerHeight / 2, "INICIANDO ENLACE...", {
-            fontFamily: 'monospace',
-            fontSize: '18px',
-            color: '#00ff00',
-            backgroundColor: '#000000aa',
-            padding: { x: 10, y: 5 }
-        }).setOrigin(0.5).setDepth(2000).setScrollFactor(0);
+        // 2. ESCUCHAR EVENTO DE LOGIN (Desde HTML)
+        window.addEventListener('start-game', (e) => {
+            console.log("Datos de Creación recibidos:", e.detail);
+            this.userData = e.detail;
+            this.startGameSequence();
+        });
 
-        // PASO C: Iniciar conexión en segundo plano
-        this.connectToGameServer();
+        // 3. CONFIGURAR INPUTS (Pero desactivados visualmente)
+        this.initializeInputs();
+        this.initializeUIListener();
+        
+        // Ocultar Joystick hasta entrar al juego
+        this.joystick.setVisible(false);
     }
 
-    // 3. LÓGICA DE CONEXIÓN ASÍNCRONA (EL SECRETO DE LA POTENCIA)
-    async connectToGameServer() {
+    // --- SECUENCIA DE INICIO (AL DARLE A 'CREAR PERSONAJE') ---
+    async startGameSequence() {
+        this.isGameActive = true;
+        this.joystick.setVisible(true); // Mostrar Joystick
+
+        // Feedback de carga
+        const loadingText = this.add.text(window.innerWidth/2, window.innerHeight/2, "INVOCANDO HÉROE...", {
+            fontSize: '20px', color: '#ffd700', backgroundColor: '#000000aa'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(3000);
+
         try {
-            this.statusText.setText("CONECTANDO AL SERVIDOR...\n(Esto puede tardar 30s si está despertando)");
-            
-            // Aquí ocurre la magia: Esperamos la conexión pero el juego YA se dibujó
+            // CONEXIÓN CON DATOS DE CLASE
             this.room = await this.client.joinOrCreate("mundo_mythica", { 
-                name: "MobileHero",
-                device: "Android"
-            });
-            
-            console.log("¡Conexión exitosa! ID:", this.room.sessionId);
-            this.statusText.setText("¡CONECTADO!");
-            this.statusText.setColor('#00ffff');
-            
-            // Efecto de desvanecimiento del texto
-            this.tweens.add({
-                targets: this.statusText,
-                alpha: 0,
-                duration: 1000,
-                delay: 500,
-                onComplete: () => this.statusText.destroy()
+                name: this.userData.name,
+                role: this.userData.role, // Enviamos si es Knight, Mage, etc.
+                device: "Mobile"
             });
 
-            // PASO D: Inicializar sistemas que dependen del servidor
+            loadingText.destroy();
+            console.log("¡Conectado al servidor!", this.room.sessionId);
+            
+            // INICIAR SISTEMAS
             this.initializeMapRenderer();
             this.initializePlayerSync();
             this.setupAntiCheat();
 
         } catch (error) {
-            console.error("Error de conexión:", error);
-            this.statusText.setText("ERROR DE CONEXIÓN.\nRevisa tu internet o intenta de nuevo.");
-            this.statusText.setColor('#ff0000');
+            console.error(error);
+            loadingText.setText("ERROR DE CONEXIÓN");
+            loadingText.setColor('#ff0000');
         }
     }
 
-    // --- SUB-SISTEMAS ROBUSTOS ---
+    // --- SISTEMAS DE JUEGO ---
 
     createProceduralGround() {
-        // Genera suelo infinito visual para que no se vea negro
-        const mapW = 50; const mapH = 50;
+        // Tablero de ajedrez verde infinito
+        const mapW = 60; const mapH = 60;
         for(let x = 0; x < mapW; x++) {
             for(let y = 0; y < mapH; y++) {
-                const color = (x + y) % 2 === 0 ? 0x004400 : 0x005500; 
-                this.add.rectangle(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize, color)
-                    .setOrigin(0).setDepth(-1);
+                const color = (x + y) % 2 === 0 ? 0x003300 : 0x004400; 
+                this.add.rectangle(x * 32, y * 32, 32, 32, color).setOrigin(0).setDepth(-1);
             }
         }
     }
 
     initializeMapRenderer() {
-        if (!this.room) return;
-        
+        if(!this.room) return;
         this.room.state.map.onAdd((tileID, index) => {
-            const x = (index % this.room.state.width) * this.tileSize;
-            const y = Math.floor(index / this.room.state.width) * this.tileSize;
-            
+            const x = (index % this.room.state.width) * 32;
+            const y = Math.floor(index / this.room.state.width) * 32;
             if (this.textures.exists('world-tiles')) {
-                const tile = this.add.image(x, y, 'world-tiles', tileID).setOrigin(0);
-                tile.setDepth(0); 
+                const tile = this.add.image(x, y, 'world-tiles', tileID).setOrigin(0).setDepth(0);
                 this.tileSprites[index] = tile;
             }
         });
-
         this.room.state.map.onChange((tileID, index) => {
-            if (this.tileSprites[index]) this.tileSprites[index].setFrame(tileID);
+            if(this.tileSprites[index]) this.tileSprites[index].setFrame(tileID);
         });
     }
 
     initializePlayerSync() {
-        // Crear animaciones si existen
+        // Animaciones
         if (this.textures.exists('player') && !this.anims.exists('walk_down')) {
             this.anims.create({
                 key: 'walk_down',
@@ -146,10 +136,9 @@ class MythicaClient extends Phaser.Scene {
             const isMe = (sessionId === this.room.sessionId);
             let entity;
 
-            // Factory: Sprite o Geometría
             if (this.textures.exists('player')) {
                 entity = this.add.sprite(playerState.x, playerState.y, 'player');
-                entity.setDisplaySize(this.tileSize, this.tileSize);
+                entity.setDisplaySize(32, 32);
             } else {
                 entity = this.add.rectangle(playerState.x, playerState.y, 28, 28, isMe ? 0x00ff00 : 0xff0000);
             }
@@ -157,23 +146,25 @@ class MythicaClient extends Phaser.Scene {
 
             if (isMe) {
                 this.player = entity;
+                // Cámara MMORPG
                 this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
                 this.cameras.main.setZoom(1.8);
+                
+                // Aplicar stats visuales según clase (Solo visual local por ahora)
+                this.applyClassVisuals(this.userData.role);
 
-                // Sync UI Vida
+                // Sincronizar UI HTML
                 playerState.onChange(() => {
-                    const hpBar = document.getElementById('hp-bar');
-                    if (hpBar) hpBar.style.width = Math.max(0, playerState.hp) + '%';
+                    this.updateHUD(playerState.hp);
                 });
             } else {
                 this.otherPlayers[sessionId] = entity;
                 if(entity.setTint) entity.setTint(0xffaaaa);
-
+                
                 // Interpolación
                 playerState.onChange(() => {
                     this.tweens.add({
-                        targets: entity,
-                        x: playerState.x, y: playerState.y,
+                        targets: entity, x: playerState.x, y: playerState.y,
                         duration: this.moveSpeed, ease: 'Linear'
                     });
                 });
@@ -181,11 +172,36 @@ class MythicaClient extends Phaser.Scene {
         });
 
         this.room.state.players.onRemove((p, sessionId) => {
-            if (this.otherPlayers[sessionId]) {
+            if(this.otherPlayers[sessionId]) {
                 this.otherPlayers[sessionId].destroy();
                 delete this.otherPlayers[sessionId];
             }
         });
+    }
+
+    applyClassVisuals(role) {
+        // Ajustes visuales según clase
+        const hpText = document.getElementById('hp-text');
+        const mpText = document.getElementById('mp-text');
+        
+        if(role === 'knight') {
+            hpText.innerText = "150/150"; mpText.innerText = "30/30";
+            this.moveSpeed = 260; // Knight es pesado/lento
+        } else if(role === 'mage') {
+            hpText.innerText = "80/80"; mpText.innerText = "200/200";
+        } else if(role === 'healer') {
+            // Healer brilla un poco
+            this.player.setTint(0xffffcc);
+        }
+    }
+
+    updateHUD(hp) {
+        const hpBar = document.getElementById('hp-bar');
+        const hpText = document.getElementById('hp-text');
+        if (hpBar) {
+            hpBar.style.width = Math.max(0, hp) + '%';
+            hpText.innerText = Math.floor(hp) + '%';
+        }
     }
 
     initializeInputs() {
@@ -205,15 +221,21 @@ class MythicaClient extends Phaser.Scene {
 
     initializeUIListener() {
         window.addEventListener('game-action', (e) => {
-            if (!this.room || !this.player) return; // Protección si no ha conectado
-            
+            if (!this.room || !this.player) return;
             const action = e.detail;
+            
+            // Lógica de ataque
             if (action === 'ATTACK') {
                 this.room.send("attack");
                 this.tweens.add({ targets: this.player, scale: 1.2, duration: 50, yoyo: true });
             }
-            if (action === 'HEAL') {
-                this.room.send("use_spell", { id: "exura" });
+            // Lógica de Hechizos
+            if (action === 'SPELL_1' || action === 'HEAL') {
+                // Aquí podrías validar maná antes de enviar
+                this.room.send("use_spell", { id: action });
+                // Efecto visual
+                const fx = this.add.circle(this.player.x, this.player.y, 30, 0x00ffff, 0.5);
+                this.tweens.add({ targets: fx, alpha: 0, scale: 1.5, duration: 300, onComplete:()=>fx.destroy() });
             }
         });
     }
@@ -222,21 +244,17 @@ class MythicaClient extends Phaser.Scene {
         this.room.onMessage("corregir_posicion", (pos) => {
             if (this.player) {
                 this.tweens.add({
-                    targets: this.player,
-                    x: pos.x, y: pos.y,
-                    duration: 100,
+                    targets: this.player, x: pos.x, y: pos.y, duration: 100,
                     onComplete: () => { this.isMoving = false; }
                 });
             }
         });
     }
 
-    // 4. BUCLE PRINCIPAL (GAME LOOP)
-    update(time, delta) {
-        // Si no hemos conectado o no tenemos jugador, no hacemos nada de lógica
-        if (!this.player || !this.joystick) return;
+    update() {
+        if (!this.player || !this.isGameActive) return;
 
-        // LÓGICA GRID-BASED
+        // GRID MOVEMENT
         if (!this.isMoving) {
             const joyCursor = this.joystick.createCursorKeys();
             let dx = 0; let dy = 0;
@@ -259,41 +277,31 @@ class MythicaClient extends Phaser.Scene {
         const targetX = this.player.x + (dx * this.tileSize);
         const targetY = this.player.y + (dy * this.tileSize);
 
-        // Feedback visual inmediato
         if (dx < 0) this.player.setFlipX(true);
         if (dx > 0) this.player.setFlipX(false);
         if (this.player.play && this.anims.exists('walk_down')) this.player.play('walk_down', true);
 
         // Movimiento local (Predicción)
         this.tweens.add({
-            targets: this.player,
-            x: targetX, y: targetY,
-            duration: this.moveSpeed,
-            ease: 'Linear',
+            targets: this.player, x: targetX, y: targetY,
+            duration: this.moveSpeed, ease: 'Linear',
             onComplete: () => { this.isMoving = false; }
         });
 
-        // Red
+        // Enviar al servidor
         if (this.room) this.room.send("mover", { x: targetX, y: targetY });
     }
 }
 
-// CONFIGURACIÓN FINAL
 const config = {
     type: Phaser.AUTO,
-    backgroundColor: '#001100', // Verde muy oscuro (Tech style)
+    backgroundColor: '#000000', // Negro puro para el login
     parent: 'game-container',
-    scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: window.innerWidth,
-        height: window.innerHeight
-    },
-    physics: { default: 'arcade', arcade: { debug: false } },
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: window.innerWidth, height: window.innerHeight },
     render: { pixelArt: true, antialias: false, roundPixels: true },
     scene: MythicaClient
 };
 
 const game = new Phaser.Game(config);
 window.addEventListener('resize', () => game.scale.resize(window.innerWidth, window.innerHeight));
-            
+                        
