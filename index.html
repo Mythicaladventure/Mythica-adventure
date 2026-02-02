@@ -1,106 +1,89 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mythical Adventure - Mobile MMO</title>
+    
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/phaser3-rex-plugins@1.1.39/dist/rexvirtualjoystickplugin.min.js"></script>
-    <style> body { margin: 0; background: #000; } </style>
+    <script src="https://raw.githubusercontent.com/rexrainbow/phaser3-rex-notes/master/dist/rexvirtualjoystickplugin.min.js"></script>
+    
+    <style>
+        body { margin: 0; padding: 0; background-color: #000; overflow: hidden; }
+        
+        /* === CAPA DE INTERFAZ (UI) === */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; /* Permite tocar el juego a través de la UI */
+            font-family: 'Segoe UI', sans-serif; user-select: none;
+            z-index: 100;
+        }
+        #ui-layer > * { pointer-events: auto; } /* Reactivar clicks en botones */
+
+        /* PERFIL */
+        .player-status { position: absolute; top: 15px; left: 15px; display: flex; gap: 10px; }
+        .avatar-frame {
+            width: 55px; height: 55px; border-radius: 50%;
+            border: 3px solid #ffd700; background: #222; overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+        }
+        .avatar-frame img { width: 100%; }
+        .bars { display: flex; flex-direction: column; justify-content: center; gap: 5px; width: 140px; }
+        .bar-bg { height: 10px; background: rgba(0,0,0,0.7); border-radius: 5px; border: 1px solid #444; overflow: hidden; }
+        .hp-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #d32f2f, #ff6659); transition: width 0.2s; }
+        .mp-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #1976d2, #63a4ff); }
+
+        /* BOTONES DE ACCIÓN (Derecha Abajo) */
+        .action-bar { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 8px; align-items: flex-end; }
+        .btn {
+            width: 45px; height: 45px; border-radius: 10px; border: 2px solid #555;
+            background: rgba(20,20,20,0.8); color: white; font-weight: bold;
+            backdrop-filter: blur(4px); box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+            font-size: 12px;
+        }
+        .btn:active { transform: scale(0.95); border-color: #ffd700; background: rgba(50,50,50,0.9); }
+        .attack-btn { width: 65px; height: 65px; border-color: #d32f2f; font-size: 24px; }
+
+        /* CHAT */
+        .chat-overlay {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 300px; text-align: center; pointer-events: none;
+        }
+        .msg { background: rgba(0,0,0,0.5); color: #fff; padding: 4px 10px; border-radius: 15px; display: inline-block; margin-top: 5px; font-size: 13px; }
+    </style>
 </head>
 <body>
-<script>
-const config = {
-    type: Phaser.AUTO,
-    width: 800,
-    height: 600,
-    physics: { default: 'arcade', arcade: { debug: false } },
-    scene: { preload: preload, create: create, update: update }
-};
 
-const game = new Phaser.Game(config);
-let player, monster, joystick, cursors;
+    <div id="game-container"></div>
 
-function preload() {
-    // Plugin del Joystick
-    this.load.plugin('rexvirtualjoystickplugin', 'https://raw.githubusercontent.com/rexrainbow/phaser3-rex-notes/master/dist/rexvirtualjoystickplugin.min.js', true);
-}
+    <div id="ui-layer">
+        <div class="player-status">
+            <div class="avatar-frame"><img src="client/assets/player_face.png" onerror="this.src='https://via.placeholder.com/64'"></div>
+            <div class="bars">
+                <div class="bar-bg"><div class="hp-fill" id="hp-bar"></div></div>
+                <div class="bar-bg"><div class="mp-fill" id="mp-bar"></div></div>
+            </div>
+        </div>
 
-function create() {
-    // 1. Fondo de Pasto Genérico (Tiles de 32x32)
-    const graphics = this.add.graphics();
-    graphics.fillStyle(0x2d5e32, 1); // Verde oscuro
-    for (let x = 0; x < 2000; x += 32) {
-        for (let y = 0; y < 2000; y += 32) {
-            graphics.fillRect(x, y, 31, 31);
-        }
-    }
+        <div class="action-bar">
+            <button class="btn" onclick="emitAction('HEAL')">💊</button>
+            <button class="btn" onclick="emitAction('FIRE')">🔥</button>
+            <button class="btn attack-btn" onclick="emitAction('ATTACK')">⚔️</button>
+            <button class="btn" onclick="emitAction('DASH')">💨</button>
+        </div>
 
-    // 2. Jugador (Azul)
-    player = this.physics.add.sprite(400, 300, null);
-    player.setRectShape(32, 32, 0x0000ff); // Representación visual básica
-    player.setCollideWorldBounds(true);
+        <div class="chat-overlay" id="chat-box">
+            <div class="msg">Bienvenido a Mythical Adventure</div>
+        </div>
+    </div>
 
-    // 3. Monstruo (Rojo)
-    monster = this.physics.add.sprite(500, 350, null);
-    monster.setRectShape(32, 32, 0xff0000);
-    monster.hp = 100;
-
-    // 4. Cámara estilo MMORPG (Sigue al jugador)
-    this.cameras.main.startFollow(player);
-    this.cameras.main.setBounds(0, 0, 2000, 2000);
-
-    // 5. Joystick Inteligente
-    joystick = this.plugins.get('rexvirtualjoystickplugin').add(this, {
-        x: 100, y: 500, radius: 50,
-        base: this.add.circle(0, 0, 50, 0x888888),
-        thumb: this.add.circle(0, 0, 25, 0xcccccc),
-    });
-
-    // 6. Lógica de Ataque tipo Tibia (Click en el monstruo)
-    monster.setInteractive(new Phaser.Geom.Rectangle(0, 0, 32, 32), Phaser.Geom.Rectangle.Contains);
-    monster.on('pointerdown', () => {
-        const dist = Phaser.Math.Distance.Between(player.x, player.y, monster.x, monster.y);
-        if (dist < 60) { // Distancia de ataque (cuerpo a cuerpo)
-            atacarMonstruo();
-        } else {
-            console.log("Muy lejos para atacar");
-        }
-    });
-}
-
-function update() {
-    // Movimiento con Joystick
-    const force = joystick.force;
-    const angle = joystick.angle;
-
-    if (force > 0) {
-        this.physics.velocityFromRotation(Phaser.Math.DegToRad(angle), 150, player.body.velocity);
-    } else {
-        player.setVelocity(0);
-    }
-}
-
-function atacarMonstruo() {
-    monster.hp -= 10;
-    console.log("¡Golpe! HP del Monstruo: " + monster.hp);
+    <script src="index.js"></script>
     
-    // Feedback visual (parpadeo rojo)
-    monster.setTint(0xff0000);
-    setTimeout(() => monster.clearTint(), 100);
-
-    if (monster.hp <= 0) {
-        monster.destroy();
-        console.log("Monstruo derrotado");
-    }
-}
-
-// Helper para crear cuadrados sin imágenes externas
-Phaser.GameObjects.Sprite.prototype.setRectShape = function(w, h, color) {
-    const rect = this.scene.add.graphics();
-    rect.fillStyle(color, 1);
-    rect.fillRect(-w/2, -h/2, w, h);
-    rect.generateTexture('rect' + color, w, h);
-    this.setTexture('rect' + color);
-    rect.destroy();
-};
-</script>
+    <script>
+        function emitAction(type) {
+            // Enviamos el evento al sistema de Phaser (que definiremos en index.js)
+            window.dispatchEvent(new CustomEvent('game-action', { detail: type }));
+        }
+    </script>
 </body>
 </html>
