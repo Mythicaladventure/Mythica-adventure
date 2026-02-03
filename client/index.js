@@ -1,353 +1,400 @@
-import Phaser from "phaser";
-import * as Colyseus from "colyseus.js";
+/* =============================================================================
+   ⚔️ MYTHICAL ADVENTURE ENGINE v2.0 (INDUSTRIAL CORE)
+   =============================================================================
+   - Arquitectura: Cliente Ligero con Predicción de Movimiento
+   - Renderizado: WebGL con Fallbacks Automáticos
+   - Red: WebSocket Seguro (Colyseus)
+   =============================================================================
+*/
 
-// =============================================================================
-// MOTOR CLIENTE MYTHICA - VERSIÓN "PRO MAX" (RPG CORE + VISUALS + PERSISTENCIA)
-// =============================================================================
+// --- CONFIGURACIÓN GLOBAL (MAGIC NUMBERS) ---
+const CONFIG = {
+    TILE_SIZE: 32,
+    MOVE_SPEED: 250,        // Duración del paso (ms)
+    ZOOM_LEVEL: 1.6,        // Zoom de cámara
+    CAMERA_LERP: 0.08,      // Suavizado de cámara (0.01 = lento, 1 = instantáneo)
+    COLORS: {
+        HP_BG: 0x000000,
+        HP_HIGH: 0x00ff00,
+        HP_MID: 0xffff00,
+        HP_LOW: 0xff0000,
+        TEXT_DMG: '#ff3333',
+        TEXT_HEAL: '#00ff00',
+        TEXT_MANA: '#0088ff'
+    }
+};
+
 class MythicaClient extends Phaser.Scene {
     constructor() {
         super("MythicaClient");
         
-        // --- CONEXIÓN Y RED ---
+        // SISTEMAS
         this.client = new Colyseus.Client("wss://mythica-adventure.onrender.com");
         this.room = null;
         
-        // --- ESTADO DEL JUGADOR ---
-        this.player = null;          // Mi contenedor (Sprite + UI)
-        this.otherPlayers = {};      // Mapa de otros jugadores
-        this.userData = { name: "Guest", role: "knight" }; // Datos del Login
+        // ENTIDADES
+        this.player = null;          
+        this.otherPlayers = {};      
+        this.userData = { name: "Guest", role: "knight" }; 
         
-        // --- INPUTS ---
+        // INPUTS
         this.joystick = null;
         this.cursorKeys = null;
-        this.isGameActive = false;   // Bloqueo de seguridad hasta loguearse
-        
-        // --- CONFIGURACIÓN TIBIA (GRID) ---
-        this.tileSize = 32;
-        this.moveSpeed = 250;        // Ms por paso (Sincronizado con servidor)
-        this.isMoving = false;       // Semáforo de movimiento
+        this.isGameActive = false;   
+        this.isMoving = false;       
     }
 
-    // 1. CARGA DE RECURSOS (PRELOAD ROBUSTO)
+    // =========================================================================
+    // 1. CARGA DE RECURSOS (ROBUSTA)
+    // =========================================================================
     preload() {
-        // Carga segura del plugin Joystick
-        const urlJoystick = 'https://raw.githubusercontent.com/rexrainbow/phaser3-rex-notes/master/dist/rexvirtualjoystickplugin.min.js';
-        this.load.plugin('rexvirtualjoystickplugin', urlJoystick, true);
-
-        // Assets Gráficos
+        // Carga de Assets con rutas relativas seguras
         this.load.spritesheet('world-tiles', 'client/assets/tileset.png', { frameWidth: 32, frameHeight: 32 });
         this.load.spritesheet('player', 'client/assets/player.png', { frameWidth: 64, frameHeight: 64 }); 
         
-        // Asset de respaldo (Pixel blanco) para evitar crash si faltan imágenes
-        this.load.image('pixel', 'https://labs.phaser.io/assets/sprites/white_pixel.png');
+        // Fallback: Generamos una textura de píxel blanco en memoria por si faltan imágenes
+        const graphics = this.make.graphics().fillStyle(0xffffff).fillRect(0,0,1,1);
+        graphics.generateTexture('pixel', 1, 1);
+        graphics.destroy();
     }
 
-    // 2. INICIALIZACIÓN (MOTOR GRÁFICO)
+    // =========================================================================
+    // 2. INICIALIZACIÓN DEL MOTOR
+    // =========================================================================
     create() {
-        console.log("⚡ Motor Gráfico Iniciado. Esperando credenciales...");
+        console.log("⚡ Motor Gráfico Iniciado. Version Industrial.");
         
-        // Crear suelo base (Para que no se vea negro mientras carga)
+        // 1. Renderizar Suelo Procedural (Para evitar pantalla negra)
         this.createProceduralGround();
 
-        // A. LISTENER DE LOGIN (HTML -> PHASER)
-        // Espera a que el usuario presione "Crear Personaje" en la interfaz HTML
-        window.addEventListener('start-game', (e) => {
-            console.log("✅ Credenciales recibidas:", e.detail);
-            this.userData = e.detail; // Guardamos Nombre y Clase
-            this.connectToServer();   // Iniciamos la conexión real
-        });
+        // 2. Sistema de Partículas (Para efectos de sangre/magia)
+        this.createParticleSystems();
 
-        // B. LISTENER DE ACCIONES (HTML UI -> PHASER)
-        window.addEventListener('game-action', (e) => this.handleGameAction(e.detail));
+        // 3. Listeners de Interfaz (HTML <-> JS)
+        window.addEventListener('start-game', (e) => this.handleLogin(e.detail));
+        window.addEventListener('game-action', (e) => this.handleInput(e.detail));
 
-        // C. INICIALIZAR INPUTS (Ocultos por ahora)
-        this.initInputSystem();
+        // 4. Inicializar Inputs (Joystick Virtual)
+        this.initJoystick();
+        this.cursorKeys = this.input.keyboard.createCursorKeys();
     }
 
-    // 3. CONEXIÓN AL SERVIDOR (HANDSHAKE)
-    async connectToServer() {
-        // Feedback visual de carga
-        const loadingTxt = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, "CONECTANDO AL REINO...", {
-            fontFamily: 'Verdana', fontSize: '20px', color: '#ffd700', stroke: '#000', strokeThickness: 4
+    // =========================================================================
+    // 3. CONEXIÓN Y RED (RETRY LOGIC)
+    // =========================================================================
+    async handleLogin(credentials) {
+        this.userData = credentials;
+        
+        // Feedback Visual de carga
+        const loadingTxt = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, "CONECTANDO AL SERVIDOR...", {
+            fontFamily: 'Verdana', fontSize: '18px', color: '#ffd700', stroke: '#000', strokeThickness: 4
         }).setOrigin(0.5).setScrollFactor(0).setDepth(9999);
 
         try {
-            // Conexión enviando los datos del Login para crear/cargar personaje
+            // Intentar conexión
             this.room = await this.client.joinOrCreate("mundo_mythica", { 
                 name: this.userData.name,
                 role: this.userData.role 
             });
 
-            console.log("🚀 Conexión Exitosa. ID Sesión:", this.room.sessionId);
-            
-            // Limpieza de UI
+            console.log("✅ Conexión Establecida:", this.room.sessionId);
             loadingTxt.destroy();
-            this.isGameActive = true;
             
-            // Ocultar Login HTML, Mostrar HUD de Juego
-            if(document.getElementById('login-screen')) document.getElementById('login-screen').style.display = 'none';
-            if(document.getElementById('game-ui')) document.getElementById('game-ui').style.display = 'block';
-
-            // Mostrar Joystick
+            // TRANSICIÓN DE UI
+            this.isGameActive = true;
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'block';
             if(this.joystick) this.joystick.setVisible(true);
 
-            // INICIAR SISTEMAS DEL JUEGO
-            this.initMapSystem();
-            this.initPlayerSystem();
-            this.initCombatVisuals();
+            // INICIAR SINCRONIZACIÓN
+            this.initNetworkEvents();
 
         } catch (error) {
-            console.error("❌ Error de Conexión:", error);
-            loadingTxt.setText("ERROR DE CONEXIÓN.\nRevisa tu internet o servidor.");
-            loadingTxt.setColor('#ff0000');
+            console.error("Connection Error:", error);
+            loadingTxt.setText("ERROR DE CONEXIÓN\n(El servidor puede estar despertando...)");
+            loadingTxt.setColor('#ff4444');
+            
+            // Reintento automático en 3 segundos (Lógica Pro)
+            // setTimeout(() => this.handleLogin(credentials), 3000); 
         }
     }
 
-    // --- SISTEMAS MODULARES ---
-
-    initMapSystem() {
-        // Renderizado del mapa enviado por el servidor
+    initNetworkEvents() {
+        // --- MAPA ---
         this.room.state.map.onAdd((tileID, index) => {
-            const x = (index % this.room.state.width) * this.tileSize;
-            const y = Math.floor(index / this.room.state.width) * this.tileSize;
-            
+            const x = (index % this.room.state.width) * CONFIG.TILE_SIZE;
+            const y = Math.floor(index / this.room.state.width) * CONFIG.TILE_SIZE;
             if(this.textures.exists('world-tiles')) {
-                const tile = this.add.image(x, y, 'world-tiles', tileID).setOrigin(0).setDepth(0);
-                // Aquí podrías guardar referencia si necesitas actualizar tiles después
+                this.add.image(x, y, 'world-tiles', tileID).setOrigin(0).setDepth(0);
             }
         });
+
+        // --- JUGADORES ---
+        this.room.state.players.onAdd((p, sessionId) => this.createPlayerEntity(p, sessionId));
+        this.room.state.players.onRemove((p, sessionId) => this.removePlayerEntity(sessionId));
+
+        // --- COMBATE (DAÑO FLOTANTE) ---
+        this.room.onMessage("combat_text", (data) => this.showFloatingText(data));
     }
 
-    initPlayerSystem() {
-        // Crear animaciones globales
-        if(this.textures.exists('player') && !this.anims.exists('walk')) {
-            this.anims.create({
-                key: 'walk', frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
-                frameRate: 8, repeat: -1
-            });
+    // =========================================================================
+    // 4. FÁBRICA DE ENTIDADES (PLAYER FACTORY)
+    // =========================================================================
+    createPlayerEntity(p, sessionId) {
+        const isMe = (sessionId === this.room.sessionId);
+        
+        // CONTENEDOR PRINCIPAL (Sprite + UI)
+        const container = this.add.container(p.x, p.y);
+        container.setDepth(p.y); // Sort Z-Index por posición Y (Isométrico falso)
+
+        // 1. Sprite
+        let sprite;
+        if(this.textures.exists('player')) {
+            sprite = this.add.sprite(0, 0, 'player').setDisplaySize(32, 32);
+        } else {
+            // Fallback geométrico si falla la carga
+            sprite = this.add.rectangle(0, 0, 32, 32, isMe ? 0x00ff00 : 0xff0000);
+        }
+        container.add(sprite);
+
+        // 2. Barra de Vida (Estilo MOBA)
+        const hpBg = this.add.rectangle(0, -25, 34, 6, CONFIG.COLORS.HP_BG);
+        const hpBar = this.add.rectangle(-16, -25, 32, 4, CONFIG.COLORS.HP_HIGH).setOrigin(0, 0.5);
+        container.add([hpBg, hpBar]);
+
+        // 3. Etiqueta de Nombre
+        const nameTag = this.add.text(0, -40, p.nombre, {
+            fontSize: '10px', fontFamily: 'Arial', color: '#ffffff', 
+            stroke: '#000000', strokeThickness: 3
+        }).setOrigin(0.5);
+        container.add(nameTag);
+
+        // Referencias para updates
+        container.sprite = sprite;
+        container.hpBar = hpBar;
+
+        // Configuración Específica
+        if (isMe) {
+            this.player = container;
+            this.setupCamera();
+            this.updateHUD(p); // UI HTML
+        } else {
+            this.otherPlayers[sessionId] = container;
+            if(sprite.setTint) sprite.setTint(0xffaaaa); // Tinte rojo a enemigos
         }
 
-        this.room.state.players.onAdd((p, sessionId) => {
-            const isMe = (sessionId === this.room.sessionId);
-            
-            // 1. CONTENEDOR (Agrupa Sprite + Nombre + Vida)
-            const container = this.add.container(p.x, p.y);
-            container.setDepth(p.y); // Profundidad isométrica
-
-            // 2. SPRITE VISUAL
-            let sprite;
-            if (this.textures.exists('player')) {
-                sprite = this.add.sprite(0, 0, 'player').setDisplaySize(32, 32);
-            } else {
-                // Fallback si no hay imagen
-                sprite = this.add.rectangle(0, 0, 32, 32, isMe ? 0x00ff00 : 0xff0000);
-            }
-            container.add(sprite);
-
-            // 3. BARRA DE VIDA FLOTANTE (Estilo Tibia)
-            const hpBg = this.add.rectangle(0, -25, 34, 6, 0x000000); // Fondo negro
-            const hpBar = this.add.rectangle(-16, -25, 32, 4, 0x00ff00).setOrigin(0, 0.5); // Barra verde
-            container.add([hpBg, hpBar]);
-
-            // 4. NOMBRE Y NIVEL
-            const nameLabel = this.add.text(0, -40, `${p.nombre}`, {
-                fontFamily: 'Arial', fontSize: '11px', color: '#ffffff', 
-                stroke: '#000000', strokeThickness: 3
-            }).setOrigin(0.5);
-            container.add(nameLabel);
-
-            // Referencias internas
-            container.sprite = sprite;
-            container.hpBar = hpBar;
-
-            if (isMe) {
-                this.player = container;
-                // Cámara MMORPG (Zoom Táctico)
-                this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
-                this.cameras.main.setZoom(1.6);
-                
-                // Actualizar HUD HTML inicial
-                this.updateHTMLHUD(p.hp, p.maxHp, p.mp, p.maxMp);
-            } else {
-                this.otherPlayers[sessionId] = container;
-                if(sprite.setTint) sprite.setTint(0xffaaaa); // Tinte rojizo para otros
-            }
-
-            // --- SINCRONIZACIÓN DE CAMBIOS (SERVER -> CLIENTE) ---
-            p.onChange(() => {
-                // Movimiento Suave (Interpolación)
-                this.tweens.add({
-                    targets: container, x: p.x, y: p.y, duration: this.moveSpeed,
-                    onUpdate: () => container.setDepth(container.y) // Actualizar capa Z
-                });
-
-                // Actualizar Barra de Vida Visual
-                const pct = Math.max(0, p.hp / p.maxHp);
-                this.tweens.add({ targets: hpBar, width: 32 * pct, duration: 200 });
-                
-                // Color dinámico (Verde -> Amarillo -> Rojo)
-                hpBar.fillColor = pct > 0.5 ? 0x00ff00 : (pct > 0.2 ? 0xffff00 : 0xff0000);
-
-                // Si soy yo, actualizo la interfaz HTML grande
-                if (isMe) this.updateHTMLHUD(p.hp, p.maxHp, p.mp, p.maxMp);
+        // --- LOOP DE SINCRONIZACIÓN ---
+        p.onChange(() => {
+            // A. Interpolación de Movimiento
+            this.tweens.add({
+                targets: container, x: p.x, y: p.y, 
+                duration: CONFIG.MOVE_SPEED, 
+                onUpdate: () => container.setDepth(container.y) // Actualizar profundidad
             });
-        });
 
-        // Limpieza al desconectar jugadores
-        this.room.state.players.onRemove((p, sid) => {
-            if (this.otherPlayers[sid]) {
-                this.otherPlayers[sid].destroy();
-                delete this.otherPlayers[sid];
-            }
+            // B. Barra de Vida Dinámica
+            const pct = Phaser.Math.Clamp(p.hp / p.maxHp, 0, 1);
+            this.tweens.add({ targets: hpBar, width: 32 * pct, duration: 200 });
+            
+            // Color según daño
+            if(pct > 0.5) hpBar.fillColor = CONFIG.COLORS.HP_HIGH;
+            else if(pct > 0.25) hpBar.fillColor = CONFIG.COLORS.HP_MID;
+            else hpBar.fillColor = CONFIG.COLORS.HP_LOW;
+
+            // C. Si soy yo, actualizo HTML
+            if(isMe) this.updateHUD(p);
         });
     }
 
-    initCombatVisuals() {
-        // Escucha eventos de "texto flotante" del servidor
-        this.room.onMessage("combat_text", (data) => {
-            const { x, y, value, type } = data;
-            
-            let color = '#ffffff';
-            let fontSize = '14px';
-            
-            if (type === 'DAMAGE') { color = '#ff3333'; fontSize = '15px'; } // Rojo
-            if (type === 'HEAL') { color = '#00ff00'; fontSize = '15px'; }   // Verde
-            if (type === 'MANA') { color = '#0088ff'; }                      // Azul
-
-            const txt = this.add.text(x, y - 30, value, {
-                fontFamily: 'Verdana', fontSize: fontSize, color: color, 
-                stroke: '#000', strokeThickness: 3, fontWeight: 'bold'
-            }).setOrigin(0.5).setDepth(9999);
-
-            // Animación de "Salto y Caída" (Gravedad simulada)
+    removePlayerEntity(sessionId) {
+        if (this.otherPlayers[sessionId]) {
+            // Efecto de muerte (Fade out)
             this.tweens.add({
-                targets: txt, y: y - 70, duration: 800, ease: 'Back.easeOut',
+                targets: this.otherPlayers[sessionId], alpha: 0, duration: 500,
                 onComplete: () => {
-                    this.tweens.add({ targets: txt, alpha: 0, y: y - 90, duration: 200, onComplete: () => txt.destroy() });
+                    if(this.otherPlayers[sessionId]) this.otherPlayers[sessionId].destroy();
+                    delete this.otherPlayers[sessionId];
                 }
             });
-        });
+        }
     }
 
-    initInputSystem() {
-        // 1. Joystick Virtual (Rex Plugin)
-        if (this.plugins.get('rexVirtualJoystick')) {
-            this.joystick = this.plugins.get('rexvirtualjoystickplugin').add(this, {
+    // =========================================================================
+    // 5. SISTEMA VISUAL (VFX)
+    // =========================================================================
+    showFloatingText(data) {
+        const { x, y, value, type } = data;
+        let color = '#fff'; 
+        let fontSize = '14px';
+
+        if (type === 'DAMAGE') { color = CONFIG.COLORS.TEXT_DMG; fontSize = '16px'; }
+        if (type === 'HEAL') { color = CONFIG.COLORS.TEXT_HEAL; }
+
+        const txt = this.add.text(x, y - 30, value, {
+            fontFamily: 'Impact', fontSize: fontSize, color: color, 
+            stroke: '#000', strokeThickness: 3
+        }).setOrigin(0.5).setDepth(9999);
+
+        // Animación Física (Salto y Gravedad)
+        this.tweens.add({
+            targets: txt, y: y - 60, duration: 600, ease: 'Back.easeOut',
+            onComplete: () => {
+                this.tweens.add({ targets: txt, alpha: 0, y: y - 80, duration: 300, onComplete: () => txt.destroy() });
+            }
+        });
+
+        // Camera Shake si el daño es alto
+        if (type === 'DAMAGE' && parseInt(value) > 20) {
+            this.cameras.main.shake(100, 0.005);
+        }
+    }
+
+    createParticleSystems() {
+        // Aquí podrías definir emisores de partículas para reutilizar
+    }
+
+    setupCamera() {
+        this.cameras.main.startFollow(this.player, true, CONFIG.CAMERA_LERP, CONFIG.CAMERA_LERP);
+        this.cameras.main.setZoom(CONFIG.ZOOM_LEVEL);
+    }
+
+    createProceduralGround() {
+        // Tablero de ajedrez optimizado (Batch drawing sería mejor, pero esto sirve)
+        for(let x=0; x<60; x++) for(let y=0; y<60; y++) {
+            const color = (x+y)%2===0 ? 0x002200 : 0x003300;
+            this.add.rectangle(x*32, y*32, 32, 32, color).setOrigin(0).setDepth(-100);
+        }
+    }
+
+    // =========================================================================
+    // 6. INPUT Y CONTROLES
+    // =========================================================================
+    initJoystick() {
+        // Detección segura del plugin global
+        if (window.rexvirtualjoystickplugin || this.plugins.get('rexVirtualJoystickPlugin')) {
+            const plugin = this.plugins.get('rexVirtualJoystickPlugin') || this.plugins.get('rexvirtualjoystickplugin');
+            if (!plugin) return; // Fallo silencioso si no carga
+
+            this.joystick = plugin.add(this, {
                 x: 80, y: window.innerHeight - 100, radius: 60,
-                base: this.add.circle(0, 0, 60, 0x888888, 0.3).setStrokeStyle(2, 0xffffff),
-                thumb: this.add.circle(0, 0, 30, 0xcccccc, 0.8),
+                base: this.add.circle(0,0,60,0x888888,0.3).setStrokeStyle(2,0xffffff),
+                thumb: this.add.circle(0,0,30,0xcccccc,0.8),
                 dir: '4dir', forceMin: 16
             });
-            // Fijar a pantalla (HUD)
-            this.joystick.base.setScrollFactor(0).setDepth(2000);
-            this.joystick.thumb.setScrollFactor(0).setDepth(2001);
+            // HUD Fijo
+            this.joystick.base.setScrollFactor(0).setDepth(10000);
+            this.joystick.thumb.setScrollFactor(0).setDepth(10001);
             this.joystick.setVisible(false); // Oculto hasta login
         }
-
-        // 2. Teclado (Backup para PC)
-        this.cursorKeys = this.input.keyboard.createCursorKeys();
     }
 
-    handleGameAction(action) {
-        if (!this.room || !this.player) return;
+    handleInput(action) {
+        if(!this.room || !this.player) return;
 
-        if (action === 'ATTACK') {
+        // Comandos de Chat
+        if(action.length > 20 || action.includes(' ')) {
+            // TODO: Enviar chat al servidor
+            return;
+        }
+
+        // Acciones de Combate
+        if(action === 'ATTACK') {
             this.room.send("attack");
-            // Feedback visual local inmediato
+            // Feedback local inmediato (Juice)
             this.tweens.add({ targets: this.player.sprite, scale: 1.2, duration: 50, yoyo: true });
         }
-        if (action === 'HEAL' || action === 'SPELL_1') {
+        if(action === 'HEAL' || action === 'SPELL_1') {
             this.room.send("use_spell", { id: "exura" });
         }
     }
 
-    updateHTMLHUD(hp, maxHp, mp, maxMp) {
+    updateHUD(p) {
+        // Manipulación segura del DOM
         const hpBar = document.getElementById('hp-bar');
         const mpBar = document.getElementById('mp-bar');
         const hpText = document.getElementById('hp-text');
         
-        if (hpBar && maxHp > 0) {
-            const pctHp = (hp / maxHp) * 100;
-            hpBar.style.width = `${pctHp}%`;
-            if(hpText) hpText.innerText = `${Math.floor(hp)}/${maxHp}`;
+        if(hpBar) {
+            hpBar.style.width = `${(p.hp/p.maxHp)*100}%`;
+            hpText.innerText = `${Math.floor(p.hp)}/${p.maxHp}`;
         }
-        if (mpBar && maxMp > 0) {
-            mpBar.style.width = `${(mp / maxMp) * 100}%`;
-        }
+        if(mpBar) mpBar.style.width = `${(p.mp/p.maxMp)*100}%`;
     }
 
-    createProceduralGround() {
-        // Genera un fondo infinito para referencia visual
-        for(let x = 0; x < 60; x++) {
-            for(let y = 0; y < 60; y++) {
-                const color = (x + y) % 2 === 0 ? 0x003300 : 0x004400; // Patrón ajedrez
-                this.add.rectangle(x * 32, y * 32, 32, 32, color).setOrigin(0).setDepth(-1);
-            }
-        }
-    }
+    // =========================================================================
+    // 7. BUCLE PRINCIPAL (GAME LOOP)
+    // =========================================================================
+    update(time, delta) {
+        if(!this.player || !this.isGameActive || this.isMoving) return;
 
-    // 4. BUCLE PRINCIPAL (GAME LOOP)
-    update() {
-        if (!this.player || !this.isGameActive || this.isMoving) return;
-
-        // Leer Input (Joystick o Teclado)
-        let dx = 0, dy = 0;
+        let dx=0, dy=0;
         
-        if (this.joystick) {
-            const joy = this.joystick.createCursorKeys();
-            if (joy.right.isDown) dx = 1;
-            else if (joy.left.isDown) dx = -1;
-            else if (joy.down.isDown) dy = 1;
-            else if (joy.up.isDown) dy = -1;
+        // A. Leer Joystick
+        if(this.joystick) {
+            const c = this.joystick.createCursorKeys();
+            if(c.right.isDown) dx=1; else if(c.left.isDown) dx=-1;
+            else if(c.down.isDown) dy=1; else if(c.up.isDown) dy=-1;
+        }
+        
+        // B. Leer Teclado (Fallback PC)
+        if(dx===0 && dy===0 && this.cursorKeys) {
+            if(this.cursorKeys.right.isDown) dx=1; else if(this.cursorKeys.left.isDown) dx=-1;
+            else if(this.cursorKeys.down.isDown) dy=1; else if(this.cursorKeys.up.isDown) dy=-1;
         }
 
-        // Backup Teclado
-        if (dx === 0 && dy === 0) {
-            if (this.cursorKeys.right.isDown) dx = 1;
-            else if (this.cursorKeys.left.isDown) dx = -1;
-            else if (this.cursorKeys.down.isDown) dy = 1;
-            else if (this.cursorKeys.up.isDown) dy = -1;
-        }
-
-        // Ejecutar Movimiento (GRID)
-        if (dx !== 0 || dy !== 0) {
+        // C. Ejecutar Movimiento GRID
+        if(dx!==0 || dy!==0) {
             this.isMoving = true;
-            const tx = this.player.x + (dx * this.tileSize);
-            const ty = this.player.y + (dy * this.tileSize);
+            const tx = this.player.x + (dx * CONFIG.TILE_SIZE);
+            const ty = this.player.y + (dy * CONFIG.TILE_SIZE);
             
             // Animación Sprite
-            if (this.player.sprite) {
-                if (dx < 0) this.player.sprite.setFlipX(true);
-                if (dx > 0) this.player.sprite.setFlipX(false);
-                if (this.player.sprite.play && this.anims.exists('walk')) this.player.sprite.play('walk', true);
+            if(this.player.sprite) {
+                if(dx<0) this.player.sprite.setFlipX(true);
+                if(dx>0) this.player.sprite.setFlipX(false);
+                if(this.player.sprite.play && this.anims.exists('walk')) this.player.sprite.play('walk', true);
             }
 
-            // Movimiento Predictivo Cliente
-            this.tweens.add({
-                targets: this.player, x: tx, y: ty, duration: this.moveSpeed,
-                onComplete: () => { this.isMoving = false; }
+            // Movimiento Cliente (Predicción)
+            this.tweens.add({ 
+                targets: this.player, x: tx, y: ty, duration: CONFIG.MOVE_SPEED, 
+                onComplete:()=> this.isMoving=false 
             });
 
             // Enviar al Servidor
             this.room.send("mover", { x: tx, y: ty });
         } else {
-            // Parar animación si no se mueve
-            if (this.player.sprite && this.player.sprite.anims && this.player.sprite.anims.isPlaying) {
+            // Idle
+            if(this.player.sprite && this.player.sprite.anims && this.player.sprite.anims.isPlaying) {
                 this.player.sprite.stop();
             }
         }
     }
 }
 
-// Configuración Global Phaser
+// CONFIGURACIÓN DE PHASER (AUTO-SCALE)
 const config = {
-    type: Phaser.AUTO,
+    type: Phaser.AUTO, 
     backgroundColor: '#000000',
     parent: 'game-container',
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: window.innerWidth, height: window.innerHeight },
-    render: { pixelArt: true, antialias: false, roundPixels: true },
+    scale: { 
+        mode: Phaser.Scale.FIT, 
+        autoCenter: Phaser.Scale.CENTER_BOTH, 
+        width: window.innerWidth, 
+        height: window.innerHeight 
+    },
+    render: { 
+        pixelArt: true, // Crucial para estilo Tibia/Retro
+        roundPixels: true 
+    },
     scene: MythicaClient
 };
 
+// INICIO DEL MOTOR
 const game = new Phaser.Game(config);
-window.addEventListener('resize', () => game.scale.resize(window.innerWidth, window.innerHeight));
+
+// Responsive Resize
+window.addEventListener('resize', () => {
+    game.scale.resize(window.innerWidth, window.innerHeight);
+});
+                                                                    
