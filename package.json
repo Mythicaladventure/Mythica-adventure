@@ -1,8 +1,11 @@
 {
   "name": "mythica-adventure-server",
-  "version": "1.1.0",
-  "description": "Núcleo de Singularidad - Mythica (Persistente)",
+  "version": "1.2.0",
+  "description": "Núcleo de Singularidad - Mythica (Industrial Core)",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
@@ -16,16 +19,14 @@
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "mongoose": "^8.0.0" 
+    "mongoose": "^7.6.3"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
     "ts-node": "^10.9.1",
     "@types/node": "^20.0.0",
     "@types/express": "^4.17.17",
-    "@types/cors": "^2.8.12"
-  },
-  "engines": {
-    "node": ">=16.0.0"
+    "@types/cors": "^2.8.12",
+    "@types/mongoose": "^5.11.97"
   }
 }
