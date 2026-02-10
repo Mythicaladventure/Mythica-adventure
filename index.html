@@ -116,7 +116,7 @@
             </div>
 
             <button id="start-btn" onclick="startGame()">ENTRAR AL MUNDO</button>
-            <p style="color: #666; font-size: 10px; margin: 0; text-align: center;">Estado: Online | v1.2.2 Pro</p>
+            <p style="color: #666; font-size: 10px; margin: 0; text-align: center;">Estado: Online | v3.0 Anti-Cache</p>
         </div>
     </div>
 
@@ -145,7 +145,7 @@
     
     <script src="https://cdn.jsdelivr.net/npm/phaser3-rex-plugins@1.1.84/dist/rexvirtualjoystickplugin.min.js"></script>
     
-    <script src="client/index.js"></script>
+    <script src="client/index.js?v=3"></script>
 
     <script>
         let selectedClass = 'knight';
@@ -156,11 +156,11 @@
             const btn = document.getElementById('start-btn');
             btn.innerText = "ERROR TÉCNICO";
             btn.style.background = "#550000";
-            // Si el error es de constructor, avisamos específicamente
+            // Si el error es de constructor, avisamos
             if(msg.includes("not a constructor")) {
                 alert("Error de Librería: Se está corrigiendo automáticamente. Refresca la página en 1 minuto.");
             } else {
-                alert("Error detectado: " + msg);
+                console.error("Error UI:", msg);
             }
         };
 
