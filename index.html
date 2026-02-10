@@ -313,8 +313,6 @@
     
     <script>
         let selectedClass = 'knight';
-
-        // Stats base para la preview visual
         const classStats = {
             knight: { hp: '95%', mp: '20%' },
             mage: { hp: '40%', mp: '95%' },
@@ -322,14 +320,30 @@
             healer: { hp: '60%', mp: '80%' }
         };
 
+        // --- 1. CAPTURADOR DE ERRORES (CHIVATO) ---
+        // Esto mostrará cualquier error técnico directamente en la pantalla negra
+        window.onerror = function(msg, url, line) {
+            const btn = document.getElementById('start-btn');
+            btn.innerText = "ERROR DETECTADO";
+            btn.style.background = "#550000";
+            
+            // Crear aviso visual
+            const log = document.querySelector('.login-container');
+            const errBox = document.createElement('div');
+            errBox.style.color = '#ff5555';
+            errBox.style.fontSize = '10px';
+            errBox.style.marginTop = '10px';
+            errBox.style.borderTop = '1px solid #ff5555';
+            errBox.innerText = `FALLO: ${msg}`;
+            log.appendChild(errBox);
+            
+            console.error(msg); // También al log interno
+        };
+
         function selectClass(className, element) {
             selectedClass = className;
-            
-            // Selección visual
             document.querySelectorAll('.class-card').forEach(el => el.classList.remove('selected'));
             element.classList.add('selected');
-
-            // Actualizar barras de stats en el login
             document.getElementById('stat-hp').style.width = classStats[className].hp;
             document.getElementById('stat-mp').style.width = classStats[className].mp;
         }
@@ -345,49 +359,53 @@
                 return; 
             }
 
-            // Feedback Visual de Carga
-            btn.innerText = "CONECTANDO...";
+            // Feedback Visual de Carga (SERVER WAKE UP MODE)
+            btn.innerText = "DESPERTANDO SERVIDOR...";
+            btn.style.fontSize = "12px";
             btn.disabled = true;
 
-            // Comunicar al motor Phaser (client/index.js)
+            // Comunicar al motor Phaser
             window.dispatchEvent(new CustomEvent('start-game', { 
                 detail: { name: name, role: selectedClass } 
             }));
 
-            // Timeout de seguridad: Si en 10s no entra, reactivar botón
-            setTimeout(() => {
-                if(document.getElementById('login-screen').style.display !== 'none') {
-                    btn.innerText = "REINTENTAR";
-                    btn.disabled = false;
+            // --- TEMPORIZADOR DE 60 SEGUNDOS (Render Free Tier) ---
+            let seconds = 60;
+            const timer = setInterval(() => {
+                seconds--;
+                if(btn.disabled) {
+                    btn.innerText = `CONECTANDO... (${seconds}s)`;
                 }
-            }, 10000);
+                
+                if (seconds <= 0) {
+                    clearInterval(timer);
+                    if(document.getElementById('login-screen').style.display !== 'none') {
+                        btn.innerText = "TIEMPO AGOTADO - REINTENTAR";
+                        btn.disabled = false;
+                        btn.style.fontSize = "16px";
+                        alert("El servidor tardó mucho en responder. Si es la primera vez, espera 1 minuto más y reintenta.");
+                    }
+                }
+            }, 1000);
         }
 
         function emitAction(type) {
-            // Vibración háptica para móviles
             if (navigator.vibrate) navigator.vibrate(20); 
             window.dispatchEvent(new CustomEvent('game-action', { detail: type }));
         }
 
-        // --- SISTEMA DE CHAT ---
-        function checkEnter(e) {
-            if(e.key === "Enter") sendChat();
-        }
+        function checkEnter(e) { if(e.key === "Enter") sendChat(); }
 
         function sendChat() {
             const input = document.getElementById('chat-input');
             const text = input.value.trim();
             if(text !== "") {
-                // Enviar al juego
                 window.dispatchEvent(new CustomEvent('game-action', { detail: text }));
-                
-                // Limpiar input y cerrar teclado
                 input.value = "";
                 input.blur(); 
             }
         }
 
-        // Función global para que client/index.js pueda escribir en el chat
         window.addLogMessage = function(msg, type = 'msg-sys') {
             const log = document.getElementById('chat-log');
             const div = document.createElement('div');
@@ -397,12 +415,10 @@
             if(log.children.length > 50) log.lastChild.remove();
         };
 
-        // Función global para resetear login si falla conexión
         window.resetLogin = function() {
             const btn = document.getElementById('start-btn');
             btn.innerText = "ENTRAR AL MUNDO";
             btn.disabled = false;
-            alert("No se pudo conectar al servidor. Intenta de nuevo.");
         };
     </script>
 </body>
