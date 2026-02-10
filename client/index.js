@@ -1,8 +1,8 @@
 /* =============================================================================
-   ⚔️ MYTHICAL ADVENTURE ENGINE v2.1 (INDUSTRIAL CORE + TIBIA ASSETS)
+   ⚔️ MYTHICAL ADVENTURE ENGINE v2.2 (INDUSTRIAL CORE + NEW ASSETS)
    =============================================================================
    - Arquitectura: Cliente Ligero con Predicción de Movimiento
-   - Renderizado: WebGL con Soporte OTSP (.dat/.spr)
+   - Renderizado: WebGL con Soporte OTSP (.dat/.spr) + PNGs Externos
    - Red: WebSocket Seguro (Colyseus)
    =============================================================================
 */
@@ -45,14 +45,20 @@ class MythicaClient extends Phaser.Scene {
     }
 
     // =========================================================================
-    // 1. CARGA DE RECURSOS (ROBUSTA)
+    // 1. CARGA DE RECURSOS (ACTUALIZADA)
     // =========================================================================
     preload() {
-        // A. Carga de Assets Normales (Interfaz, tiles básicos)
-        this.load.spritesheet('world-tiles', 'client/assets/tileset.png', { frameWidth: 32, frameHeight: 32 });
-        this.load.spritesheet('player', 'client/assets/player.png', { frameWidth: 64, frameHeight: 64 }); 
+        console.log("📥 Cargando recursos...");
+
+        // A. Carga de Spritesheets (Tus nuevos archivos PNG de la carpeta sprites)
+        // Usamos 'otsp_tiles_01.png' como tileset principal (Suelo/Paredes)
+        this.load.spritesheet('world-tiles', 'client/assets/sprites/otsp_tiles_01.png', { frameWidth: 32, frameHeight: 32 });
         
-        // B. CARGA DE ARCHIVOS TIBIA (¡NUEVO!)
+        // Usamos 'otsp_creatures_01.png' como personaje (Héroe)
+        // Nota: Ajustamos el tamaño a 32x32 porque es el estándar de Tibia
+        this.load.spritesheet('player', 'client/assets/sprites/otsp_creatures_01.png', { frameWidth: 32, frameHeight: 32 }); 
+        
+        // B. CARGA DE ARCHIVOS TIBIA (Archivos de sistema .dat y .spr)
         // Buscamos en la carpeta Assets/Mythical respetando mayúsculas
         this.load.binary('otsp_dat', 'client/Assets/Mythical/otsp.dat');
         this.load.binary('otsp_spr', 'client/Assets/Mythical/otsp.spr');
@@ -73,24 +79,24 @@ class MythicaClient extends Phaser.Scene {
         if (this.cache.binary.exists('otsp_spr') && this.cache.binary.exists('otsp_dat')) {
             console.log("✅ ÉXITO: Archivos .DAT y .SPR cargados en memoria.");
             
-            // Marca Visual de Éxito
-            this.add.text(10, 10, '✅ TIBIA ASSETS ONLINE', { 
-                fontFamily: 'Verdana', fontSize: '12px', 
+            // Marca Visual de Éxito discreta
+            this.add.text(5, 5, '✅ ASSETS ONLINE', { 
+                fontFamily: 'Verdana', fontSize: '10px', 
                 fill: '#00ff00', backgroundColor: '#000000',
-                padding: { x: 5, y: 5 }
+                padding: { x: 2, y: 2 }
             }).setScrollFactor(0).setDepth(9999);
         } else {
             console.error("❌ ERROR: No se pudieron cargar los archivos de Tibia.");
-            this.add.text(10, 10, '❌ ERROR: ASSETS NOT FOUND', { 
-                fill: '#ff0000', backgroundColor: '#000000' 
+            this.add.text(5, 5, '⚠️ FALLO EN ASSETS', { 
+                fill: '#ff0000', backgroundColor: '#000000', fontSize: '10px' 
             }).setScrollFactor(0).setDepth(9999);
         }
         // -------------------------------------
 
-        // 1. Renderizar Suelo Procedural (Para evitar pantalla negra)
+        // 1. Renderizar Suelo Procedural (Para evitar pantalla negra inicial)
         this.createProceduralGround();
 
-        // 2. Sistema de Partículas (Para efectos de sangre/magia)
+        // 2. Sistema de Partículas
         this.createParticleSystems();
 
         // 3. Listeners de Interfaz (HTML <-> JS)
@@ -103,25 +109,39 @@ class MythicaClient extends Phaser.Scene {
     }
 
     // =========================================================================
-    // 3. CONEXIÓN Y RED (RETRY LOGIC)
+    // 3. CONEXIÓN Y RED (CON PANTALLA DE CARGA)
     // =========================================================================
     async handleLogin(credentials) {
         this.userData = credentials;
         
-        // Feedback Visual de carga
-        const loadingTxt = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, "CONECTANDO AL SERVIDOR...", {
-            fontFamily: 'Verdana', fontSize: '18px', color: '#ffd700', stroke: '#000', strokeThickness: 4
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(9999);
+        // --- PANTALLA DE CARGA (NUEVO) ---
+        // Muestra un texto grande en el centro de la pantalla
+        const loadingContainer = this.add.container(this.cameras.main.centerX, this.cameras.main.centerY).setScrollFactor(0).setDepth(10000);
+        
+        const bg = this.add.rectangle(0, 0, 300, 100, 0x000000, 0.8);
+        const loadingTxt = this.add.text(0, 0, "CONECTANDO AL SERVIDOR...", {
+            fontFamily: 'Verdana', fontSize: '16px', color: '#ffd700', align: 'center'
+        }).setOrigin(0.5);
+        
+        // Animación de parpadeo para que se sepa que está pensando
+        this.tweens.add({
+            targets: loadingTxt, alpha: 0.5, duration: 800, yoyo: true, repeat: -1
+        });
+
+        loadingContainer.add([bg, loadingTxt]);
+        // ---------------------------------
 
         try {
-            // Intentar conexión
+            // Intentar conexión con Render
             this.room = await this.client.joinOrCreate("mundo_mythica", { 
                 name: this.userData.name,
                 role: this.userData.role 
             });
 
             console.log("✅ Conexión Establecida:", this.room.sessionId);
-            loadingTxt.destroy();
+            
+            // Destruimos el cartel de carga porque ya entramos
+            loadingContainer.destroy();
             
             // TRANSICIÓN DE UI
             this.isGameActive = true;
@@ -134,11 +154,14 @@ class MythicaClient extends Phaser.Scene {
 
         } catch (error) {
             console.error("Connection Error:", error);
-            loadingTxt.setText("ERROR DE CONEXIÓN\n(El servidor puede estar despertando...)");
+            // Mensaje de error para el usuario
+            loadingTxt.setText("ERROR DE CONEXIÓN\nEl servidor se está despertando...\nIntenta de nuevo en 10s");
             loadingTxt.setColor('#ff4444');
+            bg.width = 350;
+            bg.height = 120;
             
-            // Reintento automático en 3 segundos (Lógica Pro)
-            // setTimeout(() => this.handleLogin(credentials), 3000); 
+            // Reintento manual (o automático si descomentas abajo)
+            // setTimeout(() => { loadingContainer.destroy(); this.handleLogin(credentials); }, 5000); 
         }
     }
 
@@ -147,7 +170,10 @@ class MythicaClient extends Phaser.Scene {
         this.room.state.map.onAdd((tileID, index) => {
             const x = (index % this.room.state.width) * CONFIG.TILE_SIZE;
             const y = Math.floor(index / this.room.state.width) * CONFIG.TILE_SIZE;
+            
+            // Usamos el nuevo spritesheet 'world-tiles'
             if(this.textures.exists('world-tiles')) {
+                // tileID debe coincidir con los frames de tu PNG
                 this.add.image(x, y, 'world-tiles', tileID).setOrigin(0).setDepth(0);
             }
         });
@@ -170,10 +196,11 @@ class MythicaClient extends Phaser.Scene {
         const container = this.add.container(p.x, p.y);
         container.setDepth(p.y); // Sort Z-Index por posición Y (Isométrico falso)
 
-        // 1. Sprite
+        // 1. Sprite del Jugador
         let sprite;
         if(this.textures.exists('player')) {
-            sprite = this.add.sprite(0, 0, 'player').setDisplaySize(32, 32);
+            // Usamos el frame 0 del nuevo spritesheet
+            sprite = this.add.sprite(0, 0, 'player', 0).setDisplaySize(32, 32);
         } else {
             // Fallback geométrico si falla la carga
             sprite = this.add.rectangle(0, 0, 32, 32, isMe ? 0x00ff00 : 0xff0000);
@@ -420,4 +447,4 @@ const game = new Phaser.Game(config);
 window.addEventListener('resize', () => {
     game.scale.resize(window.innerWidth, window.innerHeight);
 });
-                   
+                                       
