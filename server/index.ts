@@ -5,97 +5,69 @@ import express from "express";
 import cors from "cors";
 import fs from "fs";
 import path from "path";
-import { XMLParser } from "fast-xml-parser"; 
 
 // =============================================================================
-// 1. SISTEMA DE DATOS
-// =============================================================================
-
-const itemCache: any = {};
-
-function loadServerData() {
-    console.log("📥 Iniciando carga de datos del servidor...");
-    const itemsPath = path.join(__dirname, "../server/data/items.xml");
-    
-    if (fs.existsSync(itemsPath)) {
-        try {
-            const xmlData = fs.readFileSync(itemsPath, "utf8");
-            const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "" });
-            const result = parser.parse(xmlData);
-            if(result.items && result.items.item) {
-                result.items.item.forEach((it: any) => {
-                    const id = parseInt(it.id); 
-                    itemCache[id] = { name: it.name || "Unknown", type: it.type || "none" };
-                });
-                console.log(`✅ Items cargados: ${result.items.item.length}`);
-            }
-        } catch (e) { console.error("❌ Error items.xml:", e); }
-    }
-}
-
-// =============================================================================
-// 2. ESQUEMA
+// 1. DEFINICIÓN DEL ESTADO (Schema)
 // =============================================================================
 
 class Player extends Schema {
     @type("number") x: number = 0;
     @type("number") y: number = 0;
     @type("string") nombre: string = "Guest";
-    // 🎨 CAMBIO 1: Usamos la Skin 0 (El primer dibujo de la hoja)
-    @type("number") skin: number = 0; 
+    @type("number") skin: number = 0; // ID del Sprite
     @type("number") hp: number = 100;
     @type("number") maxHp: number = 100;
 }
 
 class GameState extends Schema {
-    @type({ map: Player }) players = new MapSchema<Player>();
-    @type("number") width: number = 50; 
-    @type("number") height: number = 50;
+    @type("number") width: number = 20; // Mapa pequeño para carga rápida
+    @type("number") height: number = 20;
     @type({ map: "number" }) map = new MapSchema<number>(); 
+    @type({ map: Player }) players = new MapSchema<Player>();
 }
 
 // =============================================================================
-// 3. LÓGICA DE LA SALA
+// 2. LÓGICA DE LA SALA (Generador de Mapa)
 // =============================================================================
 
 class MyRoom extends Room<GameState> {
     
     onCreate(_options: any) {
-        console.log("⚔️ Sala iniciada: mundo_mythica");
-        this.setState(new GameState());
-        loadServerData();
+        console.log("⚔️ SALA INICIADA: Generando mundo...");
 
-        const w = this.state.width;
-        const h = this.state.height;
+        // 1. Inicializar Estado
+        const state = new GameState();
+        state.width = 20;  // Ancho fijo
+        state.height = 20; // Alto fijo
+        this.setState(state);
 
-        // 🎨 CAMBIO 2: Usamos IDs bajos para asegurar que se vean
-        const SUELO_ID = 1;  // Frame #1 de tu imagen
-        const PARED_ID = 2;  // Frame #2 de tu imagen
-        const CIUDAD_ID = 3; // Frame #3
+        // 2. CONSTRUIR EL MAPA (Síncrono)
+        // Usamos IDs simples: 1=Pasto, 2=Pared, 3=Suelo
+        console.log("🔨 Construyendo terreno...");
 
-        // 1. Rellenar todo con Suelo (ID 1)
-        for (let x = 0; x < w; x++) {
-            for (let y = 0; y < h; y++) {
-                this.setTile(x, y, SUELO_ID);
-            }
-        }
+        for (let x = 0; x < state.width; x++) {
+            for (let y = 0; y < state.height; y++) {
+                const index = y * state.width + x;
+                
+                let tileID = 1; // Base: Pasto
 
-        // 2. Construir Ciudad (ID 3 y 2)
-        for (let x = 15; x < 35; x++) {
-            for (let y = 15; y < 35; y++) {
-                this.setTile(x, y, CIUDAD_ID); // Piso Ciudad
-
-                if (x === 15 || x === 34 || y === 15 || y === 34) {
-                    this.setTile(x, y, PARED_ID); // Paredes
+                // Bordes del mapa: Paredes
+                if (x === 0 || x === state.width - 1 || y === 0 || y === state.height - 1) {
+                    tileID = 2; 
                 }
+                
+                // Zona central (Ciudad): Suelo de madera/piedra
+                if (x > 5 && x < 15 && y > 5 && y < 15) {
+                    tileID = 3;
+                }
+
+                // Guardar en el mapa compartido
+                state.map.set(index.toString(), tileID);
             }
         }
+        console.log(`✅ Mapa listo: ${state.map.size} bloques.`);
 
-        // Puerta
-        this.setTile(25, 34, CIUDAD_ID); 
-        this.setTile(25, 35, CIUDAD_ID);
-
-        // LISTENERS
+        // 3. MANEJADORES DE MENSAJES (Inputs)
         this.onMessage("mover", (client, data) => {
             const player = this.state.players.get(client.sessionId);
             if (player) {
@@ -107,40 +79,39 @@ class MyRoom extends Room<GameState> {
         this.onMessage("attack", (client, _data) => {
             const attacker = this.state.players.get(client.sessionId);
             if (attacker) {
+                // Notificar golpe a todos
                 this.broadcast("combat_text", { 
-                    x: attacker.x, y: attacker.y - 20, value: "HIT!", type: "DAMAGE"
+                    x: attacker.x,
+                    y: attacker.y - 30,
+                    value: "HIT!", type: "DAMAGE"
                 });
             }
         });
     }
 
-    setTile(x: number, y: number, id: number) {
-        const index = y * this.state.width + x;
-        this.state.map.set(index.toString(), id);
-    }
-
     onJoin(client: Client, options: any) {
-        const playerName = options && options.name ? options.name : "Héroe";
-        console.log(`➕ Jugador ${playerName} conectado.`);
+        const playerName = options.name || "Héroe";
+        console.log(`➕ Conectado: ${playerName} (${client.sessionId})`);
         
         const player = new Player();
-        player.x = (this.state.width / 2) * 32;
-        player.y = (this.state.height / 2) * 32;
-        player.nombre = playerName;
         
-        // 🎨 CAMBIO 3: Skin segura
-        player.skin = 0; 
+        // Spawn Seguro: Centro del mapa (10, 10) x 32px
+        player.x = 10 * 32;
+        player.y = 10 * 32;
+        player.nombre = playerName;
+        player.skin = 0; // Usar primer sprite
         
         this.state.players.set(client.sessionId, player);
     }
 
     onLeave(client: Client) {
+        console.log(`➖ Desconectado: ${client.sessionId}`);
         this.state.players.delete(client.sessionId);
     }
 }
 
 // =============================================================================
-// 4. SERVIDOR HTTP
+// 3. SERVIDOR HTTP (Express + Colyseus)
 // =============================================================================
 const app = express();
 app.use(cors());
@@ -149,9 +120,12 @@ app.use(express.json());
 const server = http.createServer(app);
 const gameServer = new Server({ server: server });
 
+// Registrar la sala
 gameServer.define("mundo_mythica", MyRoom);
 
+// Puerto dinámico para Render
 const port = Number(process.env.PORT || 3000);
+
 server.listen(port, () => {
-    console.log(`🚀 SERVIDOR ONLINE en puerto ${port}`);
+    console.log(`🚀 SERVIDOR INDUSTRIAL ONLINE en puerto ${port}`);
 });
