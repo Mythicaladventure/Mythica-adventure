@@ -1,5 +1,5 @@
 /* =============================================================================
-   ⚔️ MYTHICAL ADVENTURE CLIENT v2.5 (FINAL STABLE)
+   ⚔️ MYTHICAL ADVENTURE CLIENT v3.5 (FORCE MAP LOAD)
    =============================================================================
 */
 
@@ -29,31 +29,26 @@ class MythicaClient extends Phaser.Scene {
         this.cursorKeys = null;
         this.isGameActive = false;
         this.isMoving = false;
+        
+        // Variables para evitar duplicados
+        this.drawnTiles = new Set();
     }
 
     // =========================================================================
-    // 1. CARGA DE RECURSOS (RUTAS ABSOLUTAS)
+    // 1. CARGA DE RECURSOS
     // =========================================================================
     preload() {
         console.log("📥 Cargando recursos...");
-
-        // URL BASE: Asegura que el móvil encuentre los archivos
         const baseURL = "https://mythicaladventure.github.io/Mythica-adventure/";
 
-        // 1. Tileset (Mapa)
+        // Tileset y Personaje
         this.load.spritesheet('world-tiles', baseURL + 'client/assets/sprites/otsp_tiles_01.png', { frameWidth: 32, frameHeight: 32 });
-        
-        // 2. Personaje (Héroe)
         this.load.spritesheet('player', baseURL + 'client/assets/sprites/otsp_creatures_01.png', { frameWidth: 32, frameHeight: 32 });
 
-        // Fallback: Textura blanca por si algo falla
+        // Fallback
         const graphics = this.make.graphics().fillStyle(0xffffff).fillRect(0,0,1,1);
         graphics.generateTexture('pixel', 1, 1);
         graphics.destroy();
-
-        this.load.on('loaderror', (file) => {
-            console.error("❌ ERROR CARGANDO:", file.src);
-        });
     }
 
     // =========================================================================
@@ -61,15 +56,11 @@ class MythicaClient extends Phaser.Scene {
     // =========================================================================
     create() {
         console.log("⚡ Motor Gráfico Iniciado.");
-
-        // Fondo base oscuro (para evitar pantalla negra total)
         this.add.rectangle(0, 0, 2000, 2000, 0x001100).setOrigin(0).setDepth(-100);
 
-        // Listeners HTML
         window.addEventListener('start-game', (e) => this.handleLogin(e.detail));
         window.addEventListener('game-action', (e) => this.handleInput(e.detail));
 
-        // Inputs
         this.initJoystick();
         this.cursorKeys = this.input.keyboard.createCursorKeys();
     }
@@ -91,10 +82,9 @@ class MythicaClient extends Phaser.Scene {
                 name: this.userData.name, role: this.userData.role
             });
 
-            console.log("✅ Conexión:", this.room.sessionId);
+            console.log("✅ Conexión Exitosa. ID:", this.room.sessionId);
             loadingContainer.destroy();
 
-            // Activar Juego
             this.isGameActive = true;
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('game-ui').style.display = 'block';
@@ -105,75 +95,79 @@ class MythicaClient extends Phaser.Scene {
         } catch (error) {
             console.error("Connection Error:", error);
             txt.setText("ERROR CONEXIÓN (Reintenta)");
-            bg.setFillStyle(0x550000);
             setTimeout(() => loadingContainer.destroy(), 3000);
         }
     }
 
     initNetworkEvents() {
-        // Debug Visual: Contador de mapa
-        const debugText = this.add.text(10, 100, "CARGANDO MAPA: 0%", { fontSize: '12px', color: '#00ff00', backgroundColor: '#000' }).setScrollFactor(0).setDepth(9999);
-        let tilesLoaded = 0;
-
-        // --- MAPA (CORREGIDO) ---
+        // Debug Visual
+        const debugText = this.add.text(10, 100, "BUSCANDO MAPA...", { fontSize: '12px', color: '#00ff00', backgroundColor: '#000' }).setScrollFactor(0).setDepth(9999);
+        
+        // 1. PROCESAR MAPA YA EXISTENTE (La clave del éxito)
+        this.room.state.map.forEach((tileID, index) => {
+            this.drawTile(tileID, index);
+        });
+        
+        // 2. ESCUCHAR NUEVOS TILES (Por si acaso)
         this.room.state.map.onAdd((tileID, index) => {
-            // FIX: Usamos 50 fijo por si el ancho no ha llegado
-            const mapWidth = this.room.state.width || 50; 
-            
-            const x = (index % mapWidth) * CONFIG.TILE_SIZE;
-            const y = Math.floor(index / mapWidth) * CONFIG.TILE_SIZE;
-            
-            // A. DIBUJAR BLOQUE DE COLOR (Respaldo visible)
-            // Colores según ID para diferenciar suelo/pared
-            let color = 0x006400; // Verde Oscuro (Base)
-            if (tileID === 2 || tileID === 101) color = 0x808080; // Gris (Pared)
-            if (tileID === 3 || tileID === 105) color = 0x8B4513; // Marrón (Suelo)
-            if (tileID === 1) color = 0x228B22; // Verde (Pasto)
-
-            // Dibujar bloque (Capa 0)
-            this.add.rectangle(x + 16, y + 16, 32, 32, color).setDepth(0);
-
-            // B. INTENTAR DIBUJAR LA IMAGEN (Capa 0.5)
-            if(this.textures.exists('world-tiles')) {
-                this.add.image(x, y, 'world-tiles', tileID).setOrigin(0).setDepth(0.5);
-            }
-
-            // Actualizar contador debug
-            tilesLoaded++;
-            if(tilesLoaded % 50 === 0) debugText.setText(`MAPA: ${tilesLoaded} TILES`);
-            if(tilesLoaded > 2400) debugText.destroy(); // Ocultar al terminar
+            this.drawTile(tileID, index);
         });
 
+        // Actualizar contador
+        debugText.setText(`MAPA: ${this.room.state.map.size} TILES ENCONTRADOS`);
+        setTimeout(() => debugText.destroy(), 5000);
+
         // JUGADORES
-        this.room.state.players.onAdd((p, sessionId) => this.createPlayerEntity(p, sessionId));
-        this.room.state.players.onRemove((p, sessionId) => this.removePlayerEntity(sessionId));
+        this.room.state.players.onAdd((p, sid) => this.createPlayerEntity(p, sid));
+        this.room.state.players.onRemove((p, sid) => this.removePlayerEntity(sid));
         
+        // Iterar jugadores ya existentes
+        this.room.state.players.forEach((p, sid) => this.createPlayerEntity(p, sid));
+
         // COMBATE
         this.room.onMessage("combat_text", (data) => this.showFloatingText(data));
+    }
+
+    // FUNCIÓN UNIFICADA PARA DIBUJAR
+    drawTile(tileID, index) {
+        if(this.drawnTiles.has(index)) return; // Evitar repetidos
+        this.drawnTiles.add(index);
+
+        const mapWidth = this.room.state.width || 20; // Default 20 (Server nuevo)
+        const x = (index % mapWidth) * CONFIG.TILE_SIZE;
+        const y = Math.floor(index / mapWidth) * CONFIG.TILE_SIZE;
+        
+        // Bloque de color de respaldo
+        let color = 0x006400; 
+        if (tileID === 2) color = 0x808080; // Pared
+        if (tileID === 3) color = 0x8B4513; // Suelo
+        this.add.rectangle(x + 16, y + 16, 32, 32, color).setDepth(0);
+
+        // Imagen bonita
+        if(this.textures.exists('world-tiles')) {
+            this.add.image(x, y, 'world-tiles', tileID).setOrigin(0).setDepth(0.5);
+        }
     }
 
     // =========================================================================
     // 4. ENTIDADES
     // =========================================================================
     createPlayerEntity(p, sessionId) {
+        if(this.otherPlayers[sessionId] || (sessionId === this.room.sessionId && this.player)) return;
+
         const isMe = (sessionId === this.room.sessionId);
         const container = this.add.container(p.x, p.y).setDepth(10);
         
-        // Sprite
         let sprite;
         if(this.textures.exists('player')) {
-            // Usamos frame 0 o la skin del server
             sprite = this.add.sprite(0, 0, 'player', p.skin || 0).setDisplaySize(32, 32);
         } else {
-            // Fallback: Cuadro Azul (Yo) o Rojo (Otros)
             sprite = this.add.rectangle(0, 0, 32, 32, isMe ? 0x0000ff : 0xff0000);
         }
         container.add(sprite);
 
-        // Nombre
         const nameTag = this.add.text(0, -25, p.nombre, { fontSize: '10px', color: '#fff', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
         container.add(nameTag);
-
         container.sprite = sprite;
 
         if(isMe) {
@@ -185,7 +179,6 @@ class MythicaClient extends Phaser.Scene {
             this.otherPlayers[sessionId] = container;
         }
 
-        // Movimiento Suave
         p.onChange(() => {
             this.tweens.add({ targets: container, x: p.x, y: p.y, duration: 200 });
             if(isMe) this.updateHUD(p);
@@ -199,9 +192,6 @@ class MythicaClient extends Phaser.Scene {
         }
     }
 
-    // =========================================================================
-    // 5. EXTRAS
-    // =========================================================================
     showFloatingText(data) {
         const txt = this.add.text(data.x, data.y, data.value, { fontSize: '14px', color: '#ff0000', stroke: '#fff', strokeThickness: 2 }).setOrigin(0.5).setDepth(999);
         this.tweens.add({ targets: txt, y: data.y - 50, alpha: 0, duration: 800, onComplete: () => txt.destroy() });
@@ -232,11 +222,7 @@ class MythicaClient extends Phaser.Scene {
             const tx = this.player.x + (dx * 32);
             const ty = this.player.y + (dy * 32);
             this.room.send("mover", { x: tx, y: ty });
-            
-            // Animación simple (Flip)
-            if(this.player.sprite && dx !== 0) {
-                this.player.sprite.setFlipX(dx < 0);
-            }
+            if(this.player.sprite && dx !== 0) this.player.sprite.setFlipX(dx < 0);
         }
     }
 
@@ -262,11 +248,8 @@ class MythicaClient extends Phaser.Scene {
     }
 }
 
-// Configuración Phaser
 const config = {
-    type: Phaser.AUTO,
-    backgroundColor: '#001100',
-    parent: 'game-container',
+    type: Phaser.AUTO, backgroundColor: '#001100', parent: 'game-container',
     scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
     render: { pixelArt: true }, 
     scene: MythicaClient
