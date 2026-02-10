@@ -5,7 +5,7 @@ import express from "express";
 import cors from "cors";
 import fs from "fs";
 import path from "path";
-import { XMLParser } from "fast-xml-parser"; // ¡El traductor nuevo!
+import { XMLParser } from "fast-xml-parser"; 
 
 // =============================================================================
 // 1. SISTEMA DE DATOS (Items y Mapa)
@@ -15,10 +15,15 @@ import { XMLParser } from "fast-xml-parser"; // ¡El traductor nuevo!
 const itemCache: any = {};
 
 function loadServerData() {
-    console.log("📥 Cargando datos del servidor...");
+    console.log("📥 Iniciando carga de datos del servidor...");
 
-    const itemsPath = path.join(__dirname, "data", "items.xml");
-    const mapPath = path.join(__dirname, "data", "world", "otsp.otbm");
+    // --- CORRECCIÓN DE RUTAS PARA RENDER ---
+    // __dirname en producción es '.../dist', así que subimos un nivel para ir a 'server/data'
+    // Si estamos en local (ts-node), esto también suele funcionar o ajustamos el fallback.
+    const itemsPath = path.join(__dirname, "../server/data/items.xml");
+    const mapPath = path.join(__dirname, "../server/data/world/otsp.otbm");
+
+    console.log(`🔎 Buscando items en: ${itemsPath}`);
 
     // 1. Cargar Items.xml
     if (fs.existsSync(itemsPath)) {
@@ -33,25 +38,29 @@ function loadServerData() {
                     const id = parseInt(it.id); // ID del Servidor
                     itemCache[id] = {
                         name: it.name || "Unknown",
-                        type: it.type || "none"
+                        type: it.type || "none",
+                        // Aquí podríamos leer atributos como 'speed', 'decay', etc.
                     };
                 });
-                console.log(`✅ Items cargados: ${result.items.item.length} objetos en memoria.`);
+                console.log(`✅ ÉXITO: Items cargados (${result.items.item.length} objetos en memoria).`);
             }
         } catch (e) {
-            console.error("❌ Error leyendo items.xml:", e);
+            console.error("❌ ERROR CRÍTICO leyendo items.xml:", e);
         }
     } else {
-        console.warn("⚠️ No se encontró items.xml en server/data/");
+        console.warn(`⚠️ ALERTA: No se encontró items.xml en la ruta especificada.`);
+        // Intento de fallback local por si estás probando en tu PC sin compilar
+        if(fs.existsSync(path.join(__dirname, "data/items.xml"))) {
+             console.log("💡 Sugerencia: Parece que los archivos están en 'data/' localmente.");
+        }
     }
 
     // 2. Verificar Mapa
     if (fs.existsSync(mapPath)) {
-        console.log("✅ MAPA DETECTADO: otsp.otbm está listo para ser procesado.");
-        // Nota: El parser de OTBM es binario y complejo. 
-        // Por ahora, el servidor sabe que existe. En la v2.2 implementaremos el lector binario.
+        console.log("✅ MAPA DETECTADO: otsp.otbm está listo.");
+        // Aquí irá el lector binario OTBM en la versión 2.2
     } else {
-        console.warn("⚠️ No se encontró el mapa .otbm en server/data/world/");
+        console.warn(`⚠️ ALERTA: No se encontró el mapa .otbm en: ${mapPath}`);
     }
 }
 
@@ -87,19 +96,19 @@ class MyRoom extends Room<GameState> {
         // Cargar los datos reales al iniciar la sala
         loadServerData();
 
-        // GENERACIÓN DE MAPA HÍBRIDO
-        // Usamos IDs reales basados en tu items.xml si es posible
+        // GENERACIÓN DE MAPA HÍBRIDO (Placeholder inteligente)
+        // Mientras implementamos el lector full, creamos un suelo seguro
         for (let x = 0; x < this.state.width; x++) {
             for (let y = 0; y < this.state.height; y++) {
                 const index = y * this.state.width + x;
                 
-                // ID 4526 = Piso de piedra común (Ejemplo de Tibia)
-                // ID 4471 = Pared de piedra
-                let tileID = 100; // ID genérico de piso
+                // Usamos IDs que coincidan con tu spritesheet nuevo
+                // Asegúrate que el frame 100 de tu PNG sea un suelo bonito
+                let tileID = 100; 
                 
                 // Bordes
                 if (x === 0 || x === this.state.width - 1 || y === 0 || y === this.state.height - 1) {
-                    tileID = 101; // ID genérico de pared
+                    tileID = 101; // Pared
                 }
 
                 this.state.map.set(index.toString(), tileID);
@@ -110,6 +119,7 @@ class MyRoom extends Room<GameState> {
         this.onMessage("mover", (client, data) => {
             const player = this.state.players.get(client.sessionId);
             if (player) {
+                // Aquí validaremos colisiones con 'itemCache' en el futuro
                 player.x = data.x;
                 player.y = data.y;
             }
@@ -127,6 +137,7 @@ class MyRoom extends Room<GameState> {
     onJoin(client: Client, options: any) {
         console.log(`➕ Jugador ${options.name || "Guest"} conectado.`);
         const player = new Player();
+        // Spawneamos en el centro seguro
         player.x = (this.state.width / 2) * 32;
         player.y = (this.state.height / 2) * 32;
         player.nombre = options.name || "Héroe";
@@ -153,5 +164,6 @@ gameServer.define("mundo_mythica", MyRoom);
 const port = Number(process.env.PORT || 3000);
 server.listen(port, () => {
     console.log(`🚀 SERVIDOR INDUSTRIAL ONLINE en puerto ${port}`);
-    console.log(`📂 Leyendo datos desde: ${path.join(__dirname, "data")}`);
+    // Log para depurar rutas en Render
+    console.log(`📂 Directorio base (__dirname): ${__dirname}`);
 });
