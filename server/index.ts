@@ -3,8 +3,8 @@ import { Schema, MapSchema, type } from "@colyseus/schema";
 import http from "http";
 import express from "express";
 import cors from "cors";
-import fs from "fs";
-import path from "path";
+
+// (Hemos eliminado fs, path y xml-parser porque no se usan en esta versión de prueba)
 
 // =============================================================================
 // 1. DEFINICIÓN DEL ESTADO (Schema)
@@ -14,20 +14,20 @@ class Player extends Schema {
     @type("number") x: number = 0;
     @type("number") y: number = 0;
     @type("string") nombre: string = "Guest";
-    @type("number") skin: number = 0; // ID del Sprite
+    @type("number") skin: number = 0; 
     @type("number") hp: number = 100;
     @type("number") maxHp: number = 100;
 }
 
 class GameState extends Schema {
-    @type("number") width: number = 20; // Mapa pequeño para carga rápida
+    @type("number") width: number = 20; 
     @type("number") height: number = 20;
     @type({ map: "number" }) map = new MapSchema<number>(); 
     @type({ map: Player }) players = new MapSchema<Player>();
 }
 
 // =============================================================================
-// 2. LÓGICA DE LA SALA (Generador de Mapa)
+// 2. LÓGICA DE LA SALA (Generador de Mapa Simplificado)
 // =============================================================================
 
 class MyRoom extends Room<GameState> {
@@ -37,37 +37,36 @@ class MyRoom extends Room<GameState> {
 
         // 1. Inicializar Estado
         const state = new GameState();
-        state.width = 20;  // Ancho fijo
-        state.height = 20; // Alto fijo
+        state.width = 20;  
+        state.height = 20; 
         this.setState(state);
 
         // 2. CONSTRUIR EL MAPA (Síncrono)
-        // Usamos IDs simples: 1=Pasto, 2=Pared, 3=Suelo
         console.log("🔨 Construyendo terreno...");
 
         for (let x = 0; x < state.width; x++) {
             for (let y = 0; y < state.height; y++) {
                 const index = y * state.width + x;
                 
-                let tileID = 1; // Base: Pasto
+                let tileID = 1; // Base: Pasto (o primer tile)
 
                 // Bordes del mapa: Paredes
                 if (x === 0 || x === state.width - 1 || y === 0 || y === state.height - 1) {
                     tileID = 2; 
                 }
                 
-                // Zona central (Ciudad): Suelo de madera/piedra
+                // Zona central: Suelo diferente
                 if (x > 5 && x < 15 && y > 5 && y < 15) {
                     tileID = 3;
                 }
 
-                // Guardar en el mapa compartido
+                // Guardar
                 state.map.set(index.toString(), tileID);
             }
         }
         console.log(`✅ Mapa listo: ${state.map.size} bloques.`);
 
-        // 3. MANEJADORES DE MENSAJES (Inputs)
+        // 3. MANEJADORES DE MENSAJES
         this.onMessage("mover", (client, data) => {
             const player = this.state.players.get(client.sessionId);
             if (player) {
@@ -79,7 +78,6 @@ class MyRoom extends Room<GameState> {
         this.onMessage("attack", (client, _data) => {
             const attacker = this.state.players.get(client.sessionId);
             if (attacker) {
-                // Notificar golpe a todos
                 this.broadcast("combat_text", { 
                     x: attacker.x,
                     y: attacker.y - 30,
@@ -94,12 +92,10 @@ class MyRoom extends Room<GameState> {
         console.log(`➕ Conectado: ${playerName} (${client.sessionId})`);
         
         const player = new Player();
-        
-        // Spawn Seguro: Centro del mapa (10, 10) x 32px
         player.x = 10 * 32;
         player.y = 10 * 32;
         player.nombre = playerName;
-        player.skin = 0; // Usar primer sprite
+        player.skin = 0; 
         
         this.state.players.set(client.sessionId, player);
     }
@@ -111,7 +107,7 @@ class MyRoom extends Room<GameState> {
 }
 
 // =============================================================================
-// 3. SERVIDOR HTTP (Express + Colyseus)
+// 3. SERVIDOR HTTP
 // =============================================================================
 const app = express();
 app.use(cors());
@@ -120,10 +116,8 @@ app.use(express.json());
 const server = http.createServer(app);
 const gameServer = new Server({ server: server });
 
-// Registrar la sala
 gameServer.define("mundo_mythica", MyRoom);
 
-// Puerto dinámico para Render
 const port = Number(process.env.PORT || 3000);
 
 server.listen(port, () => {
