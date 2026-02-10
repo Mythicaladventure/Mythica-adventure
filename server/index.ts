@@ -11,18 +11,14 @@ import { XMLParser } from "fast-xml-parser";
 // 1. SISTEMA DE DATOS (Items y Mapa)
 // =============================================================================
 
-// Diccionario de Items (Cargado desde items.xml)
 const itemCache: any = {};
 
 function loadServerData() {
     console.log("📥 Iniciando carga de datos del servidor...");
 
-    // RUTAS PARA RENDER (Producción vs Local)
+    // RUTAS A PRUEBA DE BALAS PARA RENDER
     const itemsPath = path.join(__dirname, "../server/data/items.xml");
-    const mapPath = path.join(__dirname, "../server/data/world/otsp.otbm");
-
-    console.log(`🔎 Buscando items en: ${itemsPath}`);
-
+    
     // 1. Cargar Items.xml
     if (fs.existsSync(itemsPath)) {
         try {
@@ -44,14 +40,7 @@ function loadServerData() {
             console.error("❌ ERROR CRÍTICO leyendo items.xml:", e);
         }
     } else {
-        console.warn(`⚠️ ALERTA: No se encontró items.xml en la ruta especificada.`);
-    }
-
-    // 2. Verificar Mapa
-    if (fs.existsSync(mapPath)) {
-        console.log("✅ MAPA DETECTADO: otsp.otbm está listo.");
-    } else {
-        console.warn(`⚠️ ALERTA: No se encontró el mapa .otbm en: ${mapPath}`);
+        console.warn(`⚠️ ALERTA: No se encontró items.xml en la ruta: ${itemsPath}`);
     }
 }
 
@@ -63,6 +52,8 @@ class Player extends Schema {
     @type("number") x: number = 0;
     @type("number") y: number = 0;
     @type("string") nombre: string = "Guest";
+    // ✨ NUEVO: Propiedad Skin para evitar el cuadro negro
+    @type("number") skin: number = 130; 
     @type("number") hp: number = 100;
     @type("number") maxHp: number = 100;
 }
@@ -75,46 +66,62 @@ class GameState extends Schema {
 }
 
 // =============================================================================
-// 3. LÓGICA DE LA SALA
+// 3. LÓGICA DE LA SALA (Generador de Ciudad)
 // =============================================================================
 
 class MyRoom extends Room<GameState> {
     
-    // CORRECCIÓN 1: Usamos '_options' para indicar que no se usa y evitar error TS6133
     onCreate(_options: any) {
         console.log("⚔️ Sala iniciada: mundo_mythica");
         this.setState(new GameState());
 
+        // Cargar datos reales (Items)
         loadServerData();
 
-        // Generación de mapa híbrido
-        for (let x = 0; x < this.state.width; x++) {
-            for (let y = 0; y < this.state.height; y++) {
-                const index = y * this.state.width + x;
-                let tileID = 100; 
-                
-                if (x === 0 || x === this.state.width - 1 || y === 0 || y === this.state.height - 1) {
-                    tileID = 101; 
-                }
-                this.state.map.set(index.toString(), tileID);
+        // --- CONSTRUCTOR DE CIUDAD PROCEDURAL ---
+        // Esto crea el mapa básico mientras implementamos el lector .otbm completo
+        const w = this.state.width;
+        const h = this.state.height;
+
+        // 1. Base: Todo es Pasto
+        for (let x = 0; x < w; x++) {
+            for (let y = 0; y < h; y++) {
+                this.setTile(x, y, 100); // ID 100 = Pasto
             }
         }
 
-        // INPUTS
+        // 2. Ciudad Central: Murallas y Piso de Piedra
+        const wallID = 101;  // ID Pared
+        const floorID = 105; // ID Piedra (Ciudad)
+
+        // Creamos un cuadrado de 20x20 en el centro (coordenadas 15 a 35)
+        for (let x = 15; x < 35; x++) {
+            for (let y = 15; y < 35; y++) {
+                // Rellenar con piso de piedra
+                this.setTile(x, y, floorID);
+
+                // Si es el borde del cuadrado, poner pared
+                if (x === 15 || x === 34 || y === 15 || y === 34) {
+                    this.setTile(x, y, wallID); 
+                }
+            }
+        }
+
+        // 3. La Puerta (Salida al sur)
+        this.setTile(25, 34, floorID); // Romper pared
+        this.setTile(25, 35, floorID); // Camino exterior
+
+        // LISTENERS (Inputs del cliente)
         this.onMessage("mover", (client, data) => {
             const player = this.state.players.get(client.sessionId);
-            // CORRECCIÓN 2: Validación de existencia (TS2532)
             if (player) {
                 player.x = data.x;
                 player.y = data.y;
             }
         });
 
-        // CORRECCIÓN 3: '_data' porque no lo leemos, y validación de 'attacker'
         this.onMessage("attack", (client, _data) => {
             const attacker = this.state.players.get(client.sessionId);
-            
-            // Solo atacamos si el jugador existe (Seguridad Anti-Crash)
             if (attacker) {
                 this.broadcast("combat_text", { 
                     x: attacker.x,
@@ -125,15 +132,24 @@ class MyRoom extends Room<GameState> {
         });
     }
 
+    // Ayudante para dibujar mapa
+    setTile(x: number, y: number, id: number) {
+        const index = y * this.state.width + x;
+        this.state.map.set(index.toString(), id);
+    }
+
     onJoin(client: Client, options: any) {
-        // Validación segura del nombre
         const playerName = options && options.name ? options.name : "Héroe";
         console.log(`➕ Jugador ${playerName} conectado.`);
         
         const player = new Player();
+        // Spawneamos en el centro de la CIUDAD (Seguro)
         player.x = (this.state.width / 2) * 32;
         player.y = (this.state.height / 2) * 32;
         player.nombre = playerName;
+        
+        // ✨ ASIGNAMOS LA SKIN (Adiós cuadro negro)
+        player.skin = 130; 
         
         this.state.players.set(client.sessionId, player);
     }
@@ -160,3 +176,4 @@ server.listen(port, () => {
     console.log(`🚀 SERVIDOR INDUSTRIAL ONLINE en puerto ${port}`);
     console.log(`📂 Directorio base (__dirname): ${__dirname}`);
 });
+                  
