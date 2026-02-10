@@ -1,6 +1,6 @@
 {
   "name": "mythica-adventure-server",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Núcleo de Singularidad - Mythica (Industrial Core)",
   "main": "dist/index.js",
   "engines": {
@@ -19,7 +19,8 @@
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "mongoose": "^7.6.3"
+    "mongoose": "^7.6.3",
+    "fast-xml-parser": "^4.2.5" 
   },
   "devDependencies": {
     "typescript": "^5.0.0",
