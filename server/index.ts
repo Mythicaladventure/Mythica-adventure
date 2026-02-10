@@ -4,8 +4,6 @@ import http from "http";
 import express from "express";
 import cors from "cors";
 
-// (Hemos eliminado fs, path y xml-parser porque no se usan en esta versión de prueba)
-
 // =============================================================================
 // 1. DEFINICIÓN DEL ESTADO (Schema)
 // =============================================================================
@@ -27,7 +25,7 @@ class GameState extends Schema {
 }
 
 // =============================================================================
-// 2. LÓGICA DE LA SALA (Generador de Mapa Simplificado)
+// 2. LÓGICA DE LA SALA (MAPA INSTANTÁNEO)
 // =============================================================================
 
 class MyRoom extends Room<GameState> {
@@ -35,38 +33,40 @@ class MyRoom extends Room<GameState> {
     onCreate(_options: any) {
         console.log("⚔️ SALA INICIADA: Generando mundo...");
 
-        // 1. Inicializar Estado
+        // 1. PREPARAR EL ESTADO (EN MEMORIA)
         const state = new GameState();
         state.width = 20;  
         state.height = 20; 
-        this.setState(state);
 
-        // 2. CONSTRUIR EL MAPA (Síncrono)
+        // 2. LLENAR EL MAPA *ANTES* DE PUBLICARLO
         console.log("🔨 Construyendo terreno...");
-
         for (let x = 0; x < state.width; x++) {
             for (let y = 0; y < state.height; y++) {
                 const index = y * state.width + x;
                 
-                let tileID = 1; // Base: Pasto (o primer tile)
+                let tileID = 1; // Pasto
 
-                // Bordes del mapa: Paredes
+                // Paredes en los bordes
                 if (x === 0 || x === state.width - 1 || y === 0 || y === state.height - 1) {
                     tileID = 2; 
                 }
                 
-                // Zona central: Suelo diferente
+                // Zona central (Suelo)
                 if (x > 5 && x < 15 && y > 5 && y < 15) {
                     tileID = 3;
                 }
 
-                // Guardar
                 state.map.set(index.toString(), tileID);
             }
         }
-        console.log(`✅ Mapa listo: ${state.map.size} bloques.`);
 
-        // 3. MANEJADORES DE MENSAJES
+        // 3. ¡AHORA SÍ! PUBLICAR EL ESTADO AL MUNDO
+        // Al hacer esto aquí, el cliente recibe el mapa lleno desde el milisegundo 0
+        this.setState(state);
+        
+        console.log(`✅ Mapa publicado: ${state.map.size} bloques.`);
+
+        // 4. MANEJADORES DE MENSAJES
         this.onMessage("mover", (client, data) => {
             const player = this.state.players.get(client.sessionId);
             if (player) {
