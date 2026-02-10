@@ -1,8 +1,8 @@
 /* =============================================================================
-   ⚔️ MYTHICAL ADVENTURE ENGINE v2.0 (INDUSTRIAL CORE)
+   ⚔️ MYTHICAL ADVENTURE ENGINE v2.1 (INDUSTRIAL CORE + TIBIA ASSETS)
    =============================================================================
    - Arquitectura: Cliente Ligero con Predicción de Movimiento
-   - Renderizado: WebGL con Fallbacks Automáticos
+   - Renderizado: WebGL con Soporte OTSP (.dat/.spr)
    - Red: WebSocket Seguro (Colyseus)
    =============================================================================
 */
@@ -48,10 +48,15 @@ class MythicaClient extends Phaser.Scene {
     // 1. CARGA DE RECURSOS (ROBUSTA)
     // =========================================================================
     preload() {
-        // Carga de Assets con rutas relativas seguras
+        // A. Carga de Assets Normales (Interfaz, tiles básicos)
         this.load.spritesheet('world-tiles', 'client/assets/tileset.png', { frameWidth: 32, frameHeight: 32 });
         this.load.spritesheet('player', 'client/assets/player.png', { frameWidth: 64, frameHeight: 64 }); 
         
+        // B. CARGA DE ARCHIVOS TIBIA (¡NUEVO!)
+        // Buscamos en la carpeta Assets/Mythical respetando mayúsculas
+        this.load.binary('otsp_dat', 'client/Assets/Mythical/otsp.dat');
+        this.load.binary('otsp_spr', 'client/Assets/Mythical/otsp.spr');
+
         // Fallback: Generamos una textura de píxel blanco en memoria por si faltan imágenes
         const graphics = this.make.graphics().fillStyle(0xffffff).fillRect(0,0,1,1);
         graphics.generateTexture('pixel', 1, 1);
@@ -64,6 +69,24 @@ class MythicaClient extends Phaser.Scene {
     create() {
         console.log("⚡ Motor Gráfico Iniciado. Version Industrial.");
         
+        // --- VERIFICACIÓN DE TIBIA ASSETS ---
+        if (this.cache.binary.exists('otsp_spr') && this.cache.binary.exists('otsp_dat')) {
+            console.log("✅ ÉXITO: Archivos .DAT y .SPR cargados en memoria.");
+            
+            // Marca Visual de Éxito
+            this.add.text(10, 10, '✅ TIBIA ASSETS ONLINE', { 
+                fontFamily: 'Verdana', fontSize: '12px', 
+                fill: '#00ff00', backgroundColor: '#000000',
+                padding: { x: 5, y: 5 }
+            }).setScrollFactor(0).setDepth(9999);
+        } else {
+            console.error("❌ ERROR: No se pudieron cargar los archivos de Tibia.");
+            this.add.text(10, 10, '❌ ERROR: ASSETS NOT FOUND', { 
+                fill: '#ff0000', backgroundColor: '#000000' 
+            }).setScrollFactor(0).setDepth(9999);
+        }
+        // -------------------------------------
+
         // 1. Renderizar Suelo Procedural (Para evitar pantalla negra)
         this.createProceduralGround();
 
@@ -397,4 +420,4 @@ const game = new Phaser.Game(config);
 window.addEventListener('resize', () => {
     game.scale.resize(window.innerWidth, window.innerHeight);
 });
-                                                                    
+                   
