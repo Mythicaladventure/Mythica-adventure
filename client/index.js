@@ -1,5 +1,5 @@
 /* =============================================================================
-   ⚔️ MYTHICAL ADVENTURE ENGINE v2.3 (CLIENTE FINAL)
+   ⚔️ MYTHICAL ADVENTURE CLIENT v2.5 (FINAL STABLE)
    =============================================================================
 */
 
@@ -17,41 +17,40 @@ const CONFIG = {
 class MythicaClient extends Phaser.Scene {
     constructor() {
         super("MythicaClient");
-        // Conexión WSS Segura
+        // Conexión Segura WSS
         this.client = new Colyseus.Client("wss://mythica-adventure.onrender.com");
         this.room = null;
-        
-        this.player = null;          
-        this.otherPlayers = {};      
-        this.userData = { name: "Guest", role: "knight" }; 
+
+        this.player = null;
+        this.otherPlayers = {};
+        this.userData = { name: "Guest", role: "knight" };
         
         this.joystick = null;
         this.cursorKeys = null;
-        this.isGameActive = false;   
-        this.isMoving = false;       
+        this.isGameActive = false;
+        this.isMoving = false;
     }
 
     // =========================================================================
-    // 1. CARGA DE RECURSOS (CON GPS ABSOLUTO)
+    // 1. CARGA DE RECURSOS (RUTAS ABSOLUTAS)
     // =========================================================================
     preload() {
         console.log("📥 Cargando recursos...");
 
-        // USAMOS LA URL COMPLETA PARA EVITAR ERRORES EN MOVIL
+        // URL BASE: Asegura que el móvil encuentre los archivos
         const baseURL = "https://mythicaladventure.github.io/Mythica-adventure/";
 
-        // 1. Tileset (Suelo y Paredes)
+        // 1. Tileset (Mapa)
         this.load.spritesheet('world-tiles', baseURL + 'client/assets/sprites/otsp_tiles_01.png', { frameWidth: 32, frameHeight: 32 });
         
         // 2. Personaje (Héroe)
         this.load.spritesheet('player', baseURL + 'client/assets/sprites/otsp_creatures_01.png', { frameWidth: 32, frameHeight: 32 });
 
-        // Fallback: Pixel blanco
+        // Fallback: Textura blanca por si algo falla
         const graphics = this.make.graphics().fillStyle(0xffffff).fillRect(0,0,1,1);
         graphics.generateTexture('pixel', 1, 1);
         graphics.destroy();
 
-        // Detector de errores de carga
         this.load.on('loaderror', (file) => {
             console.error("❌ ERROR CARGANDO:", file.src);
         });
@@ -62,15 +61,15 @@ class MythicaClient extends Phaser.Scene {
     // =========================================================================
     create() {
         console.log("⚡ Motor Gráfico Iniciado.");
-        
-        // 1. Suelo Procedural (Fondo verde oscuro base)
-        this.createProceduralGround();
 
-        // 2. Listeners de Interfaz
+        // Fondo base oscuro (para evitar pantalla negra total)
+        this.add.rectangle(0, 0, 2000, 2000, 0x001100).setOrigin(0).setDepth(-100);
+
+        // Listeners HTML
         window.addEventListener('start-game', (e) => this.handleLogin(e.detail));
         window.addEventListener('game-action', (e) => this.handleInput(e.detail));
 
-        // 3. Inputs
+        // Inputs
         this.initJoystick();
         this.cursorKeys = this.input.keyboard.createCursorKeys();
     }
@@ -81,21 +80,21 @@ class MythicaClient extends Phaser.Scene {
     async handleLogin(credentials) {
         this.userData = credentials;
         
-        // Pantalla de Carga
+        // UI Carga
         const loadingContainer = this.add.container(this.cameras.main.centerX, this.cameras.main.centerY).setScrollFactor(0).setDepth(10000);
         const bg = this.add.rectangle(0, 0, 300, 100, 0x000000, 0.8);
-        const loadingTxt = this.add.text(0, 0, "CONECTANDO...", { fontFamily: 'Verdana', fontSize: '16px', color: '#ffd700' }).setOrigin(0.5);
-        loadingContainer.add([bg, loadingTxt]);
+        const txt = this.add.text(0, 0, "CONECTANDO...", { fontSize: '18px', color: '#ffd700' }).setOrigin(0.5);
+        loadingContainer.add([bg, txt]);
 
         try {
-            this.room = await this.client.joinOrCreate("mundo_mythica", { 
-                name: this.userData.name, role: this.userData.role 
+            this.room = await this.client.joinOrCreate("mundo_mythica", {
+                name: this.userData.name, role: this.userData.role
             });
 
-            console.log("✅ Conexión Establecida:", this.room.sessionId);
+            console.log("✅ Conexión:", this.room.sessionId);
             loadingContainer.destroy();
-            
-            // Activar UI
+
+            // Activar Juego
             this.isGameActive = true;
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('game-ui').style.display = 'block';
@@ -105,38 +104,51 @@ class MythicaClient extends Phaser.Scene {
 
         } catch (error) {
             console.error("Connection Error:", error);
-            loadingTxt.setText("ERROR DE CONEXIÓN\nReintentando...");
+            txt.setText("ERROR CONEXIÓN (Reintenta)");
             bg.setFillStyle(0x550000);
             setTimeout(() => loadingContainer.destroy(), 3000);
         }
     }
 
     initNetworkEvents() {
-        // --- MAPA (MODO HÍBRIDO: IMAGEN O BLOQUES) ---
+        // Debug Visual: Contador de mapa
+        const debugText = this.add.text(10, 100, "CARGANDO MAPA: 0%", { fontSize: '12px', color: '#00ff00', backgroundColor: '#000' }).setScrollFactor(0).setDepth(9999);
+        let tilesLoaded = 0;
+
+        // --- MAPA (CORREGIDO) ---
         this.room.state.map.onAdd((tileID, index) => {
-            const x = (index % this.room.state.width) * CONFIG.TILE_SIZE;
-            const y = Math.floor(index / this.room.state.width) * CONFIG.TILE_SIZE;
+            // FIX: Usamos 50 fijo por si el ancho no ha llegado
+            const mapWidth = this.room.state.width || 50; 
             
-            // A. DIBUJAR BLOQUE DE COLOR (Respaldo si falla la imagen)
-            // Pared (ID 2 o 101) = Gris, Suelo (ID 3 o 105) = Marrón, Pasto = Verde
-            let color = 0x2e8b57; // Verde
-            if (tileID === 2 || tileID === 101) color = 0x808080; // Gris Pared
-            if (tileID === 3 || tileID === 105) color = 0xdeb887; // Marrón Suelo
+            const x = (index % mapWidth) * CONFIG.TILE_SIZE;
+            const y = Math.floor(index / mapWidth) * CONFIG.TILE_SIZE;
             
-            // Dibujamos el bloque SIEMPRE en capa 0
+            // A. DIBUJAR BLOQUE DE COLOR (Respaldo visible)
+            // Colores según ID para diferenciar suelo/pared
+            let color = 0x006400; // Verde Oscuro (Base)
+            if (tileID === 2 || tileID === 101) color = 0x808080; // Gris (Pared)
+            if (tileID === 3 || tileID === 105) color = 0x8B4513; // Marrón (Suelo)
+            if (tileID === 1) color = 0x228B22; // Verde (Pasto)
+
+            // Dibujar bloque (Capa 0)
             this.add.rectangle(x + 16, y + 16, 32, 32, color).setDepth(0);
 
-            // B. INTENTAR DIBUJAR LA IMAGEN (Capa 1)
+            // B. INTENTAR DIBUJAR LA IMAGEN (Capa 0.5)
             if(this.textures.exists('world-tiles')) {
                 this.add.image(x, y, 'world-tiles', tileID).setOrigin(0).setDepth(0.5);
             }
+
+            // Actualizar contador debug
+            tilesLoaded++;
+            if(tilesLoaded % 50 === 0) debugText.setText(`MAPA: ${tilesLoaded} TILES`);
+            if(tilesLoaded > 2400) debugText.destroy(); // Ocultar al terminar
         });
 
-        // --- JUGADORES ---
+        // JUGADORES
         this.room.state.players.onAdd((p, sessionId) => this.createPlayerEntity(p, sessionId));
         this.room.state.players.onRemove((p, sessionId) => this.removePlayerEntity(sessionId));
-
-        // --- COMBATE ---
+        
+        // COMBATE
         this.room.onMessage("combat_text", (data) => this.showFloatingText(data));
     }
 
@@ -145,13 +157,12 @@ class MythicaClient extends Phaser.Scene {
     // =========================================================================
     createPlayerEntity(p, sessionId) {
         const isMe = (sessionId === this.room.sessionId);
-        const container = this.add.container(p.x, p.y);
-        container.setDepth(10); 
-
-        // 1. Sprite del Jugador
+        const container = this.add.container(p.x, p.y).setDepth(10);
+        
+        // Sprite
         let sprite;
         if(this.textures.exists('player')) {
-            // Usamos frame 0 o la skin que diga el servidor
+            // Usamos frame 0 o la skin del server
             sprite = this.add.sprite(0, 0, 'player', p.skin || 0).setDisplaySize(32, 32);
         } else {
             // Fallback: Cuadro Azul (Yo) o Rojo (Otros)
@@ -159,26 +170,24 @@ class MythicaClient extends Phaser.Scene {
         }
         container.add(sprite);
 
-        // 2. UI Nombre
-        const nameTag = this.add.text(0, -35, p.nombre, {
-            fontSize: '10px', fontFamily: 'Arial', color: '#ffffff', stroke: '#000000', strokeThickness: 3
-        }).setOrigin(0.5);
+        // Nombre
+        const nameTag = this.add.text(0, -25, p.nombre, { fontSize: '10px', color: '#fff', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5);
         container.add(nameTag);
 
         container.sprite = sprite;
 
-        if (isMe) {
+        if(isMe) {
             this.player = container;
-            this.cameras.main.startFollow(this.player, true, CONFIG.CAMERA_LERP, CONFIG.CAMERA_LERP);
-            this.cameras.main.setZoom(CONFIG.ZOOM_LEVEL);
+            this.cameras.main.startFollow(container);
+            this.cameras.main.setZoom(1.5);
             this.updateHUD(p);
         } else {
             this.otherPlayers[sessionId] = container;
         }
 
-        // --- SINCRONIZACIÓN ---
+        // Movimiento Suave
         p.onChange(() => {
-            this.tweens.add({ targets: container, x: p.x, y: p.y, duration: CONFIG.MOVE_SPEED });
+            this.tweens.add({ targets: container, x: p.x, y: p.y, duration: 200 });
             if(isMe) this.updateHUD(p);
         });
     }
@@ -190,43 +199,53 @@ class MythicaClient extends Phaser.Scene {
         }
     }
 
+    // =========================================================================
+    // 5. EXTRAS
+    // =========================================================================
     showFloatingText(data) {
-        const txt = this.add.text(data.x, data.y - 30, data.value, {
-            fontFamily: 'Impact', fontSize: '14px', color: '#ff0000', stroke: '#000', strokeThickness: 3
-        }).setOrigin(0.5).setDepth(9999);
-
-        this.tweens.add({
-            targets: txt, y: data.y - 60, alpha: 0, duration: 800, 
-            onComplete: () => txt.destroy()
-        });
-    }
-
-    createProceduralGround() {
-        // Fondo base oscuro por si todo falla
-        this.add.rectangle(0, 0, 2000, 2000, 0x001100).setOrigin(0).setDepth(-100);
+        const txt = this.add.text(data.x, data.y, data.value, { fontSize: '14px', color: '#ff0000', stroke: '#fff', strokeThickness: 2 }).setOrigin(0.5).setDepth(999);
+        this.tweens.add({ targets: txt, y: data.y - 50, alpha: 0, duration: 800, onComplete: () => txt.destroy() });
     }
 
     initJoystick() {
-        if (window.rexvirtualjoystickplugin || this.plugins.get('rexVirtualJoystickPlugin')) {
-            const plugin = this.plugins.get('rexVirtualJoystickPlugin') || this.plugins.get('rexvirtualjoystickplugin');
-            if (!plugin) return; 
-
-            this.joystick = plugin.add(this, {
-                x: 80, y: window.innerHeight - 100, radius: 50,
-                base: this.add.circle(0,0,50,0x888888,0.3).setStrokeStyle(2,0xffffff),
-                thumb: this.add.circle(0,0,25,0xcccccc,0.8),
+        if (window.rexvirtualjoystickplugin) {
+            this.joystick = this.plugins.get('rexVirtualJoystickPlugin').add(this, {
+                x: 80, y: window.innerHeight - 80, radius: 50,
+                base: this.add.circle(0, 0, 50, 0x888888, 0.5),
+                thumb: this.add.circle(0, 0, 25, 0xcccccc, 0.8),
                 dir: '4dir', forceMin: 16
-            });
+            }).on('update', this.handleJoystick, this);
             this.joystick.setVisible(false);
+        }
+    }
+
+    handleJoystick() {
+        if(!this.player || !this.isGameActive) return;
+        const cursors = this.joystick.createCursorKeys();
+        let dx=0, dy=0;
+        if(cursors.right.isDown) dx=1;
+        if(cursors.left.isDown) dx=-1;
+        if(cursors.down.isDown) dy=1;
+        if(cursors.up.isDown) dy=-1;
+        
+        if(dx!==0 || dy!==0) {
+            const tx = this.player.x + (dx * 32);
+            const ty = this.player.y + (dy * 32);
+            this.room.send("mover", { x: tx, y: ty });
+            
+            // Animación simple (Flip)
+            if(this.player.sprite && dx !== 0) {
+                this.player.sprite.setFlipX(dx < 0);
+            }
         }
     }
 
     handleInput(action) {
         if(action === 'ATTACK') {
-            this.room.send("attack");
-            if(this.player && this.player.sprite) {
+             this.room.send("attack");
+             if(this.player && this.player.sprite) {
                 this.tweens.add({ targets: this.player.sprite, scale: 1.2, duration: 50, yoyo: true });
-            }
+             }
         }
     }
 
@@ -241,40 +260,15 @@ class MythicaClient extends Phaser.Scene {
         }
         if(mpBar) mpBar.style.width = `${(p.mp/p.maxMp)*100}%`;
     }
-
-    update(time, delta) {
-        if(!this.player || !this.isGameActive || this.isMoving) return;
-
-        let dx=0, dy=0;
-        if(this.joystick) {
-            const c = this.joystick.createCursorKeys();
-            if(c.right.isDown) dx=1; else if(c.left.isDown) dx=-1;
-            else if(c.down.isDown) dy=1; else if(c.up.isDown) dy=-1;
-        }
-        
-        if(dx!==0 || dy!==0) {
-            this.isMoving = true;
-            const tx = this.player.x + (dx * CONFIG.TILE_SIZE);
-            const ty = this.player.y + (dy * CONFIG.TILE_SIZE);
-            
-            if(this.player.sprite) {
-                if(dx<0) this.player.sprite.setFlipX(true);
-                if(dx>0) this.player.sprite.setFlipX(false);
-            }
-
-            this.tweens.add({ 
-                targets: this.player, x: tx, y: ty, duration: CONFIG.MOVE_SPEED, 
-                onComplete:()=> this.isMoving=false 
-            });
-            this.room.send("mover", { x: tx, y: ty });
-        }
-    }
 }
 
+// Configuración Phaser
 const config = {
-    type: Phaser.AUTO, backgroundColor: '#000000', parent: 'game-container',
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: window.innerWidth, height: window.innerHeight },
-    render: { pixelArt: true, roundPixels: true },
+    type: Phaser.AUTO,
+    backgroundColor: '#001100',
+    parent: 'game-container',
+    scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
+    render: { pixelArt: true }, 
     scene: MythicaClient
 };
 
