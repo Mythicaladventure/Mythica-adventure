@@ -1,263 +1,200 @@
 /* =============================================================================
-   ⚔️ MYTHICAL ADVENTURE CLIENT v7.0 (JOYSTICK FIX & CITY UPDATE)
+   ⚔️ CLIENTE v11.0 - ANIMACIONES, COLISIONES Y ATMÓSFERA
    =============================================================================
 */
 
-const CONFIG = {
-    TILE_SIZE: 32,
-    MOVE_SPEED: 250,
-    ZOOM_LEVEL: 1.4, // Un poco más lejos para ver la ciudad
-    CAMERA_LERP: 0.1
-};
+// --- UI SCENE ---
+class UIScene extends Phaser.Scene {
+    constructor() { super({ key: 'UIScene', active: true }); }
+    create() {
+        if (this.plugins.get('rexVirtualJoystickPlugin')) {
+            const joyX = 100; const joyY = this.scale.height - 100;
+            this.joystick = this.plugins.get('rexVirtualJoystickPlugin').add(this, {
+                x: joyX, y: joyY, radius: 50,
+                base: this.add.circle(0,0,50,0x000000,0.4).setStrokeStyle(3, 0xffd700),
+                thumb: this.add.circle(0,0,25,0xffd700,0.6),
+                dir: '8dir', forceMin: 16
+            });
+            this.scale.on('resize', (s) => this.joystick.setPosition(100, s.height - 100));
+        }
+    }
+    getCursorKeys() { return this.joystick ? this.joystick.createCursorKeys() : null; }
+}
 
-class MythicaClient extends Phaser.Scene {
-    constructor() {
-        super("MythicaClient");
+// --- GAME SCENE ---
+class GameScene extends Phaser.Scene {
+    constructor() { super({ key: 'GameScene' }); }
+
+    init() {
         this.client = new Colyseus.Client("wss://mythica-adventure.onrender.com");
         this.room = null;
-        this.player = null;
-        this.otherPlayers = {};
-        this.userData = { name: "Guest", role: "knight" };
-        this.drawnTiles = new Set();
+        this.players = {};
+        this.mapChunks = new Set();
+        this.mySessionId = null;
         
-        this.joystick = null;
-        this.cursorKeys = null;
-        this.isGameActive = false;
+        // Capas visuales
+        this.groups = { ground: null, walls: null, chars: null, lights: null };
     }
 
     preload() {
-        console.log("📥 Cargando recursos...");
-        const baseURL = "https://mythicaladventure.github.io/Mythica-adventure/";
-
-        this.load.spritesheet('world-tiles', baseURL + 'client/assets/sprites/otsp_tiles_01.png', { frameWidth: 32, frameHeight: 32 });
-        this.load.spritesheet('player', baseURL + 'client/assets/sprites/otsp_creatures_01.png', { frameWidth: 32, frameHeight: 32 });
+        const base = "https://mythicaladventure.github.io/Mythica-adventure/client/";
+        this.load.spritesheet('tiles', base + 'assets/sprites/otsp_tiles_01.png', { frameWidth: 32, frameHeight: 32 });
+        // Cargar spritesheet de personajes (Asumimos formato 3x4 o 4x4 frames)
+        this.load.spritesheet('chars', base + 'assets/sprites/otsp_creatures_01.png', { frameWidth: 32, frameHeight: 32 });
     }
 
-    create() {
-        console.log("⚡ Motor Gráfico Iniciado.");
-        this.add.rectangle(0, 0, 4000, 4000, 0x050505).setOrigin(0).setDepth(-100); // Fondo Negro Infinito
+    async create() {
+        // Inicializar Capas
+        this.groups.ground = this.add.group();
+        this.groups.walls = this.add.group();
+        this.groups.chars = this.add.group(); // Sort Y activado después
 
-        window.addEventListener('start-game', (e) => this.handleLogin(e.detail));
-        window.addEventListener('game-action', (e) => this.handleInput(e.detail));
+        this.add.rectangle(0, 0, 4000, 4000, 0x000000).setOrigin(0).setDepth(-100);
 
-        this.cursorKeys = this.input.keyboard.createCursorKeys();
+        // Crear animaciones globales (Solo un ejemplo básico, ajusta los frames a tu PNG real)
+        // Tibia suele usar: 0-3 Abajo, 4-7 Izq, etc. 
+        // Como el placeholder es simple, haremos una simulación
+        this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNumbers('chars', { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
+        this.anims.create({ key: 'walk-up', frames: this.anims.generateFrameNumbers('chars', { start: 12, end: 15 }), frameRate: 8, repeat: -1 });
+        this.anims.create({ key: 'walk-left', frames: this.anims.generateFrameNumbers('chars', { start: 4, end: 7 }), frameRate: 8, repeat: -1 });
+        this.anims.create({ key: 'walk-right', frames: this.anims.generateFrameNumbers('chars', { start: 8, end: 11 }), frameRate: 8, repeat: -1 });
+
+        this.uiScene = this.scene.get('UIScene');
+        window.addEventListener('start-game', (e) => this.connect(e.detail));
         
-        // Crear Joystick al inicio (invisible)
-        this.initJoystick();
-        
-        // Ajustar Joystick si cambia la pantalla
-        this.scale.on('resize', this.resizeJoystick, this);
+        // ATMÓSFERA: VIGNETTE (Sombra en los bordes)
+        // Creamos una textura dinámica
+        const shadowTexture = this.make.graphics().fillStyle(0x000000, 1).fillRect(0, 0, 2000, 2000);
+        const mask = this.make.graphics().fillCircle(1000, 1000, 150); // Agujero de luz
+        const rt = this.make.renderTexture({ x: 0, y: 0, width: 2000, height: 2000 }).setDepth(9000).setAlpha(0.6);
+        rt.draw(shadowTexture);
+        rt.erase(mask); // Borrar el centro
+        this.lightLayer = rt;
     }
 
-    async handleLogin(credentials) {
-        this.userData = credentials;
-        
-        const loadingContainer = this.add.container(this.cameras.main.centerX, this.cameras.main.centerY).setScrollFactor(0).setDepth(10000);
-        const bg = this.add.rectangle(0, 0, 300, 100, 0x000000, 0.8);
-        const txt = this.add.text(0, 0, "VIAJANDO A LA CAPITAL...", { fontSize: '18px', color: '#ffd700' }).setOrigin(0.5);
-        loadingContainer.add([bg, txt]);
-
+    async connect(userData) {
         try {
-            this.room = await this.client.joinOrCreate("mundo_mythica", {
-                name: this.userData.name, role: this.userData.role
-            });
-
-            console.log("✅ Conexión Exitosa:", this.room.sessionId);
-            loadingContainer.destroy();
-
-            this.isGameActive = true;
+            this.room = await this.client.joinOrCreate("mundo_mythica", userData);
+            this.mySessionId = this.room.sessionId;
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('game-ui').style.display = 'block';
 
-            if(this.joystick) this.joystick.setVisible(true);
+            this.room.onMessage("map_chunk", (d) => d.forEach(t => this.renderStack(t.i, t.s)));
+            this.room.state.players.onAdd((p, id) => this.addPlayer(p, id));
+            this.room.state.players.onRemove((p, id) => this.removePlayer(id));
+            this.room.state.players.forEach((p, id) => this.addPlayer(p, id));
+            this.room.onMessage("combat_text", (d) => this.showDamage(d));
+        } catch (e) { console.error(e); }
+    }
 
-            this.initNetworkEvents();
+    update() {
+        if (!this.room || !this.players[this.mySessionId]) return;
 
-        } catch (error) {
-            console.error("Connection Error:", error);
-            txt.setText("ERROR CONEXIÓN (Reintenta)");
-            setTimeout(() => loadingContainer.destroy(), 3000);
+        const me = this.players[this.mySessionId];
+        const cursors = this.uiScene.getCursorKeys();
+
+        // Mover la luz con el jugador
+        if (this.lightLayer) {
+            this.lightLayer.x = me.container.x - 1000;
+            this.lightLayer.y = me.container.y - 1000;
         }
-    }
 
-    initNetworkEvents() {
-        // ESCUCHAR MAPA GRANDE
-        this.room.onMessage("force_map_load", (data) => {
-            console.log("📦 CIUDAD RECIBIDA:", data.length, "bloques");
-            data.forEach(item => this.drawTile(item.t, item.i));
-        });
+        if (cursors) {
+            let dx = 0, dy = 0;
+            let dir = 0; // 0:Down, 1:Left, 2:Right, 3:Up
 
-        // JUGADORES
-        this.room.state.players.onAdd((p, sid) => this.createPlayerEntity(p, sid));
-        this.room.state.players.onRemove((p, sid) => this.removePlayerEntity(sid));
-        this.room.state.players.forEach((p, sid) => this.createPlayerEntity(p, sid));
-
-        // COMBATE
-        this.room.onMessage("combat_text", (data) => this.showFloatingText(data));
-    }
-
-    drawTile(tileID, index) {
-        if(this.drawnTiles.has(index)) return;
-        this.drawnTiles.add(index);
-
-        const mapWidth = 80; // ANCHO DEL NUEVO MAPA
-        const x = (index % mapWidth) * CONFIG.TILE_SIZE;
-        const y = Math.floor(index / mapWidth) * CONFIG.TILE_SIZE;
-        
-        // Bloque Base (Por si falla la imagen)
-        let color = 0x113311; // Pasto oscuro
-        if (tileID === 2) color = 0x555555; // Pared
-        if (tileID === 3) color = 0x887755; // Piedra
-
-        this.add.rectangle(x + 16, y + 16, 32, 32, color).setDepth(0);
-
-        if(this.textures.exists('world-tiles')) {
-            // Mapeo básico de tiles (Ajustar según tu imagen PNG real)
-            // ID 1 (Pasto) -> Frame 0
-            // ID 2 (Pared) -> Frame 5 (Ejemplo)
-            // ID 3 (Piedra) -> Frame 2 (Ejemplo)
-            let frame = 0; 
-            if(tileID === 2) frame = 6; // Pared
-            if(tileID === 3) frame = 2; // Piedra
+            if (cursors.left.isDown) { dx = -1; dir = 1; }
+            else if (cursors.right.isDown) { dx = 1; dir = 2; }
             
-            this.add.image(x, y, 'world-tiles', frame).setOrigin(0).setDepth(0.5);
+            if (cursors.up.isDown) { dy = -1; dir = 3; }
+            else if (cursors.down.isDown) { dy = 1; dir = 0; }
+
+            if (dx !== 0 || dy !== 0) {
+                const speed = 3; // Velocidad de movimiento
+                // Enviar intención de movimiento al servidor
+                this.room.send("mover", { 
+                    x: me.container.x + (dx * speed), 
+                    y: me.container.y + (dy * speed),
+                    dir: dir 
+                });
+            }
         }
     }
 
-    createPlayerEntity(p, sessionId) {
-        if(this.otherPlayers[sessionId] || (sessionId === this.room.sessionId && this.player)) return;
+    renderStack(index, items) {
+        if (this.mapChunks.has(index)) return;
+        this.mapChunks.add(index);
+        const x = (index % 60) * 32;
+        const y = Math.floor(index / 60) * 32;
 
-        const isMe = (sessionId === this.room.sessionId);
-        const container = this.add.container(p.x, p.y).setDepth(10);
-        
-        // Sombra del personaje
-        const shadow = this.add.ellipse(0, 10, 20, 10, 0x000000, 0.5);
-        container.add(shadow);
+        items.forEach((id) => {
+            let frame = 0, group = this.groups.ground, depth = 0;
+            if (id === 1) { frame = 0; } // Pasto
+            if (id === 3) { frame = 2; } // Piedra
+            if (id === 2) { frame = 6; group = this.groups.walls; depth = y; } // Pared con profundidad
 
-        // SPRITE VISIBLE
-        let sprite;
-        if(this.textures.exists('player')) {
-            // 🔥 TRUCO: Si la skin es 0 (invisible), usamos la 7 (Guerrero)
-            // Si eres Mago, usamos la 13 (ejemplo).
-            let visualSkin = 7; 
-            if (this.userData.role === 'mage') visualSkin = 13;
-            if (p.skin > 0) visualSkin = p.skin;
+            const img = this.add.image(x, y, 'tiles', frame).setOrigin(0).setDepth(depth);
+            // Sombreado leve a las paredes para dar volumen
+            if(group === this.groups.walls) img.setTint(0xcccccc); 
+        });
+    }
 
-            sprite = this.add.sprite(0, -10, 'player', visualSkin).setDisplaySize(48, 48);
-        } else {
-            sprite = this.add.rectangle(0, 0, 32, 32, isMe ? 0x0000ff : 0xff0000);
-        }
-        container.add(sprite);
+    addPlayer(p, id) {
+        if (this.players[id]) return;
 
-        // Nombre y Gremio
-        const nameTag = this.add.text(0, -45, p.nombre, { 
-            fontSize: '10px', fontFamily: 'Verdana', color: '#ffffff', stroke: '#000', strokeThickness: 3 
-        }).setOrigin(0.5);
-        container.add(nameTag);
+        const container = this.add.container(p.x, p.y);
+        container.setDepth(p.y + 10); // Profundidad dinámica
 
-        container.sprite = sprite;
+        const skin = p.skin || 7;
+        const sprite = this.add.sprite(0, -12, 'chars', skin).setDisplaySize(48, 48);
+        const nameBg = this.add.rectangle(0, -45, 60, 14, 0x000000, 0.5);
+        const name = this.add.text(0, -45, p.nombre, { fontSize: '10px', color: '#fff' }).setOrigin(0.5);
 
-        if(isMe) {
-            this.player = container;
-            this.cameras.main.startFollow(container);
-            this.cameras.main.setZoom(CONFIG.ZOOM_LEVEL);
+        container.add([sprite, nameBg, name]);
+        this.players[id] = { container, sprite };
+
+        if (id === this.mySessionId) {
+            this.cameras.main.startFollow(container, true, 0.1, 0.1); // Lerp suave
+            this.cameras.main.setZoom(1.8);
             this.updateHUD(p);
-        } else {
-            this.otherPlayers[sessionId] = container;
         }
 
         p.onChange(() => {
-            this.tweens.add({ targets: container, x: p.x, y: p.y, duration: 200 });
-            if(isMe) this.updateHUD(p);
+            // Interpolación de posición
+            this.tweens.add({ targets: container, x: p.x, y: p.y, duration: 100 });
+            container.setDepth(p.y + 10);
+            
+            // ANIMACIONES BASADAS EN EL ESTADO
+            if (p.isMoving) {
+                // Seleccionar animación según dirección
+                // Nota: Ajusta los nombres de anims según tus frames reales
+                if (p.direction === 0) sprite.play('walk-down', true);
+                else if (p.direction === 1) sprite.play('walk-left', true);
+                else if (p.direction === 2) sprite.play('walk-right', true);
+                else if (p.direction === 3) sprite.play('walk-up', true);
+            } else {
+                sprite.stop();
+                // Frame estático según dirección (aprox)
+                if (p.direction === 0) sprite.setFrame(skin);
+            }
+
+            if(id === this.mySessionId) this.updateHUD(p);
         });
     }
 
-    removePlayerEntity(sessionId) {
-        if (this.otherPlayers[sessionId]) {
-            this.otherPlayers[sessionId].destroy();
-            delete this.otherPlayers[sessionId];
-        }
+    removePlayer(id) { if (this.players[id]) { this.players[id].container.destroy(); delete this.players[id]; } }
+    showDamage(d) {
+        const t = this.add.text(d.x, d.y, d.val, { fontSize:'14px', color:'#f00', stroke:'#fff', strokeThickness:2 }).setOrigin(0.5).setDepth(9999);
+        this.tweens.add({ targets:t, y:d.y-50, alpha:0, duration:800, onComplete:()=>t.destroy() });
     }
-
-    showFloatingText(data) {
-        const txt = this.add.text(data.x, data.y, data.value, { fontSize: '14px', color: '#ff0000', stroke: '#fff', strokeThickness: 2 }).setOrigin(0.5).setDepth(999);
-        this.tweens.add({ targets: txt, y: data.y - 50, alpha: 0, duration: 800, onComplete: () => txt.destroy() });
-    }
-
-    // =========================================================================
-    // 🕹️ JOYSTICK REPARADO (POSICIÓN FORZADA ABAJO-IZQUIERDA)
-    // =========================================================================
-    initJoystick() {
-        if (this.plugins.get('rexVirtualJoystickPlugin') || window.rexvirtualjoystickplugin) {
-            const plugin = this.plugins.get('rexVirtualJoystickPlugin') || window.rexvirtualjoystickplugin;
-            
-            // Calculamos posición basada en la ventana actual
-            const joyX = 120;
-            const joyY = window.innerHeight - 120;
-
-            this.joystick = plugin.add(this, {
-                x: joyX,
-                y: joyY,
-                radius: 60,
-                base: this.add.circle(0, 0, 60, 0x888888, 0.3).setDepth(9999).setScrollFactor(0).setStrokeStyle(2, 0xffb700),
-                thumb: this.add.circle(0, 0, 30, 0xcccccc, 0.8).setDepth(10000).setScrollFactor(0),
-                dir: '8dir', 
-                forceMin: 16
-            }).on('update', this.handleJoystick, this);
-            
-            this.joystick.setVisible(false); // Se activa al loguear
-        }
-    }
-
-    resizeJoystick() {
-        if(this.joystick) {
-            this.joystick.setPosition(120, window.innerHeight - 120);
-        }
-    }
-
-    handleJoystick() {
-        if(!this.player || !this.isGameActive) return;
-        const cursors = this.joystick.createCursorKeys();
-        let dx=0, dy=0;
-        if (cursors.right.isDown) dx=1; else if (cursors.left.isDown) dx=-1;
-        if (cursors.down.isDown) dy=1; else if (cursors.up.isDown) dy=-1;
-        
-        if (dx !== 0 || dy !== 0) {
-            const tx = this.player.x + (dx * 32);
-            const ty = this.player.y + (dy * 32);
-            this.room.send("mover", { x: tx, y: ty });
-            if(this.player.sprite && dx !== 0) this.player.sprite.setFlipX(dx < 0);
-        }
-    }
-
-    handleInput(action) {
-        if(action === 'ATTACK') {
-             this.room.send("attack");
-             if(this.player && this.player.sprite) {
-                this.tweens.add({ targets: this.player.sprite, scale: 1.2, duration: 50, yoyo: true });
-             }
-        }
-    }
-
-    updateHUD(p) {
-        const hpBar = document.getElementById('hp-bar');
-        const mpBar = document.getElementById('mp-bar');
-        const hpText = document.getElementById('hp-text');
-        
-        if(hpBar) {
-            hpBar.style.width = `${(p.hp/p.maxHp)*100}%`;
-            if(hpText) hpText.innerText = `${Math.floor(p.hp)}/${p.maxHp}`;
-        }
-        if(mpBar) mpBar.style.width = `${(p.mp/p.maxMp)*100}%`;
-    }
+    updateHUD(p) { const hp = document.getElementById('hp-bar'); if(hp) hp.style.width = `${(p.hp/p.maxHp)*100}%`; }
 }
 
 const config = {
-    type: Phaser.AUTO, backgroundColor: '#000000', parent: 'game-container',
+    type: Phaser.AUTO, backgroundColor: '#000', parent: 'game-container',
     scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
-    render: { pixelArt: true }, 
-    scene: MythicaClient
+    render: { pixelArt: true, roundPixels: true },
+    scene: [UIScene, GameScene]
 };
-
 const game = new Phaser.Game(config);
 window.addEventListener('resize', () => game.scale.resize(window.innerWidth, window.innerHeight));
