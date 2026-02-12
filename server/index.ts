@@ -1,7 +1,7 @@
 import { Server, Room, Client } from "colyseus";
 import { Schema, MapSchema, type } from "@colyseus/schema";
 import http from "http";
-import express from "express";
+import express from "express"
 import cors from "cors";
 
 // =============================================================================
