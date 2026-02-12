@@ -1,139 +1,131 @@
 import { Server, Room, Client } from "colyseus";
-import { Schema, MapSchema, type } from "@colyseus/schema";
+import { Schema, MapSchema, ArraySchema, type } from "@colyseus/schema";
 import http from "http";
 import express from "express";
 import cors from "cors";
 
-// =============================================================================
-// 1. DEFINICIÓN DE DATOS (SCHEMA)
-// =============================================================================
+class TileStack extends Schema {
+    @type(["number"]) items = new ArraySchema<number>();
+}
 
 class Player extends Schema {
     @type("number") x: number = 0;
     @type("number") y: number = 0;
-    @type("string") nombre: string = "Guest";
-    @type("number") skin: number = 0; 
+    @type("string") nombre: string = "";
+    @type("number") skin: number = 7;
     @type("number") hp: number = 100;
     @type("number") maxHp: number = 100;
+    // Agregamos dirección para animación (0:Abajo, 1:Izq, 2:Der, 3:Arriba)
+    @type("number") direction: number = 0; 
+    @type("boolean") isMoving: boolean = false;
 }
 
 class GameState extends Schema {
-    @type("number") width: number = 80;  // MAPA GRANDE (80x80 = 6400 Tiles)
-    @type("number") height: number = 80;
-    @type({ map: "number" }) map = new MapSchema<number>(); 
+    @type("number") width: number = 60;
+    @type("number") height: number = 60;
+    @type({ map: TileStack }) map = new MapSchema<TileStack>();
     @type({ map: Player }) players = new MapSchema<Player>();
 }
 
-// =============================================================================
-// 2. LÓGICA DE LA SALA (GENERADOR DE CIUDAD RPG)
-// =============================================================================
-
 class MyRoom extends Room<GameState> {
-    
     onCreate(_options: any) {
-        console.log("⚔️ SALA CREADA: Iniciando Arquitecto de Mundos...");
-
-        // 1. Configurar Estado
+        console.log("🛡️ SERVIDOR v11: Sistema de Colisiones Activo");
         const state = new GameState();
-        const W = 80;
-        const H = 80;
-        state.width = W;
-        state.height = H;
+        state.width = 60; state.height = 60;
 
-        // 2. GENERACIÓN PROCEDURAL DE CIUDAD (Simulando un mapa real)
-        console.log(`🔨 Construyendo Capital (${W}x${H})...`);
-        
-        for (let x = 0; x < W; x++) {
-            for (let y = 0; y < H; y++) {
-                const index = y * W + x;
-                let tileID = 1; // 1 = Pasto (Base)
-
-                // A. MURALLAS EXTERIORES (Bordes del mundo)
-                if (x === 0 || x === W - 1 || y === 0 || y === H - 1) {
-                    tileID = 2; // Pared
-                }
+        // --- GENERADOR DE MAPA ---
+        for (let x = 0; x < 60; x++) {
+            for (let y = 0; y < 60; y++) {
+                const i = y * 60 + x;
+                const stack = new TileStack();
                 
-                // B. PLAZA CENTRAL (Piedra) - Zona segura (20x20 en el centro)
-                const centerX = W / 2;
-                const centerY = H / 2;
-                if (x > centerX - 10 && x < centerX + 10 && y > centerY - 10 && y < centerY + 10) {
-                    tileID = 3; // Suelo Piedra
+                // Suelo base
+                let ground = 1; // Pasto
+                if (x>25 && x<35 && y>25 && y<35) ground = 3; // Piedra
+                stack.items.push(ground);
+
+                // Paredes (Obstáculos)
+                let wall = 0;
+                // Muralla externa
+                if (x==20 || x==40 || y==20 || y==40) {
+                     if(x>20 && x<40 && y>20 && y<40) { // Solo el cuadrado central
+                        if (x!==30 && y!==30) wall = 2; // Puertas
+                     }
                 }
+                // Árboles/Rocas aleatorias
+                if (ground === 1 && Math.random() < 0.03) wall = 2; // Usamos 2 como obstáculo genérico
 
-                // C. CAMINOS PRINCIPALES (Cruz que atraviesa el mapa)
-                // Camino Horizontal
-                if (y > centerY - 3 && y < centerY + 3) tileID = 3;
-                // Camino Vertical
-                if (x > centerX - 3 && x < centerX + 3) tileID = 3;
-
-                // D. EDIFICIOS ALEATORIOS (Bloques de paredes dispersos)
-                // Solo fuera de la plaza y los caminos
-                if (tileID === 1 && Math.random() < 0.05) {
-                    tileID = 2; // Pared (Obstáculo/Árbol/Casa)
-                }
-
-                state.map.set(index.toString(), tileID);
+                if (wall > 0) stack.items.push(wall);
+                
+                state.map.set(i.toString(), stack);
             }
         }
-        
         this.setState(state);
-        console.log(`✅ Ciudad construida: ${state.map.size} bloques.`);
 
-        // Listeners
+        // --- MOVIMIENTO CON VALIDACIÓN ---
         this.onMessage("mover", (client, data) => {
-            const player = this.state.players.get(client.sessionId);
-            if (player) {
-                player.x = data.x;
-                player.y = data.y;
+            const p = this.state.players.get(client.sessionId);
+            if (!p) return;
+
+            // 1. Validar Colisión
+            if (this.isWalkable(data.x, data.y)) {
+                p.x = data.x;
+                p.y = data.y;
+                p.direction = data.dir; // Guardar hacia dónde mira
+                p.isMoving = true;
+            } else {
+                // Si choca, no se mueve, pero actualizamos dirección si quieres
+                p.isMoving = false;
             }
+            
+            // Timeout para dejar de "mover" la animación si deja de enviar paquetes
+            this.clock.setTimeout(() => { p.isMoving = false; }, 100);
         });
 
         this.onMessage("attack", (client) => {
-            const player = this.state.players.get(client.sessionId);
-            if (player) {
-                this.broadcast("combat_text", { 
-                    x: player.x, y: player.y - 30, value: "HIT!", type: "DAMAGE" 
-                });
-            }
+            const p = this.state.players.get(client.sessionId);
+            if (p) this.broadcast("combat_text", { x: p.x, y: p.y-30, val: "HIT!" });
         });
+    }
+
+    // FUNCIÓN CRÍTICA: ¿SE PUEDE CAMINAR AQUÍ?
+    isWalkable(pixelX: number, pixelY: number) {
+        // Convertir pixel a grid
+        const tileX = Math.round(pixelX / 32);
+        const tileY = Math.round(pixelY / 32);
+        const index = tileY * 60 + tileX;
+
+        const stack = this.state.map.get(index.toString());
+        if (!stack) return false; // Fuera del mapa
+
+        // Revisar si hay algo sólido en el stack
+        // Asumimos que ID 2 (Pared) y ID 4 (Roca) son sólidos
+        for (let i = 0; i < stack.items.length; i++) {
+            const item = stack.items[i];
+            if (item === 2 || item === 4) return false; // ¡CHOQUE!
+        }
+        return true; // Camino libre
     }
 
     onJoin(client: Client, options: any) {
-        console.log(`➕ Jugador conectado: ${client.sessionId}`);
-        
-        const player = new Player();
-        // SPAWN EN LA PLAZA CENTRAL
-        player.x = (80 / 2) * 32; 
-        player.y = (80 / 2) * 32;
-        player.nombre = options.name || "Héroe";
-        player.skin = 0;
-        this.state.players.set(client.sessionId, player);
+        console.log("➕", client.sessionId);
+        const p = new Player();
+        p.x = 30 * 32; p.y = 30 * 32;
+        p.nombre = options.name || "Héroe";
+        this.state.players.set(client.sessionId, p);
 
-        // 🔥 ENVÍO OPTIMIZADO DEL MAPA
-        const mapPackage: any[] = [];
-        this.state.map.forEach((value, key) => {
-            mapPackage.push({ i: parseInt(key), t: value });
-        });
-
-        console.log(`📤 Enviando mapa (${mapPackage.length} tiles) a ${client.sessionId}`);
-        client.send("force_map_load", mapPackage);
+        const mapData: any[] = [];
+        this.state.map.forEach((stack, key) => mapData.push({ i: parseInt(key), s: stack.items.toArray() }));
+        client.send("map_chunk", mapData);
     }
 
-    onLeave(client: Client) {
-        this.state.players.delete(client.sessionId);
-    }
+    onLeave(client: Client) { this.state.players.delete(client.sessionId); }
 }
 
-// 3. SERVIDOR HTTP
 const app = express();
 app.use(cors());
 app.use(express.json());
-
 const server = http.createServer(app);
 const gameServer = new Server({ server: server });
 gameServer.define("mundo_mythica", MyRoom);
-
-const port = Number(process.env.PORT || 3000);
-server.listen(port, () => {
-    console.log(`🚀 SERVIDOR ONLINE en puerto ${port}`);
-});
+server.listen(Number(process.env.PORT || 3000), () => console.log("🚀 ONLINE"));
