@@ -18,47 +18,68 @@ class Player extends Schema {
 }
 
 class GameState extends Schema {
-    @type("number") width: number = 20; 
-    @type("number") height: number = 20;
+    @type("number") width: number = 80;  // MAPA GRANDE (80x80 = 6400 Tiles)
+    @type("number") height: number = 80;
     @type({ map: "number" }) map = new MapSchema<number>(); 
     @type({ map: Player }) players = new MapSchema<Player>();
 }
 
 // =============================================================================
-// 2. LÓGICA DE LA SALA
+// 2. LÓGICA DE LA SALA (GENERADOR DE CIUDAD RPG)
 // =============================================================================
 
 class MyRoom extends Room<GameState> {
     
     onCreate(_options: any) {
-        console.log("⚔️ SALA CREADA: Iniciando sistema...");
+        console.log("⚔️ SALA CREADA: Iniciando Arquitecto de Mundos...");
 
         // 1. Configurar Estado
         const state = new GameState();
-        state.width = 20;
-        state.height = 20;
+        const W = 80;
+        const H = 80;
+        state.width = W;
+        state.height = H;
 
-        // 2. Generar Mapa en Memoria
-        console.log("🔨 Construyendo mapa 20x20...");
-        for (let x = 0; x < 20; x++) {
-            for (let y = 0; y < 20; y++) {
-                const index = y * 20 + x;
-                let tileID = 1; // Pasto
+        // 2. GENERACIÓN PROCEDURAL DE CIUDAD (Simulando un mapa real)
+        console.log(`🔨 Construyendo Capital (${W}x${H})...`);
+        
+        for (let x = 0; x < W; x++) {
+            for (let y = 0; y < H; y++) {
+                const index = y * W + x;
+                let tileID = 1; // 1 = Pasto (Base)
 
-                // Bordes = Paredes (ID 2)
-                if (x === 0 || x === 19 || y === 0 || y === 19) tileID = 2;
+                // A. MURALLAS EXTERIORES (Bordes del mundo)
+                if (x === 0 || x === W - 1 || y === 0 || y === H - 1) {
+                    tileID = 2; // Pared
+                }
                 
-                // Centro = Suelo (ID 3)
-                if (x > 5 && x < 15 && y > 5 && y < 15) tileID = 3;
+                // B. PLAZA CENTRAL (Piedra) - Zona segura (20x20 en el centro)
+                const centerX = W / 2;
+                const centerY = H / 2;
+                if (x > centerX - 10 && x < centerX + 10 && y > centerY - 10 && y < centerY + 10) {
+                    tileID = 3; // Suelo Piedra
+                }
+
+                // C. CAMINOS PRINCIPALES (Cruz que atraviesa el mapa)
+                // Camino Horizontal
+                if (y > centerY - 3 && y < centerY + 3) tileID = 3;
+                // Camino Vertical
+                if (x > centerX - 3 && x < centerX + 3) tileID = 3;
+
+                // D. EDIFICIOS ALEATORIOS (Bloques de paredes dispersos)
+                // Solo fuera de la plaza y los caminos
+                if (tileID === 1 && Math.random() < 0.05) {
+                    tileID = 2; // Pared (Obstáculo/Árbol/Casa)
+                }
 
                 state.map.set(index.toString(), tileID);
             }
         }
         
         this.setState(state);
-        console.log(`✅ Mapa listo: ${state.map.size} bloques.`);
+        console.log(`✅ Ciudad construida: ${state.map.size} bloques.`);
 
-        // 3. Listeners de Juego
+        // Listeners
         this.onMessage("mover", (client, data) => {
             const player = this.state.players.get(client.sessionId);
             if (player) {
@@ -80,22 +101,21 @@ class MyRoom extends Room<GameState> {
     onJoin(client: Client, options: any) {
         console.log(`➕ Jugador conectado: ${client.sessionId}`);
         
-        // 1. Crear Jugador en el centro
         const player = new Player();
-        player.x = 10 * 32; 
-        player.y = 10 * 32;
+        // SPAWN EN LA PLAZA CENTRAL
+        player.x = (80 / 2) * 32; 
+        player.y = (80 / 2) * 32;
         player.nombre = options.name || "Héroe";
         player.skin = 0;
         this.state.players.set(client.sessionId, player);
 
-        // 🔥 2. ENVÍO FORZADO DEL MAPA (LA SOLUCIÓN FINAL)
-        // Empaquetamos el mapa y se lo enviamos directamente al cliente
+        // 🔥 ENVÍO OPTIMIZADO DEL MAPA
         const mapPackage: any[] = [];
         this.state.map.forEach((value, key) => {
             mapPackage.push({ i: parseInt(key), t: value });
         });
 
-        console.log(`📤 Enviando paquete de mapa (${mapPackage.length} tiles) a ${client.sessionId}`);
+        console.log(`📤 Enviando mapa (${mapPackage.length} tiles) a ${client.sessionId}`);
         client.send("force_map_load", mapPackage);
     }
 
@@ -104,16 +124,13 @@ class MyRoom extends Room<GameState> {
     }
 }
 
-// =============================================================================
 // 3. SERVIDOR HTTP
-// =============================================================================
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const server = http.createServer(app);
 const gameServer = new Server({ server: server });
-
 gameServer.define("mundo_mythica", MyRoom);
 
 const port = Number(process.env.PORT || 3000);
