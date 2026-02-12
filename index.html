@@ -8,238 +8,115 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Lato:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
-        /* =============================================================================
-           ESTILOS "DARK FANTASY" AVANZADOS (SIMULACIÓN DE METAL Y PIEDRA CON CSS)
-        ============================================================================= */
-        
-        /* RESET Y BASE */
+        /* === ESTILOS RPG COMPLETOS === */
         * { box-sizing: border-box; touch-action: none; user-select: none; outline: none; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; padding: 0; background-color: #000; overflow: hidden; font-family: 'Lato', sans-serif; color: #d4c6a9; }
         #game-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 
-        /* --- VARIABLES DE COLORES --- */
         :root {
-            --gold-dark: #7a5d1c;
-            --gold-light: #d4af37;
-            --metal-dark: #2a2a2a;
-            --metal-light: #555555;
-            --blood-red: #8a0b0b;
-            --mana-blue: #0b4f8a;
-            --ui-bg: rgba(15, 12, 12, 0.95);
+            --gold: #d4af37;
+            --red: #8a0b0b;
+            --dark: #0f0c0c;
         }
 
-        /* ================= PANTALLA DE LOGIN ================= */
+        /* --- LOGIN --- */
         #login-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            /* Fondo dramático tipo mazmorra */
-            background: radial-gradient(ellipse at center, #2e1414 0%, #0a0505 100%);
+            background: radial-gradient(ellipse at center, #2e1414 0%, #000 100%);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 5000; transition: opacity 0.8s ease-in-out;
+            z-index: 5000; transition: opacity 0.8s;
         }
-
         .game-logo {
-            font-family: 'Cinzel', serif; font-weight: 900; color: var(--gold-light);
-            font-size: 3.5rem; text-align: center; letter-spacing: 3px; margin-bottom: 30px;
-            /* Efecto de texto metálico con fuego */
-            text-shadow: 0 2px 0 var(--gold-dark), 0 0 20px rgba(255, 100, 0, 0.5), 0 0 40px rgba(255, 50, 0, 0.3);
-            background: linear-gradient(to bottom, #fff7e0, #d4af37, #7a5d1c);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            position: relative;
+            font-family: 'Cinzel', serif; font-weight: 900; color: var(--gold);
+            font-size: 3rem; text-align: center; margin-bottom: 20px;
+            text-shadow: 0 0 15px #ff6600;
         }
-
         .login-panel {
-            /* Simulación de una losa de piedra y metal pesado */
             background: linear-gradient(135deg, #1a1a1a, #0d0d0d);
-            width: 90%; max-width: 450px;
-            padding: 30px; border-radius: 12px;
-            position: relative;
-            /* Bordes metálicos complejos usando sombras */
-            box-shadow: 
-                inset 0 0 0 2px #000, /* Borde interior negro */
-                inset 0 0 0 4px var(--metal-light), /* Borde interior claro */
-                0 0 0 2px #000, /* Borde exterior negro */
-                0 0 0 5px var(--gold-dark), /* Borde exterior dorado */
-                0 10px 30px rgba(0,0,0,0.8); /* Sombra de profundidad */
+            width: 90%; max-width: 400px; padding: 25px; border-radius: 12px;
+            border: 2px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.8);
         }
-        /* Remaches decorativos en las esquinas */
-        .login-panel::before, .login-panel::after {
-            content: ''; position: absolute; width: 12px; height: 12px; border-radius: 50%;
-            background: radial-gradient(#aaa, #333); border: 1px solid #000;
-            box-shadow: 0 2px 2px rgba(0,0,0,0.5); top: 8px;
-        }
-        .login-panel::before { left: 8px; } .login-panel::after { right: 8px; }
-
         input {
-            background: #080808; border: none; color: var(--gold-light);
-            padding: 18px; font-size: 18px; border-radius: 4px; text-align: center; width: 100%;
-            font-family: 'Cinzel', serif;
-            /* Efecto de "hundido" en el metal */
-            box-shadow: inset 0 2px 5px #000, 0 1px 0 rgba(255,255,255,0.1);
-            border-bottom: 2px solid var(--metal-dark); transition: all 0.3s;
+            background: #080808; border: 1px solid #333; color: var(--gold);
+            padding: 15px; font-size: 16px; border-radius: 4px; text-align: center; width: 100%;
+            font-family: 'Cinzel', serif; margin-bottom: 15px;
         }
-        input:focus { border-bottom-color: var(--gold-light); background: #0f0f0f; }
-
-        .class-selector { display: flex; gap: 15px; justify-content: center; margin: 25px 0; }
+        .class-selector { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
         .class-card {
-            width: 70px; height: 90px;
-            background: linear-gradient(to bottom, #2a2a2a, #111);
-            border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            /* Marco metálico simple */
-            box-shadow: inset 0 0 0 1px #444, 0 3px 5px #000;
-            transition: all 0.2s;
+            width: 65px; height: 85px; background: #222; border: 1px solid #444; border-radius: 6px; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer;
         }
-        .class-card.selected {
-            /* Marco dorado brillante al seleccionar */
-            background: linear-gradient(to bottom, #4d1c1c, #2a0a0a);
-            box-shadow: inset 0 0 0 2px var(--gold-light), 0 0 15px var(--gold-dark);
-            transform: translateY(-3px);
-        }
-        .class-icon { font-size: 30px; margin-bottom: 5px; filter: drop-shadow(0 2px 2px #000); }
-        .class-name { font-size: 10px; color: #999; text-transform: uppercase; font-weight: bold; font-family: 'Cinzel', serif; }
-        .class-card.selected .class-name { color: var(--gold-light); }
-
+        .class-card.selected { border: 2px solid var(--gold); background: #3d0000; }
+        .class-icon { font-size: 28px; }
+        .class-name { font-size: 9px; margin-top: 5px; color: #aaa; }
+        
         #start-btn {
-            /* Botón de gema roja gigante */
-            background: linear-gradient(to bottom, #c0392b, #8a0b0b 50%, #641e16);
-            color: #fff; font-family: 'Cinzel', serif; font-size: 20px; font-weight: bold;
-            padding: 20px; width: 100%; border: none; border-radius: 6px; cursor: pointer;
-            text-shadow: 0 2px 0 #330000;
-            position: relative; overflow: hidden;
-            /* Borde dorado y sombra 3D */
-            box-shadow: 
-                inset 0 1px 0 rgba(255,255,255,0.3), /* Brillo superior */
-                0 0 0 3px #330000, /* Borde oscuro */
-                0 0 0 5px var(--gold-dark), /* Borde dorado */
-                0 8px 15px rgba(0,0,0,0.6); /* Sombra de elevación */
-            transition: all 0.1s;
+            background: linear-gradient(to bottom, #c0392b, #8a0b0b); color: white;
+            padding: 15px; width: 100%; border: none; font-family: 'Cinzel', serif; font-size: 18px;
+            border-radius: 4px; box-shadow: 0 4px 0 #440000; cursor: pointer;
         }
-        #start-btn:active { transform: translateY(4px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 0 0 3px #330000, 0 0 0 5px var(--gold-dark), 0 2px 5px rgba(0,0,0,0.8); }
-        /* Brillo diagonal animado */
-        #start-btn::after {
-            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-            background: linear-gradient(to bottom right, rgba(255,255,255,0) 30%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 70%);
-            transform: rotate(45deg); animation: shine 3s infinite linear;
-        }
-        @keyframes shine { 0% { transform: translateX(-100%) rotate(45deg); } 100% { transform: translateX(100%) rotate(45deg); } }
+        #start-btn:active { transform: translateY(4px); box-shadow: none; }
 
-
-        /* ================= INTERFAZ DEL JUEGO (HUD) ================= */
+        /* --- HUD (Interfaz de Juego) --- */
         #game-ui { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
         #game-ui > * { pointer-events: auto; }
 
-        /* --- PERFIL DE JUGADOR (ARRIBA IZQUIERDA) --- */
+        /* Perfil */
         .player-profile {
-            position: absolute; top: 20px; left: 20px;
-            display: flex; align-items: center;
-            /* Fondo metálico ornamentado */
-            background: linear-gradient(to right, var(--metal-dark), transparent);
-            padding: 15px 25px 15px 15px; border-radius: 50px 10px 10px 50px;
-            border-left: 4px solid var(--gold-dark);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            position: absolute; top: 15px; left: 15px; display: flex; align-items: center;
+            background: rgba(0,0,0,0.7); padding: 5px 15px 5px 5px; border-radius: 50px;
+            border: 1px solid #444; border-left: 3px solid var(--gold);
         }
-        /* MARCO DE AVATAR ABIERTO Y GRANDE */
         .avatar-frame {
-            width: 70px; height: 70px; /* ¡MUCHO MÁS GRANDE! */
-            border-radius: 50%; 
-            /* Marco circular complejo de oro y acero */
-            background: radial-gradient(circle at center, #000 40%, #333 60%);
-            border: 4px solid var(--metal-dark);
-            box-shadow: 
-                0 0 0 2px var(--gold-dark),
-                0 0 10px var(--gold-light),
-                inset 0 0 10px #000;
-            overflow: hidden; position: relative; z-index: 2;
-            margin-right: -15px; /* Superpuesto a las barras */
+            width: 55px; height: 55px; border-radius: 50%; border: 2px solid #555; 
+            background: #000; overflow: hidden; margin-right: 10px;
         }
-        .bars { display: flex; flex-direction: column; gap: 6px; padding-left: 20px; }
-        .bar-container { 
-            width: 150px; height: 16px; background: #0a0a0a; 
-            position: relative; border-radius: 8px; overflow: hidden;
-            /* Marco de tubo de metal */
-            border: 2px solid #333;
-            box-shadow: inset 0 2px 5px #000;
-        }
-        /* Efecto de líquido brillante en las barras */
-        .bar-fill { height: 100%; position: relative; overflow: hidden; }
-        .bar-fill::after { /* Brillo superior tipo cristal */
-            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 50%;
-            background: linear-gradient(to bottom, rgba(255,255,255,0.2), transparent);
-        }
+        .bars { display: flex; flex-direction: column; gap: 4px; width: 120px; }
+        .bar-container { height: 12px; background: #111; border-radius: 4px; position: relative; border: 1px solid #333; }
+        .bar-fill { height: 100%; border-radius: 3px; }
         .hp-fill { background: linear-gradient(to right, #8a0b0b, #d32f2f); }
         .mp-fill { background: linear-gradient(to right, #0b4f8a, #1976d2); }
-        .bar-text { position: absolute; width: 100%; text-align: center; font-size: 10px; line-height: 16px; top: 0; color: #fff; text-shadow: 1px 1px 2px #000; font-weight: 700; z-index: 3;}
+        .bar-text { position: absolute; width: 100%; text-align: center; font-size: 9px; line-height: 12px; top: 0; color: #fff; }
 
-        /* --- CHAT (ABAJO IZQUIERDA) --- */
+        /* Menú Lateral Derecho (NUEVO) */
+        .sidebar-menu {
+            position: absolute; top: 15px; right: 15px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .side-btn {
+            width: 40px; height: 40px; background: rgba(0,0,0,0.8); border: 1px solid #555; border-radius: 6px;
+            color: var(--gold); font-size: 20px; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+        .side-btn:active { transform: scale(0.95); background: #333; }
+
+        /* Chat */
         #chat-system {
-            position: absolute; bottom: 130px; left: 20px; width: 320px;
-            /* Panel de vidrio oscuro con marco metálico */
-            background: rgba(20, 20, 20, 0.8);
-            border: 2px solid var(--metal-light);
-            border-radius: 8px; padding: 10px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+            position: absolute; bottom: 100px; left: 15px; width: 280px;
         }
         #chat-log {
-            height: 120px; overflow-y: auto;
-            mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent); /* Desvanecimiento arriba/abajo */
-            -webkit-mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
-            display: flex; flex-direction: column-reverse; 
-            font-size: 12px; text-shadow: 1px 1px 1px #000; margin-bottom: 10px;
+            height: 100px; overflow-y: auto; background: rgba(0,0,0,0.6); padding: 5px;
+            border-radius: 4px; font-size: 11px; margin-bottom: 5px; text-shadow: 1px 1px 0 #000;
+            display: flex; flex-direction: column-reverse;
         }
-        .chat-input-row { display: flex; gap: 8px; }
-        #chat-input {
-            background: rgba(0,0,0,0.5); border: 1px solid #444; color: var(--gold-light);
-            flex-grow: 1; padding: 10px; border-radius: 4px; font-family: 'Lato', sans-serif; text-align: left;
-            box-shadow: inset 0 2px 5px #000;
-        }
-        #chat-send {
-            background: linear-gradient(to bottom, #444, #222); color: var(--gold-light);
-            border: 1px solid #444; width: 45px; cursor: pointer; font-weight: bold; border-radius: 4px;
-            box-shadow: 0 2px 0 #111;
-        }
+        .chat-input-row { display: flex; gap: 5px; }
+        #chat-input { background: rgba(0,0,0,0.6); border: 1px solid #444; padding: 5px; margin: 0; text-align: left; }
+        #chat-send { background: #333; color: var(--gold); border: 1px solid #555; width: 30px; }
 
-        /* --- BARRA DE ACCIÓN (ABAJO DERECHA) --- */
-        .action-bar { position: absolute; bottom: 25px; right: 25px; display: flex; gap: 15px; align-items: flex-end; }
-        .action-slot { position: relative; width: 65px; height: 65px; }
-        
+        /* Botones de Acción */
+        .action-bar {
+            position: absolute; bottom: 20px; right: 20px; display: flex; gap: 12px; align-items: flex-end;
+        }
         .btn {
-            width: 100%; height: 100%;
-            /* Botones metálicos redondos */
-            border-radius: 12px;
-            background: radial-gradient(circle at center, #444, #111);
-            /* Bordes metálicos complejos */
-            border: none;
-            box-shadow: 
-                inset 0 1px 1px rgba(255,255,255,0.2), /* Brillo interno */
-                0 0 0 2px #222, /* Borde oscuro */
-                0 0 0 4px var(--metal-light), /* Borde metálico */
-                0 5px 10px rgba(0,0,0,0.5); /* Sombra externa */
-            color: #ddd; font-size: 26px; cursor: pointer;
-            transition: all 0.1s;
+            width: 60px; height: 60px; border-radius: 12px; border: 2px solid #555;
+            background: radial-gradient(circle, #333, #111); color: #ddd; font-size: 24px;
+            box-shadow: 0 4px 0 #000;
         }
-        .btn:active { transform: translateY(4px); box-shadow: inset 0 2px 5px #000, 0 0 0 2px #222, 0 0 0 4px var(--metal-light), 0 1px 2px rgba(0,0,0,0.5); }
-
-        /* BOTÓN DE ATAQUE GIGANTE Y ROJO */
-        .attack-slot { width: 95px; height: 95px; }
+        .btn:active { transform: translateY(4px); box-shadow: none; }
         .attack-btn {
-            /* Gema roja circular */
-            background: radial-gradient(circle at 30% 30%, #ff5e5e, #a80000 60%, #550000);
-            font-size: 42px; color: var(--gold-light);
-            /* Marco dorado y rojo con pinchos simulados */
-            box-shadow: 
-                inset 0 2px 2px rgba(255,255,255,0.4),
-                0 0 0 3px #330000,
-                0 0 0 6px var(--gold-dark),
-                0 0 20px var(--blood-red),
-                0 10px 20px rgba(0,0,0,0.6);
+            width: 85px; height: 85px; background: radial-gradient(circle, #8a0b0b, #400000);
+            border-color: #a80000; font-size: 36px; color: var(--gold);
         }
-        .attack-btn:active { transform: scale(0.95); box-shadow: inset 0 5px 10px rgba(0,0,0,0.5), 0 0 0 3px #330000, 0 0 0 6px var(--gold-dark), 0 0 10px var(--blood-red); }
-
-        .hotkey-label {
-            position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
-            background: #111; border: 1px solid var(--gold-dark); color: var(--gold-light);
-            font-size: 9px; padding: 2px 8px; border-radius: 10px; pointer-events: none;
-            font-family: 'Cinzel', serif; box-shadow: 0 2px 4px #000;
-        }
+        
     </style>
 </head>
 <body>
@@ -267,14 +144,19 @@
                 <div class="bar-container"><div class="bar-text" id="mp-text">50/50</div><div class="bar-fill mp-fill" id="mp-bar" style="width: 100%"></div></div>
             </div>
         </div>
+
+        <div class="sidebar-menu">
+            <div class="side-btn">🎒</div> <div class="side-btn">🗺️</div> <div class="side-btn">⚙️</div> </div>
+
         <div id="chat-system">
-            <div id="chat-log"><div style="color:var(--gold-light);">Bienvenido a Mythical Adventure.</div></div>
-            <div class="chat-input-row"><input type="text" id="chat-input" placeholder="Escribe aquí..."><button id="chat-send" onclick="sendChat()">➤</button></div>
+            <div id="chat-log"><div style="color:var(--gold);">Has llegado a la Capital.</div></div>
+            <div class="chat-input-row"><input type="text" id="chat-input" placeholder="Chat..."><button id="chat-send" onclick="sendChat()">➤</button></div>
         </div>
+
         <div class="action-bar">
-            <div class="action-slot"><span class="hotkey-label">CURAR</span><button class="btn" onclick="emitAction('HEAL')">💊</button></div>
-            <div class="action-slot"><span class="hotkey-label">MAGIA</span><button class="btn" onclick="emitAction('SPELL_1')">🔥</button></div>
-            <div class="action-slot attack-slot"><span class="hotkey-label">ATACAR</span><button class="btn attack-btn" onclick="emitAction('ATTACK')">⚔️</button></div>
+            <button class="btn" onclick="emitAction('HEAL')">💊</button>
+            <button class="btn" onclick="emitAction('SPELL_1')">🔥</button>
+            <button class="btn attack-btn" onclick="emitAction('ATTACK')">⚔️</button>
         </div>
     </div>
 
@@ -282,10 +164,9 @@
     <script src="https://cdn.jsdelivr.net/npm/colyseus.js@0.15.0/dist/colyseus.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/phaser3-rex-plugins@1.1.84/dist/rexvirtualjoystickplugin.min.js"></script>
     
-    <script src="client/index.js?v=20000"></script>
+    <script src="client/index.js?v=30000"></script>
 
     <script>
-        // --- LÓGICA JS (SIN CAMBIOS, SOLO LA ESTÉTICA CAMBIÓ) ---
         let selectedClass = 'knight';
         window.onerror = function(msg) { console.error("Game Error:", msg); };
         function selectClass(cls, el) {
