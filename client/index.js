@@ -1,12 +1,12 @@
 /* =============================================================================
-   ⚔️ MYTHICAL ADVENTURE CLIENT v6.0 (JOYSTICK & PLAYER FIX)
+   ⚔️ MYTHICAL ADVENTURE CLIENT v7.0 (JOYSTICK FIX & CITY UPDATE)
    =============================================================================
 */
 
 const CONFIG = {
     TILE_SIZE: 32,
     MOVE_SPEED: 250,
-    ZOOM_LEVEL: 1.6, // Zoom cómodo
+    ZOOM_LEVEL: 1.4, // Un poco más lejos para ver la ciudad
     CAMERA_LERP: 0.1
 };
 
@@ -20,7 +20,6 @@ class MythicaClient extends Phaser.Scene {
         this.userData = { name: "Guest", role: "knight" };
         this.drawnTiles = new Set();
         
-        // Controles
         this.joystick = null;
         this.cursorKeys = null;
         this.isGameActive = false;
@@ -30,32 +29,32 @@ class MythicaClient extends Phaser.Scene {
         console.log("📥 Cargando recursos...");
         const baseURL = "https://mythicaladventure.github.io/Mythica-adventure/";
 
-        // Cargar Imágenes
         this.load.spritesheet('world-tiles', baseURL + 'client/assets/sprites/otsp_tiles_01.png', { frameWidth: 32, frameHeight: 32 });
         this.load.spritesheet('player', baseURL + 'client/assets/sprites/otsp_creatures_01.png', { frameWidth: 32, frameHeight: 32 });
     }
 
     create() {
         console.log("⚡ Motor Gráfico Iniciado.");
-        this.add.rectangle(0, 0, 2000, 2000, 0x001100).setOrigin(0).setDepth(-100);
+        this.add.rectangle(0, 0, 4000, 4000, 0x050505).setOrigin(0).setDepth(-100); // Fondo Negro Infinito
 
         window.addEventListener('start-game', (e) => this.handleLogin(e.detail));
         window.addEventListener('game-action', (e) => this.handleInput(e.detail));
 
-        // Inicializar Inputs
         this.cursorKeys = this.input.keyboard.createCursorKeys();
         
-        // ¡JOYSTICK INMEDIATO! (Para que veas si aparece)
+        // Crear Joystick al inicio (invisible)
         this.initJoystick();
+        
+        // Ajustar Joystick si cambia la pantalla
+        this.scale.on('resize', this.resizeJoystick, this);
     }
 
     async handleLogin(credentials) {
         this.userData = credentials;
         
-        // UI Carga
         const loadingContainer = this.add.container(this.cameras.main.centerX, this.cameras.main.centerY).setScrollFactor(0).setDepth(10000);
         const bg = this.add.rectangle(0, 0, 300, 100, 0x000000, 0.8);
-        const txt = this.add.text(0, 0, "CONECTANDO...", { fontSize: '18px', color: '#ffd700' }).setOrigin(0.5);
+        const txt = this.add.text(0, 0, "VIAJANDO A LA CAPITAL...", { fontSize: '18px', color: '#ffd700' }).setOrigin(0.5);
         loadingContainer.add([bg, txt]);
 
         try {
@@ -70,7 +69,6 @@ class MythicaClient extends Phaser.Scene {
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('game-ui').style.display = 'block';
 
-            // Asegurar que el joystick se vea al entrar
             if(this.joystick) this.joystick.setVisible(true);
 
             this.initNetworkEvents();
@@ -83,15 +81,11 @@ class MythicaClient extends Phaser.Scene {
     }
 
     initNetworkEvents() {
-        // 1. ESCUCHAR EL PAQUETE FORZADO DE MAPA
+        // ESCUCHAR MAPA GRANDE
         this.room.onMessage("force_map_load", (data) => {
-            console.log("📦 MAPA RECIBIDO:", data.length);
+            console.log("📦 CIUDAD RECIBIDA:", data.length, "bloques");
             data.forEach(item => this.drawTile(item.t, item.i));
         });
-
-        // 2. SINCRONIZACIÓN NORMAL
-        this.room.state.map.onAdd((tileID, index) => this.drawTile(tileID, index));
-        this.room.state.map.forEach((tileID, index) => this.drawTile(tileID, index));
 
         // JUGADORES
         this.room.state.players.onAdd((p, sid) => this.createPlayerEntity(p, sid));
@@ -106,18 +100,27 @@ class MythicaClient extends Phaser.Scene {
         if(this.drawnTiles.has(index)) return;
         this.drawnTiles.add(index);
 
-        const mapWidth = 20; 
+        const mapWidth = 80; // ANCHO DEL NUEVO MAPA
         const x = (index % mapWidth) * CONFIG.TILE_SIZE;
         const y = Math.floor(index / mapWidth) * CONFIG.TILE_SIZE;
         
-        let color = 0x006400; // Verde Base
-        if (tileID === 2) color = 0x808080; // Pared
-        if (tileID === 3) color = 0x8B4513; // Suelo
-        
+        // Bloque Base (Por si falla la imagen)
+        let color = 0x113311; // Pasto oscuro
+        if (tileID === 2) color = 0x555555; // Pared
+        if (tileID === 3) color = 0x887755; // Piedra
+
         this.add.rectangle(x + 16, y + 16, 32, 32, color).setDepth(0);
 
         if(this.textures.exists('world-tiles')) {
-            this.add.image(x, y, 'world-tiles', tileID).setOrigin(0).setDepth(0.5);
+            // Mapeo básico de tiles (Ajustar según tu imagen PNG real)
+            // ID 1 (Pasto) -> Frame 0
+            // ID 2 (Pared) -> Frame 5 (Ejemplo)
+            // ID 3 (Piedra) -> Frame 2 (Ejemplo)
+            let frame = 0; 
+            if(tileID === 2) frame = 6; // Pared
+            if(tileID === 3) frame = 2; // Piedra
+            
+            this.add.image(x, y, 'world-tiles', frame).setOrigin(0).setDepth(0.5);
         }
     }
 
@@ -127,23 +130,29 @@ class MythicaClient extends Phaser.Scene {
         const isMe = (sessionId === this.room.sessionId);
         const container = this.add.container(p.x, p.y).setDepth(10);
         
-        // 🔴 CÍRCULO ROJO DE SEGURIDAD (Si el sprite falla, verás esto)
-        const debugCircle = this.add.circle(0, 5, 12, isMe ? 0xff0000 : 0xffff00, 0.5);
-        container.add(debugCircle);
+        // Sombra del personaje
+        const shadow = this.add.ellipse(0, 10, 20, 10, 0x000000, 0.5);
+        container.add(shadow);
 
-        // SPRITE
+        // SPRITE VISIBLE
         let sprite;
         if(this.textures.exists('player')) {
-            // Usamos frame 7 (Héroe) si skin es 0
-            const skinID = (p.skin === 0) ? 7 : p.skin;
-            sprite = this.add.sprite(0, -10, 'player', skinID).setDisplaySize(48, 48);
+            // 🔥 TRUCO: Si la skin es 0 (invisible), usamos la 7 (Guerrero)
+            // Si eres Mago, usamos la 13 (ejemplo).
+            let visualSkin = 7; 
+            if (this.userData.role === 'mage') visualSkin = 13;
+            if (p.skin > 0) visualSkin = p.skin;
+
+            sprite = this.add.sprite(0, -10, 'player', visualSkin).setDisplaySize(48, 48);
         } else {
             sprite = this.add.rectangle(0, 0, 32, 32, isMe ? 0x0000ff : 0xff0000);
         }
         container.add(sprite);
 
-        // Nombre
-        const nameTag = this.add.text(0, -40, p.nombre, { fontSize: '12px', color: '#fff', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5);
+        // Nombre y Gremio
+        const nameTag = this.add.text(0, -45, p.nombre, { 
+            fontSize: '10px', fontFamily: 'Verdana', color: '#ffffff', stroke: '#000', strokeThickness: 3 
+        }).setOrigin(0.5);
         container.add(nameTag);
 
         container.sprite = sprite;
@@ -176,62 +185,47 @@ class MythicaClient extends Phaser.Scene {
     }
 
     // =========================================================================
-    // 🕹️ JOYSTICK CORREGIDO (UI FIX)
+    // 🕹️ JOYSTICK REPARADO (POSICIÓN FORZADA ABAJO-IZQUIERDA)
     // =========================================================================
     initJoystick() {
-        // Verificar si el plugin existe
         if (this.plugins.get('rexVirtualJoystickPlugin') || window.rexvirtualjoystickplugin) {
-            
             const plugin = this.plugins.get('rexVirtualJoystickPlugin') || window.rexvirtualjoystickplugin;
             
-            console.log("🎮 Creando Joystick...");
+            // Calculamos posición basada en la ventana actual
+            const joyX = 120;
+            const joyY = window.innerHeight - 120;
 
             this.joystick = plugin.add(this, {
-                x: 100, // Posición en pantalla (Izquierda)
-                y: window.innerHeight - 100, // Posición en pantalla (Abajo)
+                x: joyX,
+                y: joyY,
                 radius: 60,
-                
-                // LA CLAVE: setScrollFactor(0) hace que se pegue a la pantalla y no al mapa
-                base: this.add.circle(0, 0, 60, 0x888888, 0.5)
-                        .setDepth(9999)
-                        .setScrollFactor(0), 
-                
-                thumb: this.add.circle(0, 0, 30, 0xcccccc, 0.8)
-                        .setDepth(10000)
-                        .setScrollFactor(0),
-                
+                base: this.add.circle(0, 0, 60, 0x888888, 0.3).setDepth(9999).setScrollFactor(0).setStrokeStyle(2, 0xffb700),
+                thumb: this.add.circle(0, 0, 30, 0xcccccc, 0.8).setDepth(10000).setScrollFactor(0),
                 dir: '8dir', 
                 forceMin: 16
             }).on('update', this.handleJoystick, this);
             
-            // Lo hacemos visible inmediatamente para pruebas
-            this.joystick.setVisible(true);
-        } else {
-            console.error("❌ ERROR: Plugin Joystick no encontrado.");
+            this.joystick.setVisible(false); // Se activa al loguear
+        }
+    }
+
+    resizeJoystick() {
+        if(this.joystick) {
+            this.joystick.setPosition(120, window.innerHeight - 120);
         }
     }
 
     handleJoystick() {
         if(!this.player || !this.isGameActive) return;
-        
         const cursors = this.joystick.createCursorKeys();
-        let dx = 0;
-        let dy = 0;
+        let dx=0, dy=0;
+        if (cursors.right.isDown) dx=1; else if (cursors.left.isDown) dx=-1;
+        if (cursors.down.isDown) dy=1; else if (cursors.up.isDown) dy=-1;
         
-        // Detectar dirección
-        if (cursors.right.isDown) dx = 1;
-        else if (cursors.left.isDown) dx = -1;
-        
-        if (cursors.down.isDown) dy = 1;
-        else if (cursors.up.isDown) dy = -1;
-        
-        // Enviar solo si hay movimiento
         if (dx !== 0 || dy !== 0) {
             const tx = this.player.x + (dx * 32);
             const ty = this.player.y + (dy * 32);
             this.room.send("mover", { x: tx, y: ty });
-            
-            // Animación Flip
             if(this.player.sprite && dx !== 0) this.player.sprite.setFlipX(dx < 0);
         }
     }
@@ -259,7 +253,7 @@ class MythicaClient extends Phaser.Scene {
 }
 
 const config = {
-    type: Phaser.AUTO, backgroundColor: '#001100', parent: 'game-container',
+    type: Phaser.AUTO, backgroundColor: '#000000', parent: 'game-container',
     scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
     render: { pixelArt: true }, 
     scene: MythicaClient
