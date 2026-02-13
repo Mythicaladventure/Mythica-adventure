@@ -2,241 +2,114 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mythical Adventure - MMORPG</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Lato:wght@400;700&display=swap" rel="stylesheet">
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mythical Client</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* =============================================================================
-           ESTILOS "LEGENDARY RPG" (UI TIPO TIBIA/WOW)
-        ============================================================================= */
-        
-        /* RESET */
-        * { box-sizing: border-box; touch-action: none; user-select: none; outline: none; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; padding: 0; background-color: #050505; overflow: hidden; font-family: 'Lato', sans-serif; color: #d4c6a9; }
-        
-        /* CANVAS DEL JUEGO (FONDO) */
-        #game-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
-
-        /* VARIABLES DE COLOR */
-        :root {
-            --gold: #c5a059;
-            --gold-shine: #ffd700;
-            --stone-dark: #1a1a1a;
-            --stone-light: #2c2c2c;
-            --hp-red: #8a0b0b;
-            --mp-blue: #0b4f8a;
-            --border-color: #4a4a4a;
+        /* LAYOUT GLOBAL - ESTILO CLIENTE DE ESCRITORIO */
+        * { box-sizing: border-box; touch-action: none; user-select: none; }
+        body { 
+            margin: 0; padding: 0; background: #2b2b2b; color: #d4d4d4; 
+            font-family: 'Roboto', sans-serif; overflow: hidden;
+            display: flex; flex-direction: column; height: 100vh;
         }
 
-        /* ================= PANTALLA DE LOGIN ================= */
-        #login-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle, #220000 0%, #000000 90%);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 5000; transition: opacity 0.8s ease;
+        /* HEADER */
+        header { height: 40px; background: #1a1a1a; border-bottom: 2px solid #444; display: flex; align-items: center; justify-content: center; }
+        .title { color: #d4af37; font-family: 'Cinzel'; letter-spacing: 2px; }
+
+        /* MAIN CONTENT ROW */
+        .main-row { display: flex; flex: 1; overflow: hidden; }
+
+        /* GAME WINDOW (IZQUIERDA/CENTRO) */
+        #game-view { 
+            flex: 1; position: relative; background: #000; 
+            border: 2px solid #555; margin: 5px; box-shadow: inset 0 0 20px #000;
         }
 
-        .logo-container { margin-bottom: 30px; text-align: center; }
-        .game-logo {
-            font-family: 'Cinzel', serif; font-size: 3.5rem; color: var(--gold);
-            text-shadow: 0 0 10px #ff5500, 0 5px 0 #331100; margin: 0; line-height: 1;
+        /* SIDEBAR (DERECHA) */
+        .sidebar { 
+            width: 180px; background: #383838; border-left: 2px solid #222; 
+            padding: 5px; display: flex; flex-direction: column; gap: 5px;
         }
-        .subtitle { font-size: 0.8rem; color: #888; letter-spacing: 4px; text-transform: uppercase; margin-top: 5px; }
+        .panel { background: #4a4a4a; border: 1px solid #222; border-radius: 3px; padding: 5px; }
+        .minimap { height: 120px; background: #000; border: 1px solid #666; display: flex; align-items: center; justify-content: center; color: #555; font-size: 10px; }
+        .inventory { height: 150px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; }
+        .slot { background: #222; border: 1px inset #555; height: 40px; }
 
-        .login-panel {
-            background: linear-gradient(180deg, var(--stone-light), var(--stone-dark));
-            padding: 30px; border-radius: 8px; width: 90%; max-width: 420px;
-            border: 2px solid var(--gold);
-            box-shadow: 0 0 50px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-            display: flex; flex-direction: column; gap: 20px;
+        /* BOTTOM CONSOLE (ABAJO) */
+        .console { 
+            height: 120px; background: #222; border-top: 2px solid #444; 
+            padding: 5px; display: flex; flex-direction: column; 
         }
+        #chat-log { flex: 1; overflow-y: auto; font-size: 11px; font-family: monospace; color: #fff; }
+        .chat-input { display: flex; border-top: 1px solid #444; }
+        .chat-input input { flex: 1; background: #111; border: none; color: #fff; padding: 5px; }
+        .chat-input button { width: 40px; background: #333; color: gold; border: 1px solid #555; }
 
-        .input-group label { font-size: 12px; color: var(--gold); text-transform: uppercase; display: block; margin-bottom: 5px; }
-        input {
-            width: 100%; background: #0a0a0a; border: 1px solid #444; color: #fff;
-            padding: 12px; font-size: 16px; text-align: center; border-radius: 4px;
-            font-family: 'Cinzel', serif; box-shadow: inset 0 2px 5px #000;
+        /* LOGIN OVERLAY */
+        #login-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        input:focus { border-color: var(--gold); }
+        .login-box { 
+            background: #2a2a2a; border: 2px solid #d4af37; padding: 30px; border-radius: 8px; width: 300px; text-align: center; 
+        }
+        .login-box input { width: 100%; padding: 10px; margin: 10px 0; background: #111; color: #fff; border: 1px solid #555; text-align: center; }
+        .login-box button { width: 100%; padding: 10px; background: #8a0b0b; color: #fff; font-weight: bold; border: none; cursor: pointer; }
 
-        .class-selector { display: flex; justify-content: space-between; gap: 10px; }
-        .class-card {
-            flex: 1; height: 80px; background: #151515; border: 1px solid #333; border-radius: 4px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: pointer; transition: all 0.2s;
-        }
-        .class-card.selected { border: 2px solid var(--gold); background: linear-gradient(to bottom, #3d1010, #1a0505); box-shadow: 0 0 10px rgba(197, 160, 89, 0.3); }
-        .class-icon { font-size: 24px; margin-bottom: 5px; }
-        .class-name { font-size: 9px; text-transform: uppercase; color: #aaa; font-weight: bold; }
-        .class-card.selected .class-name { color: var(--gold); }
+        /* BUTTONS FLOATING (MOBILE CONTROLS) */
+        .mobile-actions { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 50; }
+        .mob-btn { width: 50px; height: 50px; border-radius: 50%; background: rgba(0,0,0,0.5); border: 2px solid #fff; color: #fff; font-size: 20px; }
+        .mob-atk { background: rgba(200, 0, 0, 0.5); border-color: red; width: 60px; height: 60px; }
 
-        #start-btn {
-            background: linear-gradient(180deg, #b33939, #8a0b0b);
-            color: #fff; border: 1px solid #ff5555; padding: 15px; font-size: 18px;
-            font-family: 'Cinzel', serif; font-weight: bold; border-radius: 4px;
-            cursor: pointer; text-shadow: 1px 1px 0 #000;
-            box-shadow: 0 4px 0 #4a0000;
+        /* RESPONSIVE: En móvil ocultar sidebar o hacerla flotante */
+        @media (max-width: 600px) {
+            .sidebar { display: none; } /* Ocultar sidebar en móvil para más espacio */
+            .console { height: 80px; }
         }
-        #start-btn:active { transform: translateY(4px); box-shadow: none; }
-
-        /* ================= HUD (INTERFAZ DE JUEGO) ================= */
-        #game-ui { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
-        #game-ui > * { pointer-events: auto; }
-
-        /* 1. PERFIL (ARRIBA IZQUIERDA) */
-        .hud-profile {
-            position: absolute; top: 15px; left: 15px;
-            display: flex; align-items: center; gap: 10px;
-        }
-        .avatar-container {
-            width: 64px; height: 64px; position: relative;
-            background: #000; border: 3px solid var(--stone-light); 
-            border-radius: 4px; box-shadow: 0 4px 10px #000;
-        }
-        .avatar-img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
-        .level-badge {
-            position: absolute; bottom: -5px; right: -5px;
-            background: var(--gold); color: #000; font-size: 10px;
-            width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
-            border-radius: 50%; font-weight: bold; border: 1px solid #fff;
-        }
-
-        .stat-bars { display: flex; flex-direction: column; gap: 4px; width: 150px; }
-        .bar-wrap {
-            height: 16px; background: #111; border: 1px solid #444; border-radius: 2px; position: relative;
-        }
-        .bar-fill { height: 100%; transition: width 0.2s; }
-        .hp { background: linear-gradient(90deg, #e74c3c, #c0392b); }
-        .mp { background: linear-gradient(90deg, #3498db, #2980b9); }
-        .bar-val {
-            position: absolute; width: 100%; text-align: center; top: 0; left: 0;
-            font-size: 10px; line-height: 16px; color: #fff; text-shadow: 1px 1px 0 #000; font-weight: bold;
-        }
-
-        /* 2. SIDEBAR DERECHO (INVENTARIO/MAPA) - ESTILO TIBIA */
-        .hud-sidebar {
-            position: absolute; top: 15px; right: 15px;
-            width: 50px; display: flex; flex-direction: column; gap: 10px;
-        }
-        .side-btn {
-            width: 50px; height: 50px; background: var(--stone-dark);
-            border: 2px solid var(--border-color); border-radius: 6px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 24px; cursor: pointer; color: #888;
-            box-shadow: 0 4px 0 #000; transition: all 0.1s;
-        }
-        .side-btn:active { transform: translateY(4px); box-shadow: none; }
-        .side-btn.active { border-color: var(--gold); color: var(--gold); }
-
-        /* 3. CHAT LOG (ABAJO IZQUIERDA) */
-        .hud-chat {
-            position: absolute; bottom: 120px; left: 15px; width: 300px;
-            background: rgba(0, 0, 0, 0.7); border: 1px solid #444; border-radius: 4px;
-            display: flex; flex-direction: column;
-        }
-        .chat-messages {
-            height: 120px; overflow-y: auto; padding: 8px; font-size: 12px;
-            display: flex; flex-direction: column-reverse; text-shadow: 1px 1px 0 #000;
-        }
-        .chat-msg { margin-bottom: 2px; }
-        .sys-msg { color: #ffffaa; }
-        .chat-input-area { display: flex; border-top: 1px solid #444; }
-        #chat-input {
-            background: transparent; border: none; color: #fff; padding: 8px; flex-grow: 1; text-align: left;
-            box-shadow: none; font-family: 'Lato', sans-serif;
-        }
-        #chat-submit {
-            background: #333; color: var(--gold); border: none; width: 40px; cursor: pointer; border-left: 1px solid #444;
-        }
-
-        /* 4. BARRA DE ACCIÓN (ABAJO DERECHA) */
-        .hud-actions {
-            position: absolute; bottom: 20px; right: 20px;
-            display: flex; gap: 15px; align-items: flex-end;
-        }
-        .action-btn {
-            width: 60px; height: 60px; border-radius: 10px;
-            background: radial-gradient(circle, #333, #111);
-            border: 2px solid #555; color: #ddd; font-size: 24px;
-            cursor: pointer; box-shadow: 0 4px 0 #000; position: relative;
-        }
-        .action-btn:active { transform: translateY(4px); box-shadow: none; }
-        .hotkey {
-            position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
-            background: #000; border: 1px solid #555; font-size: 9px; padding: 1px 4px; border-radius: 3px;
-        }
-        
-        /* Botón de Ataque Principal */
-        .btn-attack {
-            width: 80px; height: 80px; font-size: 36px;
-            background: radial-gradient(circle, #8a0b0b, #400000);
-            border-color: #c0392b; color: var(--gold);
-        }
-
     </style>
 </head>
 <body>
-    <div id="game-container"></div>
 
-    <div id="login-screen">
-        <div class="logo-container">
-            <h1 class="game-logo">MYTHICAL</h1>
-            <div class="subtitle">ONLINE RPG</div>
-        </div>
-        
-        <div class="login-panel">
-            <div class="input-group">
-                <label>Nombre del Personaje</label>
-                <input type="text" id="username" maxlength="12" placeholder="Ej: Aragorn">
-            </div>
-
-            <div class="input-group">
-                <label>Clase</label>
-                <div class="class-selector">
-                    <div class="class-card selected" onclick="selClass('knight', this)"><div class="class-icon">🛡️</div><div class="class-name">Knight</div></div>
-                    <div class="class-card" onclick="selClass('mage', this)"><div class="class-icon">🔥</div><div class="class-name">Mage</div></div>
-                    <div class="class-card" onclick="selClass('paladin', this)"><div class="class-icon">🏹</div><div class="class-name">Paladin</div></div>
-                </div>
-            </div>
-
-            <button id="start-btn" onclick="tryLogin()">CONECTAR AL MUNDO</button>
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2 style="color:#d4af37; font-family:'Cinzel'">MYTHICAL</h2>
+            <input type="text" id="char-name" placeholder="Nombre" maxlength="10">
+            <button onclick="enterGame()">ENTRAR</button>
         </div>
     </div>
 
-    <div id="game-ui">
-        <div class="hud-profile">
-            <div class="avatar-container">
-                <img src="client/assets/sprites/otsp_creatures_01.png" class="avatar-img" id="ui-avatar">
-                <div class="level-badge">1</div>
-            </div>
-            <div class="stat-bars">
-                <div class="bar-wrap"><div class="bar-val" id="txt-hp">100/100</div><div class="bar-fill hp" id="bar-hp" style="width:100%"></div></div>
-                <div class="bar-wrap"><div class="bar-val" id="txt-mp">50/50</div><div class="bar-fill mp" id="bar-mp" style="width:100%"></div></div>
+    <header><div class="title">MYTHICAL ADVENTURE</div></header>
+    
+    <div class="main-row">
+        <div id="game-view">
+            <div class="mobile-actions">
+                <button class="mob-btn" onclick="act('HEAL')">H</button>
+                <button class="mob-btn mob-atk" onclick="act('ATTACK')">⚔️</button>
             </div>
         </div>
 
-        <div class="hud-sidebar">
-            <div class="side-btn">🎒</div>
-            <div class="side-btn">🗺️</div>
-            <div class="side-btn">⚙️</div>
-        </div>
-
-        <div class="hud-chat">
-            <div class="chat-messages" id="chat-box">
-                <div class="chat-msg sys-msg">Bienvenido a Mythical Adventure.</div>
+        <div class="sidebar">
+            <div class="panel minimap">MINIMAP</div>
+            <div class="panel">
+                <div style="font-size:10px; text-align:center; margin-bottom:2px; color:gold;">EQUIPO</div>
+                <div class="inventory">
+                    <div class="slot"></div><div class="slot"></div>
+                    <div class="slot"></div><div class="slot"></div>
+                </div>
             </div>
-            <div class="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Presiona para chatear...">
-                <button id="chat-submit" onclick="sendChat()">➤</button>
+            <div class="panel" style="flex:1;">
+                <div style="font-size:10px; color:#aaa;">BATTLE LIST</div>
             </div>
         </div>
+    </div>
 
-        <div class="hud-actions">
-            <button class="action-btn" onclick="doAction('HEAL')"><span class="hotkey">1</span>💊</button>
-            <button class="action-btn" onclick="doAction('FIRE')"><span class="hotkey">2</span>🔥</button>
-            <button class="action-btn btn-attack" onclick="doAction('ATTACK')"><span class="hotkey">space</span>⚔️</button>
+    <div class="console">
+        <div id="chat-log"><div>Bienvenido al servidor de prueba.</div></div>
+        <div class="chat-input">
+            <input type="text" id="chat-in" placeholder="Say...">
+            <button onclick="chat()">Send</button>
         </div>
     </div>
 
@@ -244,43 +117,19 @@
     <script src="https://cdn.jsdelivr.net/npm/colyseus.js@0.15.0/dist/colyseus.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/phaser3-rex-plugins@1.1.84/dist/rexvirtualjoystickplugin.min.js"></script>
     
-    <script src="client/index.js?v=99999"></script>
+    <script src="client/index.js?v=FINAL_PROTOTYPE"></script>
 
     <script>
-        // LÓGICA DE INTERFAZ HTML
-        let role = 'knight';
-        
-        function selClass(r, el) {
-            role = r;
-            document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
-            el.classList.add('selected');
+        function enterGame() {
+            const name = document.getElementById('char-name').value;
+            if(name) window.dispatchEvent(new CustomEvent('start-game', { detail: { name, role:'knight' } }));
         }
-
-        function tryLogin() {
-            const name = document.getElementById('username').value.trim();
-            if(!name) return;
-            
-            const btn = document.getElementById('start-btn');
-            btn.innerText = "CONECTANDO...";
-            btn.disabled = true;
-
-            // Enviar evento al motor de Phaser (client/index.js)
-            window.dispatchEvent(new CustomEvent('start-game', { detail: { name, role } }));
-        }
-
-        function doAction(action) {
-            window.dispatchEvent(new CustomEvent('game-action', { detail: action }));
-        }
-
-        function sendChat() {
-            const input = document.getElementById('chat-input');
-            const msg = input.value.trim();
-            if(msg) {
-                // Simulación local (luego se conectará al server)
-                const chatBox = document.getElementById('chat-box');
-                chatBox.innerHTML = `<div class="chat-msg" style="color:#fff">Tú: ${msg}</div>` + chatBox.innerHTML;
-                input.value = '';
-                // Aquí enviarías al servidor también
+        function act(t) { window.dispatchEvent(new CustomEvent('game-action', { detail: t })); }
+        function chat() {
+            const i = document.getElementById('chat-in');
+            if(i.value) {
+                document.getElementById('chat-log').innerHTML += `<div>You: ${i.value}</div>`;
+                i.value='';
             }
         }
     </script>
