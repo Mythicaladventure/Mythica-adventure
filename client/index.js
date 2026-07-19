@@ -63,8 +63,28 @@ class GameScene extends Phaser.Scene {
     }
 
     async connect(userData) {
+        // Evita crear una SEGUNDA conexión fantasma si el jugador le da a
+        // REINTENTAR mientras el primer intento sigue colgado en segundo
+        // plano (sin resolver ni fallar todavía).
+        if (this._connecting) {
+            console.warn('Ya hay un intento de conexión en curso, se ignora el nuevo click.');
+            return;
+        }
+        this._connecting = true;
+
         try {
-            this.room = await this.client.joinOrCreate("mundo_mythica", userData);
+            // FIX: joinOrCreate() puede quedarse colgado indefinidamente si
+            // el servidor está a medio reiniciar (ej. durante un deploy) sin
+            // emitir un error de red claro. Promise.race fuerza un límite
+            // real de 85s, así SIEMPRE resolvemos o fallamos explícitamente,
+            // sincronizado con el timeout visual de 90s del HTML.
+            const timeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Tiempo de espera agotado (85s) esperando al servidor')), 85000)
+            );
+            this.room = await Promise.race([
+                this.client.joinOrCreate("mundo_mythica", userData),
+                timeout
+            ]);
             this.mySessionId = this.room.sessionId;
 
             document.getElementById('login-overlay').style.display = 'none';
@@ -80,6 +100,8 @@ class GameScene extends Phaser.Scene {
             window.dispatchEvent(new CustomEvent('game-connect-error', {
                 detail: (e && e.message) ? e.message : 'No se pudo conectar al servidor (puede estar dormido, reintenta en 1 minuto)'
             }));
+        } finally {
+            this._connecting = false;
         }
     }
 
