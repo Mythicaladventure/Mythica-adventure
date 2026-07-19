@@ -29,7 +29,8 @@ class GameScene extends Phaser.Scene {
 
     preload() {
         const base = "https://mythicaladventure.github.io/Mythica-adventure/client/";
-        this.load.spritesheet('tiles', base + 'assets/sprites/otsp_tiles_01.png', { frameWidth: 32, frameHeight: 32 });
+        // ARTE PROPIO v2 - paleta viva bioma bosque
+        this.load.spritesheet('tiles', 'assets/sprites/tiles_nuevo_v2_vivo.png', { frameWidth: 32, frameHeight: 32 });
         this.load.spritesheet('chars', base + 'assets/sprites/otsp_creatures_01.png', { frameWidth: 32, frameHeight: 32 });
         
         // Carga silenciosa de .dat (sin bloquear)
