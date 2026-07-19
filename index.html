@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mythical Client</title>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+        // Despertar el servidor de Render apenas carga la página, ANTES de que
+        // el jugador toque el botón ENTRAR. Así, para cuando haga login, el
+        // servidor gratuito (que se duerme por inactividad) ya tuvo tiempo de
+        // arrancar. No usamos el resultado de esta petición, solo sirve como
+        // "despertador" en segundo plano.
+        fetch('https://mythica-adventure.onrender.com/', { mode: 'no-cors' }).catch(() => {});
+    </script>
     <style>
         /* LAYOUT GLOBAL - ESTILO CLIENTE DE ESCRITORIO */
         * { box-sizing: border-box; touch-action: none; user-select: none; }
@@ -132,21 +140,28 @@
             btn.disabled = true;
             btn.style.opacity = '0.5';
             btn.textContent = 'CONECTANDO...';
-            status.textContent = 'Conectando al servidor (puede tardar hasta 1 minuto si estaba dormido)...';
+            status.textContent = 'Conectando al servidor...';
 
-            // Si en 20s no hubo respuesta (ni éxito ni error explícito), avisamos
-            // sin dejar al jugador mirando un botón congelado sin explicación.
+            // El servidor gratuito de Render "duerme" tras inactividad y puede
+            // tardar 50s+ en despertar (confirmado en el dashboard de Render).
+            // Por eso el timeout real es de 90s, con un aviso intermedio a los
+            // 15s para que el jugador sepa que sigue en proceso, no colgado.
+            window._loginWarn = setTimeout(() => {
+                status.textContent = 'El servidor estaba dormido, despertando... esto puede tardar hasta 1 minuto.';
+            }, 15000);
+
             window._loginTimeout = setTimeout(() => {
-                status.textContent = 'Está tardando más de lo normal. El servidor puede estar dormido o caído. Puedes reintentar.';
+                status.textContent = 'No hubo respuesta tras 90s. El servidor puede estar caído. Puedes reintentar.';
                 btn.disabled = false;
                 btn.style.opacity = '1';
                 btn.textContent = 'REINTENTAR';
-            }, 20000);
+            }, 90000);
 
             window.dispatchEvent(new CustomEvent('start-game', { detail: { name, role:'knight' } }));
         }
         window.addEventListener('game-connect-error', (e) => {
             clearTimeout(window._loginTimeout);
+            clearTimeout(window._loginWarn);
             const btn = document.getElementById('btn-entrar');
             const status = document.getElementById('login-status');
             btn.disabled = false;
@@ -156,6 +171,7 @@
         });
         window.addEventListener('game-connect-success', () => {
             clearTimeout(window._loginTimeout);
+            clearTimeout(window._loginWarn);
         });
         function act(t) { window.dispatchEvent(new CustomEvent('game-action', { detail: t })); }
         function chat() {
