@@ -32,9 +32,20 @@ class GameScene extends Phaser.Scene {
         // ARTE PROPIO v2 - paleta viva bioma bosque
         this.load.spritesheet('tiles', base + 'assets/sprites/tiles_nuevo_v2_vivo.png', { frameWidth: 32, frameHeight: 32 });
         this.load.spritesheet('chars', base + 'assets/sprites/otsp_creatures_01.png', { frameWidth: 32, frameHeight: 32 });
-        
-        // Carga silenciosa de .dat (sin bloquear)
-        this.load.binary('otsp-dat', base + 'otsp.dat');
+
+        // FIX: la ruta anterior (base + 'otsp.dat') no existía -> 404 -> el loader
+        // se quedaba colgado y create() nunca corría, dejando el botón ENTRAR sin
+        // ningún listener activo (parecía "no reaccionar"). Ruta real corregida:
+        this.load.binary('otsp-dat', base + 'Assets/Mythical/otsp.dat');
+
+        // Si CUALQUIER asset falla, avisamos explícitamente en vez de quedar en
+        // silencio - así el jugador ve un mensaje real en vez de un botón muerto.
+        this.load.on('loaderror', (file) => {
+            console.error('Fallo al cargar asset:', file.key, file.src);
+            window.dispatchEvent(new CustomEvent('game-connect-error', {
+                detail: 'No se pudo cargar un recurso gráfico (' + file.key + ')'
+            }));
+        });
     }
 
     async create() {
@@ -55,15 +66,21 @@ class GameScene extends Phaser.Scene {
         try {
             this.room = await this.client.joinOrCreate("mundo_mythica", userData);
             this.mySessionId = this.room.sessionId;
-            
+
             document.getElementById('login-overlay').style.display = 'none';
+            window.dispatchEvent(new CustomEvent('game-connect-success'));
 
             this.room.onMessage("map_chunk", (d) => d.forEach(t => this.renderStack(t.i, t.s)));
             this.room.state.players.onAdd((p, i) => this.addPlayer(p, i));
             this.room.state.players.onRemove((p, i) => this.removePlayer(i));
             this.room.state.players.forEach((p, i) => this.addPlayer(p, i));
             this.room.onMessage("combat_text", (d) => this.showDmg(d));
-        } catch (e) { alert("Error Conexión"); }
+        } catch (e) {
+            console.error('Error de conexión al servidor:', e);
+            window.dispatchEvent(new CustomEvent('game-connect-error', {
+                detail: (e && e.message) ? e.message : 'No se pudo conectar al servidor (puede estar dormido, reintenta en 1 minuto)'
+            }));
+        }
     }
 
     update() {

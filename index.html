@@ -76,7 +76,8 @@
         <div class="login-box">
             <h2 style="color:#d4af37; font-family:'Cinzel'">MYTHICAL</h2>
             <input type="text" id="char-name" placeholder="Nombre" maxlength="10">
-            <button onclick="enterGame()">ENTRAR</button>
+            <button id="btn-entrar" onclick="enterGame()">ENTRAR</button>
+            <p id="login-status" style="color:#d4af37; font-size:12px; min-height:16px; margin-top:6px;"></p>
         </div>
     </div>
 
@@ -122,8 +123,40 @@
     <script>
         function enterGame() {
             const name = document.getElementById('char-name').value;
-            if(name) window.dispatchEvent(new CustomEvent('start-game', { detail: { name, role:'knight' } }));
+            const btn = document.getElementById('btn-entrar');
+            const status = document.getElementById('login-status');
+            if (!name) {
+                status.textContent = 'Escribe un nombre primero.';
+                return;
+            }
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            btn.textContent = 'CONECTANDO...';
+            status.textContent = 'Conectando al servidor (puede tardar hasta 1 minuto si estaba dormido)...';
+
+            // Si en 20s no hubo respuesta (ni éxito ni error explícito), avisamos
+            // sin dejar al jugador mirando un botón congelado sin explicación.
+            window._loginTimeout = setTimeout(() => {
+                status.textContent = 'Está tardando más de lo normal. El servidor puede estar dormido o caído. Puedes reintentar.';
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.textContent = 'REINTENTAR';
+            }, 20000);
+
+            window.dispatchEvent(new CustomEvent('start-game', { detail: { name, role:'knight' } }));
         }
+        window.addEventListener('game-connect-error', (e) => {
+            clearTimeout(window._loginTimeout);
+            const btn = document.getElementById('btn-entrar');
+            const status = document.getElementById('login-status');
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.textContent = 'REINTENTAR';
+            status.textContent = 'Error al conectar: ' + (e.detail || 'desconocido');
+        });
+        window.addEventListener('game-connect-success', () => {
+            clearTimeout(window._loginTimeout);
+        });
         function act(t) { window.dispatchEvent(new CustomEvent('game-action', { detail: t })); }
         function chat() {
             const i = document.getElementById('chat-in');
