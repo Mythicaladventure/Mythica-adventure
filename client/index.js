@@ -49,17 +49,36 @@ class GameScene extends Phaser.Scene {
     }
 
     async create() {
-        // FONDO NEGRO DE TIBIA
-        this.add.rectangle(0, 0, 4000, 4000, 0x000000).setOrigin(0).setDepth(-100);
+        try {
+            // FONDO NEGRO DE TIBIA
+            this.add.rectangle(0, 0, 4000, 4000, 0x000000).setOrigin(0).setDepth(-100);
 
-        this.groups.floor = this.add.group();
-        this.groups.walls = this.add.group();
-        this.groups.chars = this.add.group();
+            this.groups.floor = this.add.group();
+            this.groups.walls = this.add.group();
+            this.groups.chars = this.add.group();
 
-        this.createAnims();
-        this.uiScene = this.scene.get('UIScene');
+            this.createAnims();
+            this.uiScene = this.scene.get('UIScene');
 
-        window.addEventListener('start-game', (e) => this.connect(e.detail));
+            window.addEventListener('start-game', (e) => this.connect(e.detail));
+
+            // FIX CRÍTICO: preload()+create() de Phaser corren de forma ASÍNCRONA
+            // en segundo plano (new Phaser.Game() no espera a que terminen). El
+            // HTML anterior habilitaba el botón ENTRAR solo cuando los <script>
+            // terminaban de DESCARGARSE, no cuando Phaser terminaba de preparar
+            // la escena real. Eso dejaba una ventana donde el botón se veía
+            // habilitado pero el listener de 'start-game' AÚN no existía -> el
+            // dispatchEvent() se perdía en silencio, sin error, sin red, sin nada.
+            // Ahora avisamos explícitamente cuando el listener YA está registrado.
+            window.dispatchEvent(new CustomEvent('game-ready'));
+        } catch (e) {
+            // Si algo revienta acá, antes la escena quedaba a medias en silencio
+            // total (sin listener, sin aviso). Ahora se reporta explícitamente.
+            console.error('Error inicializando GameScene.create():', e);
+            window.dispatchEvent(new CustomEvent('game-connect-error', {
+                detail: 'Error inicializando el juego: ' + (e && e.message ? e.message : e)
+            }));
+        }
     }
 
     async connect(userData) {

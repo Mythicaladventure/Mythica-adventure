@@ -6,6 +6,15 @@
     <title>Mythical Client</title>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <script>
+        // Bandera global registrada ANTES de cargar Phaser/Colyseus, para no
+        // perder el evento 'game-ready' sin importar en qué orden terminen
+        // de ejecutarse los distintos <script> de la página (si Phaser
+        // termina de preparar la escena MUY rápido, podría disparar el
+        // evento antes de que el listener de más abajo llegue a registrarse;
+        // esta bandera cubre ese caso también).
+        window._gameReady = false;
+        window.addEventListener('game-ready', () => { window._gameReady = true; });
+
         // Despertar el servidor de Render apenas carga la página, ANTES de que
         // el jugador toque el botón ENTRAR. Así, para cuando haga login, el
         // servidor gratuito (que se duerme por inactividad) ya tuvo tiempo de
@@ -182,17 +191,38 @@
             }
         }
 
-        // FIX: el botón empieza deshabilitado (ver arriba) porque este script
-        // se carga DESPUÉS de Phaser/Colyseus (que pueden tardar varios
-        // segundos desde CDN). Si el jugador clickeaba antes de que este
-        // bloque se ejecutara, enterGame() todavía no existía -> "Uncaught
-        // ReferenceError: enterGame is not defined". Habilitamos el botón
-        // recién aquí, que es la garantía real de que la función ya existe.
-        (() => {
+        // FIX v2 (la causa real): habilitar el botón cuando terminan de
+        // descargarse los <script> NO es suficiente - Phaser sigue preparando
+        // la escena (preload + create) en segundo plano después de eso, y el
+        // listener de 'start-game' recién existe cuando GameScene.create()
+        // termina. Ahora esperamos la señal real 'game-ready' que dispara
+        // client/index.js justo cuando ese listener ya está registrado.
+        //
+        // Revisamos primero la bandera window._gameReady (por si el evento
+        // ya se disparó ANTES de llegar a este punto) y si no, escuchamos
+        // el evento normalmente. Esto cubre los dos órdenes posibles.
+        function enableEntrarButton() {
+            clearTimeout(window._gameReadyTimeout);
             const btn = document.getElementById('btn-entrar');
             btn.disabled = false;
             btn.textContent = 'ENTRAR';
-        })();
+        }
+        if (window._gameReady) {
+            enableEntrarButton();
+        } else {
+            window.addEventListener('game-ready', enableEntrarButton);
+        }
+
+        // Red de seguridad: si por lo que sea 'game-ready' nunca llega (ej.
+        // un asset de Phaser se queda colgado cargando), avisamos en vez de
+        // dejar el botón en "CARGANDO..." para siempre sin explicación.
+        window._gameReadyTimeout = setTimeout(() => {
+            const btn = document.getElementById('btn-entrar');
+            const status = document.getElementById('login-status');
+            if (btn.disabled) {
+                status.textContent = 'El juego está tardando en inicializar. Intenta recargar la página (Ctrl+Shift+R).';
+            }
+        }, 25000);
     </script>
 </body>
 </html>
