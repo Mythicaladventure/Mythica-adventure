@@ -80,7 +80,10 @@ class BootScene extends Phaser.Scene {
 
         // --- Assets reales del juego (antes vivían en GameScene.preload) ---
         this.load.spritesheet('tiles', base + 'assets/sprites/tiles_nuevo_v2_vivo.png', { frameWidth: 32, frameHeight: 32 });
-        this.load.spritesheet('chars', base + 'assets/sprites/otsp_creatures_01.png', { frameWidth: 32, frameHeight: 32 });
+        // Fase 3: personaje recoloreado con paleta viva (azul/dorado) +
+        // transparencia real (el original usaba magenta como color-key,
+        // sin canal alpha - eso se corrigió en el recoloreado también).
+        this.load.spritesheet('chars', base + 'assets/sprites/hero_v1.png', { frameWidth: 32, frameHeight: 32 });
         this.load.binary('otsp-dat', base + 'Assets/Mythical/otsp.dat');
 
         // --- Fase 2: decoración (árboles/flores), bioma "bosque" para
