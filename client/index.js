@@ -1,6 +1,32 @@
 /* CLIENTE v16.0 - REDISEÑO: carga real con Phaser nativo, sin eventos improvisados */
 
 // ============================================================
+// FASE 2: DECORACIÓN (árboles/flores del bioma "bosque")
+// IDs de sprite (ver client/assets/sprites/nature_biomas/bosque/) y
+// posiciones fijas en tiles del mapa "Temple City" (20x20, ver
+// server/index.ts). Colocación manual por ahora - cuando haya más mapas
+// esto debería moverse al servidor como parte del mapDesign.
+// Árboles: OBJ_001-003, 011-012 (64x96, 2x3 celdas, anclados por la base).
+// Flores/decoración chica: OBJ_017-024 (32x32, 1x1 celda).
+// ============================================================
+const DECOR_IDS = [1, 2, 3, 11, 12, 17, 18, 20, 24];
+const TREE_IDS = new Set([1, 2, 3, 11, 12]);
+// { id, tileX, tileY } - posiciones elegidas sobre césped (id=1) del mapa,
+// evitando pisar paredes/agua/piso del templo.
+const DECOR_PLACEMENTS = [
+    { id: 1,  tileX: 3,  tileY: 1 },
+    { id: 2,  tileX: 5,  tileY: 1 },
+    { id: 11, tileX: 15, tileY: 1 },
+    { id: 3,  tileX: 17, tileY: 11 },
+    { id: 12, tileX: 2,  tileY: 11 },
+    { id: 2,  tileX: 9,  tileY: 17 },
+    { id: 17, tileX: 4,  tileY: 1 },
+    { id: 18, tileX: 7,  tileY: 11 },
+    { id: 20, tileX: 13, tileY: 17 },
+    { id: 24, tileX: 16, tileY: 1 },
+];
+
+// ============================================================
 // BOOT SCENE: única responsable de cargar assets y mostrar
 // progreso real. Reemplaza el esquema anterior donde el HTML
 // intentaba "adivinar" cuándo Phaser estaba listo mediante
@@ -56,6 +82,15 @@ class BootScene extends Phaser.Scene {
         this.load.spritesheet('tiles', base + 'assets/sprites/tiles_nuevo_v2_vivo.png', { frameWidth: 32, frameHeight: 32 });
         this.load.spritesheet('chars', base + 'assets/sprites/otsp_creatures_01.png', { frameWidth: 32, frameHeight: 32 });
         this.load.binary('otsp-dat', base + 'Assets/Mythical/otsp.dat');
+
+        // --- Fase 2: decoración (árboles/flores), bioma "bosque" para
+        // combinar con el césped actual. Cada uno es una imagen individual
+        // (no spritesheet) porque los tamaños varían (árboles 64x96,
+        // flores/rocas 32x32) - más simple que forzar un atlas uniforme.
+        const decorBase = base + 'assets/sprites/nature_biomas/bosque/';
+        DECOR_IDS.forEach(id => {
+            this.load.image('decor_' + id, decorBase + 'OBJ_' + String(id).padStart(3, '0') + '.png');
+        });
     }
 
     create() {
@@ -162,6 +197,12 @@ class GameScene extends Phaser.Scene {
             this.room.state.players.onRemove((p, i) => this.removePlayer(i));
             this.room.state.players.forEach((p, i) => this.addPlayer(p, i));
             this.room.onMessage("combat_text", (d) => this.showDmg(d));
+
+            // Fase 2: decoración estática (árboles/flores) - ver
+            // DECOR_PLACEMENTS al inicio del archivo. Client-side por ahora,
+            // no afecta colisión todavía (eso llega cuando el servidor
+            // maneje la capa de objetos de forma autoritativa).
+            this.placeDecorations();
         } catch (e) {
             console.error('Error de conexión al servidor:', e);
             window.dispatchEvent(new CustomEvent('game-connect-error', {
@@ -206,6 +247,18 @@ class GameScene extends Phaser.Scene {
             const img = this.add.image(x, y, 'tiles', frame).setOrigin(0).setDepth(depth);
             // Tinte gris removido: las paredes ahora tienen arte real (arenisca
             // cálida) con su propia paleta viva - el tinte las apagaba sin motivo.
+        });
+    }
+
+    placeDecorations() {
+        DECOR_PLACEMENTS.forEach(({ id, tileX, tileY }) => {
+            const px = tileX * 32 + 16;   // centro horizontal de la celda
+            const py = tileY * 32 + 32;   // borde inferior de la celda (base)
+            const img = this.add.image(px, py, 'decor_' + id).setOrigin(0.5, 1);
+            // Profundidad = Y para que el jugador pueda pasar "detrás" o
+            // "delante" de un árbol correctamente según su posición vertical,
+            // igual que las paredes.
+            img.setDepth(py);
         });
     }
 
