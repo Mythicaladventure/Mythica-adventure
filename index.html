@@ -131,9 +131,11 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/colyseus.js@0.15.0/dist/colyseus.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/phaser3-rex-plugins@1.1.84/dist/rexvirtualjoystickplugin.min.js"></script>
+    <!-- Auto-hospedado en el repo (antes CDN jsdelivr, medido hasta 7+ segundos
+         de carga en pruebas reales) - elimina esa fuente de lentitud/flakiness -->
+    <script src="client/vendor/phaser.min.js"></script>
+    <script src="client/vendor/colyseus.js"></script>
+    <script src="client/vendor/rexvirtualjoystickplugin.min.js"></script>
     
     <script src="client/index.js?v=FINAL_PROTOTYPE"></script>
 

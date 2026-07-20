@@ -1,4 +1,72 @@
-/* CLIENTE v15.0 - PROTOTIPO VISUAL */
+/* CLIENTE v16.0 - REDISEÑO: carga real con Phaser nativo, sin eventos improvisados */
+
+// ============================================================
+// BOOT SCENE: única responsable de cargar assets y mostrar
+// progreso real. Reemplaza el esquema anterior donde el HTML
+// intentaba "adivinar" cuándo Phaser estaba listo mediante
+// eventos custom - ahora usamos this.load (LoaderPlugin) de
+// Phaser directamente, que es la fuente de verdad nativa y
+// bien probada del framework.
+// ============================================================
+class BootScene extends Phaser.Scene {
+    constructor() { super({ key: 'BootScene' }); }
+
+    preload() {
+        const base = "https://mythicaladventure.github.io/Mythica-adventure/client/";
+
+        // --- Barra de carga visual (para que se sienta como un juego real) ---
+        const { width, height } = this.scale;
+        const boxW = 320, boxH = 28;
+        const boxX = width / 2 - boxW / 2, boxY = height / 2 - boxH / 2;
+
+        this.add.text(width / 2, boxY - 50, 'MYTHICAL ADVENTURE', {
+            fontFamily: 'Cinzel, serif', fontSize: '28px', color: '#d4af37'
+        }).setOrigin(0.5);
+
+        const progressBox = this.add.graphics();
+        progressBox.fillStyle(0x1a1a1a, 0.9);
+        progressBox.fillRect(boxX, boxY, boxW, boxH);
+        progressBox.lineStyle(2, 0xd4af37, 1);
+        progressBox.strokeRect(boxX, boxY, boxW, boxH);
+
+        const progressBar = this.add.graphics();
+        const loadingText = this.add.text(width / 2, boxY + boxH + 24, 'Cargando... 0%', {
+            fontFamily: 'Roboto, sans-serif', fontSize: '14px', color: '#d4af37'
+        }).setOrigin(0.5);
+
+        this.load.on('progress', (value) => {
+            progressBar.clear();
+            progressBar.fillStyle(0xd4af37, 1);
+            progressBar.fillRect(boxX + 4, boxY + 4, (boxW - 8) * value, boxH - 8);
+            loadingText.setText('Cargando... ' + Math.round(value * 100) + '%');
+        });
+
+        // Si CUALQUIER asset falla, lo mostramos explícitamente en vez de
+        // quedar colgado en silencio (causa raíz de varios bugs anteriores).
+        this.load.on('loaderror', (file) => {
+            console.error('Fallo al cargar asset:', file.key, file.src);
+            loadingText.setText('Error cargando: ' + file.key);
+            loadingText.setColor('#ff4444');
+            window.dispatchEvent(new CustomEvent('game-connect-error', {
+                detail: 'No se pudo cargar un recurso gráfico (' + file.key + ')'
+            }));
+        });
+
+        // --- Assets reales del juego (antes vivían en GameScene.preload) ---
+        this.load.spritesheet('tiles', base + 'assets/sprites/tiles_nuevo_v2_vivo.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet('chars', base + 'assets/sprites/otsp_creatures_01.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.binary('otsp-dat', base + 'Assets/Mythical/otsp.dat');
+    }
+
+    create() {
+        // 'complete' del LoaderPlugin es el evento NATIVO de Phaser que
+        // garantiza que preload() terminó por completo (éxito o error
+        // manejado) - mucho más confiable que sincronizar manualmente con
+        // el HTML mediante flags/timeouts propios, que es lo que causaba
+        // las condiciones de carrera anteriores.
+        this.scene.start('GameScene');
+    }
+}
 
 // UI (Joystick)
 class UIScene extends Phaser.Scene {
@@ -27,26 +95,8 @@ class GameScene extends Phaser.Scene {
         this.groups = { floor: null, walls: null, chars: null };
     }
 
-    preload() {
-        const base = "https://mythicaladventure.github.io/Mythica-adventure/client/";
-        // ARTE PROPIO v2 - paleta viva bioma bosque
-        this.load.spritesheet('tiles', base + 'assets/sprites/tiles_nuevo_v2_vivo.png', { frameWidth: 32, frameHeight: 32 });
-        this.load.spritesheet('chars', base + 'assets/sprites/otsp_creatures_01.png', { frameWidth: 32, frameHeight: 32 });
-
-        // FIX: la ruta anterior (base + 'otsp.dat') no existía -> 404 -> el loader
-        // se quedaba colgado y create() nunca corría, dejando el botón ENTRAR sin
-        // ningún listener activo (parecía "no reaccionar"). Ruta real corregida:
-        this.load.binary('otsp-dat', base + 'Assets/Mythical/otsp.dat');
-
-        // Si CUALQUIER asset falla, avisamos explícitamente en vez de quedar en
-        // silencio - así el jugador ve un mensaje real en vez de un botón muerto.
-        this.load.on('loaderror', (file) => {
-            console.error('Fallo al cargar asset:', file.key, file.src);
-            window.dispatchEvent(new CustomEvent('game-connect-error', {
-                detail: 'No se pudo cargar un recurso gráfico (' + file.key + ')'
-            }));
-        });
-    }
+    // Los assets ya están cargados por BootScene - GameScene ya no necesita
+    // preload() propio, evitando duplicar la lógica de carga.
 
     async create() {
         try {
@@ -62,14 +112,12 @@ class GameScene extends Phaser.Scene {
 
             window.addEventListener('start-game', (e) => this.connect(e.detail));
 
-            // FIX CRÍTICO: preload()+create() de Phaser corren de forma ASÍNCRONA
-            // en segundo plano (new Phaser.Game() no espera a que terminen). El
-            // HTML anterior habilitaba el botón ENTRAR solo cuando los <script>
-            // terminaban de DESCARGARSE, no cuando Phaser terminaba de preparar
-            // la escena real. Eso dejaba una ventana donde el botón se veía
-            // habilitado pero el listener de 'start-game' AÚN no existía -> el
-            // dispatchEvent() se perdía en silencio, sin error, sin red, sin nada.
-            // Ahora avisamos explícitamente cuando el listener YA está registrado.
+            // BootScene ya garantizó que todos los assets están cargados
+            // antes de arrancar esta escena (this.scene.start('GameScene')
+            // solo se llama en BootScene.create(), que a su vez solo corre
+            // tras el evento nativo 'complete' del loader de Phaser). Este
+            // punto es entonces la señal real y confiable de que el juego
+            // está listo para recibir el click de ENTRAR.
             window.dispatchEvent(new CustomEvent('game-ready'));
         } catch (e) {
             // Si algo revienta acá, antes la escena quedaba a medias en silencio
@@ -202,5 +250,5 @@ class GameScene extends Phaser.Scene {
 }
 const config = { type:Phaser.AUTO, parent:'game-view', backgroundColor:'#000', 
     scale:{ mode:Phaser.Scale.RESIZE, autoCenter:Phaser.Scale.CENTER_BOTH },
-    render:{ pixelArt:true, roundPixels:true }, scene:[UIScene, GameScene] };
+    render:{ pixelArt:true, roundPixels:true }, scene:[BootScene, UIScene, GameScene] };
 const game = new Phaser.Game(config);
