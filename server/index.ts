@@ -11,10 +11,16 @@ class Player extends Schema {
     @type("number") hp: number = 100; @type("number") maxHp: number = 100;
     @type("number") direction: number = 0; @type("boolean") isMoving: boolean = false;
 }
+class Monster extends Schema {
+    @type("string") tipo: string = "slime_green";
+    @type("number") x: number = 0; @type("number") y: number = 0;
+    @type("number") hp: number = 30; @type("number") maxHp: number = 30;
+}
 class GameState extends Schema {
     @type("number") width: number = 20; @type("number") height: number = 20;
     @type({ map: TileStack }) map = new MapSchema<TileStack>();
     @type({ map: Player }) players = new MapSchema<Player>();
+    @type({ map: Monster }) monsters = new MapSchema<Monster>();
 }
 
 class MyRoom extends Room<GameState> {
@@ -70,6 +76,21 @@ class MyRoom extends Room<GameState> {
         }
         this.setState(state);
 
+        // --- Fase 4: monstruos reales (antes el botón de ataque no tenía
+        // a quién golpear). 3 slimes spawneados en la Plaza Central, sobre
+        // celdas de piso (id=3) confirmadas caminables.
+        const monsterSpawns = [
+            { tileX: 6,  tileY: 9, tipo: "slime_green", hp: 30 },
+            { tileX: 9,  tileY: 9, tipo: "slime_red",   hp: 45 },
+            { tileX: 12, tileY: 9, tipo: "slime_green", hp: 30 },
+        ];
+        monsterSpawns.forEach((spec, idx) => {
+            const m = new Monster();
+            m.tipo = spec.tipo; m.hp = spec.hp; m.maxHp = spec.hp;
+            m.x = spec.tileX * 32; m.y = spec.tileY * 32;
+            this.state.monsters.set("m" + idx, m);
+        });
+
         this.onMessage("mover", (client, data) => {
             const p = this.state.players.get(client.sessionId);
             if (!p) return;
@@ -79,9 +100,34 @@ class MyRoom extends Room<GameState> {
             this.clock.setTimeout(() => { p.isMoving = false; }, 100);
         });
 
-        this.onMessage("attack", (c) => {
+        this.onMessage("attack", (c, data) => {
             const p = this.state.players.get(c.sessionId);
-            if(p) this.broadcast("combat_text", {x:p.x, y:p.y-30, val:"15"});
+            if (!p) return;
+            const targetId = data && data.targetId;
+            if (!targetId) return;
+            const m = this.state.monsters.get(targetId);
+            if (!m) return;
+
+            // Validación de rango básica (anti-cheat mínimo: no atacar a
+            // distancia absurda). ~2.5 celdas de margen.
+            const dist = Math.hypot(p.x - m.x, p.y - m.y);
+            if (dist > 90) return;
+
+            const dmg = 15;
+            m.hp -= dmg;
+            this.broadcast("combat_text", { x: m.x, y: m.y - 20, val: String(dmg) });
+
+            if (m.hp <= 0) {
+                const { tipo, x, y, maxHp } = m;
+                this.state.monsters.delete(targetId);
+                // Respawn simple tras 15s, mismo lugar - loop de farmeo básico
+                this.clock.setTimeout(() => {
+                    const respawn = new Monster();
+                    respawn.tipo = tipo; respawn.hp = maxHp; respawn.maxHp = maxHp;
+                    respawn.x = x; respawn.y = y;
+                    this.state.monsters.set(targetId, respawn);
+                }, 15000);
+            }
         });
     }
 

@@ -94,6 +94,12 @@ class BootScene extends Phaser.Scene {
         DECOR_IDS.forEach(id => {
             this.load.image('decor_' + id, decorBase + 'OBJ_' + String(id).padStart(3, '0') + '.png');
         });
+
+        // Fase 4: monstruos (generados por código, mismo criterio que
+        // paredes/agua: control total, sin depender de un atlas externo
+        // desconocido).
+        this.load.image('monster_slime_green', base + 'assets/sprites/monsters/MONSTER_SLIME_GREEN.png');
+        this.load.image('monster_slime_red', base + 'assets/sprites/monsters/MONSTER_SLIME_RED.png');
     }
 
     create() {
@@ -129,7 +135,7 @@ class GameScene extends Phaser.Scene {
     constructor() { super({ key: 'GameScene' }); }
     init() {
         this.client = new Colyseus.Client("wss://mythica-adventure.onrender.com");
-        this.players = {}; this.mapChunks = new Set();
+        this.players = {}; this.mapChunks = new Set(); this.monsters = {};
         this.groups = { floor: null, walls: null, chars: null };
     }
 
@@ -200,6 +206,20 @@ class GameScene extends Phaser.Scene {
             this.room.state.players.onRemove((p, i) => this.removePlayer(i));
             this.room.state.players.forEach((p, i) => this.addPlayer(p, i));
             this.room.onMessage("combat_text", (d) => this.showDmg(d));
+
+            // Fase 4: monstruos reales
+            this.room.state.monsters.onAdd((m, id) => this.addMonster(m, id));
+            this.room.state.monsters.onRemove((m, id) => this.removeMonster(id));
+            this.room.state.monsters.forEach((m, id) => this.addMonster(m, id));
+
+            // Botón de ataque (⚔️) del HTML: dispara 'game-action' con
+            // detail='ATTACK'. Antes nadie escuchaba este evento - el botón
+            // no hacía nada. Ahora buscamos el monstruo más cercano al
+            // jugador dentro de un rango razonable y lo atacamos.
+            window.addEventListener('game-action', (e) => {
+                if (e.detail !== 'ATTACK') return;
+                this.attackNearestMonster();
+            });
 
             // Fase 2: decoración estática (árboles/flores) - ver
             // DECOR_PLACEMENTS al inicio del archivo. Client-side por ahora,
@@ -293,6 +313,46 @@ class GameScene extends Phaser.Scene {
         });
     }
     removePlayer(i) { if(this.players[i]) { this.players[i].container.destroy(); delete this.players[i]; } }
+
+    addMonster(m, id) {
+        if (this.monsters[id]) return;
+        const texKey = 'monster_' + (m.tipo || 'slime_green');
+        const container = this.add.container(m.x + 16, m.y + 16).setDepth(m.y + 5);
+
+        const sprite = this.add.image(0, 0, texKey);
+        // Barra de vida simple sobre el monstruo
+        const barBg = this.add.rectangle(0, -22, 28, 5, 0x000000, 0.6);
+        const barFg = this.add.rectangle(-14, -22, 28, 5, 0xe23b3b).setOrigin(0, 0.5);
+
+        container.add([sprite, barBg, barFg]);
+        this.monsters[id] = { container, barFg, maxHp: m.maxHp };
+
+        m.onChange(() => {
+            const ratio = Math.max(0, m.hp / this.monsters[id].maxHp);
+            barFg.width = 28 * ratio;
+        });
+    }
+
+    removeMonster(id) {
+        if (this.monsters[id]) { this.monsters[id].container.destroy(); delete this.monsters[id]; }
+    }
+
+    attackNearestMonster() {
+        const me = this.players[this.mySessionId];
+        if (!me || !this.room) return;
+        const meX = me.container.x, meY = me.container.y;
+
+        let closestId = null, closestDist = Infinity;
+        Object.entries(this.monsters).forEach(([id, mo]) => {
+            const dist = Math.hypot(mo.container.x - meX, mo.container.y - meY);
+            if (dist < closestDist) { closestDist = dist; closestId = id; }
+        });
+
+        // Rango de ataque cuerpo a cuerpo (~2 celdas)
+        if (closestId && closestDist < 70) {
+            this.room.send("attack", { targetId: closestId });
+        }
+    }
     showDmg(d) { 
         const t = this.add.text(d.x, d.y-20, d.val, { fontSize:'12px', color:'#f00' }).setOrigin(0.5).setDepth(9999);
         this.tweens.add({ targets:t, y:d.y-50, alpha:0, duration:500, onComplete:()=>t.destroy() });
