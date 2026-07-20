@@ -204,7 +204,8 @@ class GameScene extends Phaser.Scene {
             if(id===2) { frame=6; group=this.groups.walls; depth=y; } // Pared
 
             const img = this.add.image(x, y, 'tiles', frame).setOrigin(0).setDepth(depth);
-            if(group===this.groups.walls) img.setTint(0xcccccc);
+            // Tinte gris removido: las paredes ahora tienen arte real (arenisca
+            // cálida) con su propia paleta viva - el tinte las apagaba sin motivo.
         });
     }
 
