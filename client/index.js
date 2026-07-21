@@ -10,7 +10,6 @@
 // Flores/decoración chica: OBJ_017-024 (32x32, 1x1 celda).
 // ============================================================
 const DECOR_IDS = [1, 2, 3, 11, 12, 17, 18, 20, 24];
-const TREE_IDS = new Set([1, 2, 3, 11, 12]);
 // { id, tileX, tileY } - posiciones elegidas sobre césped (id=1) del mapa,
 // evitando pisar paredes/agua/piso del templo.
 const DECOR_PLACEMENTS = [
@@ -225,13 +224,28 @@ class GameScene extends Phaser.Scene {
             this.room.state.monsters.onRemove((m, id) => this.removeMonster(id));
             this.room.state.monsters.forEach((m, id) => this.addMonster(m, id));
 
-            // Botón de ataque (⚔️) del HTML: dispara 'game-action' con
-            // detail='ATTACK'. Antes nadie escuchaba este evento - el botón
-            // no hacía nada. Ahora buscamos el monstruo más cercano al
-            // jugador dentro de un rango razonable y lo atacamos.
+            // Botón de ataque (⚔️) y curación (H) del HTML: antes 'ATTACK'
+            // funcionaba pero 'HEAL' se ignoraba por completo (botón muerto).
             window.addEventListener('game-action', (e) => {
-                if (e.detail !== 'ATTACK') return;
-                this.attackNearestMonster();
+                if (e.detail === 'ATTACK') this.attackNearestMonster();
+                else if (e.detail === 'HEAL') this.room.send('heal');
+            });
+
+            // Chat: antes 'chat()' en el HTML solo escribía en tu propia
+            // pantalla vía DOM, sin pasar nunca por el servidor - nadie más
+            // lo veía nunca. Ahora se envía de verdad y se muestra cuando
+            // el servidor lo retransmite a todos (incluido uno mismo).
+            window.addEventListener('game-chat-send', (e) => {
+                if (this.room && e.detail) this.room.send('chat', { msg: e.detail });
+            });
+            this.room.onMessage('chat', (d) => {
+                const log = document.getElementById('chat-log');
+                if (log) {
+                    const div = document.createElement('div');
+                    div.textContent = d.nombre + ': ' + d.msg;
+                    log.appendChild(div);
+                    log.scrollTop = log.scrollHeight;
+                }
             });
 
             // Fase 2: decoración estática (árboles/flores) - ver
@@ -319,8 +333,15 @@ class GameScene extends Phaser.Scene {
         const sprite = this.add.sprite(0, -10, 'chars', skin).setDisplaySize(48,48);
         const name = this.add.text(0, -40, p.nombre, { fontSize:'10px', fontFamily:'Verdana' }).setOrigin(0.5);
 
-        container.add([sprite, name]);
-        this.players[id] = { container, sprite };
+        // Barra de vida - antes el hp del jugador existía en el estado del
+        // servidor pero nunca se mostraba en ningún lado. Ahora es visible
+        // para todos (propio personaje y otros jugadores), igual que ya
+        // teníamos para los monstruos.
+        const barBg = this.add.rectangle(0, -30, 32, 4, 0x000000, 0.6);
+        const barFg = this.add.rectangle(-16, -30, 32, 4, 0x3ddc3d).setOrigin(0, 0.5);
+
+        container.add([sprite, name, barBg, barFg]);
+        this.players[id] = { container, sprite, barFg };
 
         if(id === this.mySessionId) {
             this.cameras.main.startFollow(container, true, 0.1, 0.1);
@@ -336,6 +357,10 @@ class GameScene extends Phaser.Scene {
                 else if(p.direction===2) sprite.play('walk-right', true);
                 else if(p.direction===3) sprite.play('walk-up', true);
             } else sprite.stop();
+
+            const ratio = Math.max(0, p.hp / p.maxHp);
+            barFg.width = 32 * ratio;
+            barFg.fillColor = ratio > 0.5 ? 0x3ddc3d : (ratio > 0.2 ? 0xd4af37 : 0xe23b3b);
         });
     }
     removePlayer(i) { if(this.players[i]) { this.players[i].container.destroy(); delete this.players[i]; } }
@@ -374,13 +399,16 @@ class GameScene extends Phaser.Scene {
             if (dist < closestDist) { closestDist = dist; closestId = id; }
         });
 
-        // Rango de ataque cuerpo a cuerpo (~2 celdas)
-        if (closestId && closestDist < 70) {
+        // Rango de ataque cuerpo a cuerpo, alineado con la validación real
+        // del servidor (50px) para que el jugador no intente ataques que
+        // el servidor va a rechazar en silencio.
+        if (closestId && closestDist < 55) {
             this.room.send("attack", { targetId: closestId });
         }
     }
-    showDmg(d) { 
-        const t = this.add.text(d.x, d.y-20, d.val, { fontSize:'12px', color:'#f00' }).setOrigin(0.5).setDepth(9999);
+    showDmg(d) {
+        const color = d.color || '#f00';
+        const t = this.add.text(d.x, d.y-20, d.val, { fontSize:'12px', color }).setOrigin(0.5).setDepth(9999);
         this.tweens.add({ targets:t, y:d.y-50, alpha:0, duration:500, onComplete:()=>t.destroy() });
     }
     createAnims() {

@@ -10,6 +10,7 @@ class Player extends Schema {
     @type("string") nombre: string = ""; @type("number") skin: number = 7;
     @type("number") hp: number = 100; @type("number") maxHp: number = 100;
     @type("number") direction: number = 0; @type("boolean") isMoving: boolean = false;
+    _lastHeal: number = 0; // cooldown interno, no sincronizado al cliente
 }
 class Monster extends Schema {
     @type("string") tipo: string = "slime_green";
@@ -91,13 +92,70 @@ class MyRoom extends Room<GameState> {
             this.state.monsters.set("m" + idx, m);
         });
 
+        // Antes los monstruos eran solo un saco de boxeo: nunca devolvían
+        // el golpe. Ahora, una vez por segundo, cada monstruo vivo daña a
+        // cualquier jugador dentro de rango cuerpo a cuerpo - combate real
+        // de dos vías, no un tiro al blanco. Al llegar a 0 hp, el jugador
+        // "muere" (queda inmóvil, ver chequeo en 'mover') y reaparece en el
+        // spawn tras 3s con la vida llena.
+        this.clock.setInterval(() => {
+            this.state.monsters.forEach((m) => {
+                this.state.players.forEach((p) => {
+                    if (p.hp <= 0) return;
+                    const dist = Math.hypot(p.x - m.x, p.y - m.y);
+                    if (dist > 40) return;
+
+                    const dmg = 8;
+                    p.hp = Math.max(0, p.hp - dmg);
+                    this.broadcast("combat_text", { x: p.x, y: p.y - 20, val: '-' + dmg, color: '#ff4444' });
+
+                    if (p.hp <= 0) {
+                        this.broadcast("combat_text", { x: p.x, y: p.y - 40, val: 'Has muerto', color: '#ffffff' });
+                        this.clock.setTimeout(() => {
+                            p.hp = p.maxHp;
+                            p.x = 10 * 32; p.y = 10 * 32; // respawn en el centro
+                        }, 3000);
+                    }
+                });
+            });
+        }, 1000);
+
         this.onMessage("mover", (client, data) => {
             const p = this.state.players.get(client.sessionId);
             if (!p) return;
-            if (this.isWalkable(data.x, data.y)) {
-                p.x = data.x; p.y = data.y; p.direction = data.dir; p.isMoving = true;
-            }
+            if (p.hp <= 0) return; // no moverse mientras está muerto/respawneando
+
+            // FIX: antes se validaba (x,y) combinado en un solo chequeo, lo
+            // cual permitía cortar esquinas de forma inconsistente cerca de
+            // paredes. Ahora se valida cada eje por separado, permitiendo
+            // "deslizarse" a lo largo de una pared (comportamiento estándar
+            // en juegos top-down) en vez de quedar bloqueado o atravesarla.
+            if (this.isWalkable(data.x, p.y)) p.x = data.x;
+            if (this.isWalkable(p.x, data.y)) p.y = data.y;
+            p.direction = data.dir; p.isMoving = true;
             this.clock.setTimeout(() => { p.isMoving = false; }, 100);
+        });
+
+        this.onMessage("chat", (client, data) => {
+            const p = this.state.players.get(client.sessionId);
+            if (!p) return;
+            const msg = (data && data.msg || "").toString().slice(0, 140).trim();
+            if (!msg) return;
+            // Antes: el chat solo se mostraba localmente en el navegador del
+            // que escribía, sin pasar nunca por el servidor - nadie más lo
+            // veía. Ahora se transmite de verdad a todos los jugadores.
+            this.broadcast("chat", { nombre: p.nombre, msg });
+        });
+
+        this.onMessage("heal", (client) => {
+            const p = this.state.players.get(client.sessionId);
+            if (!p || p.hp <= 0) return;
+            const now = Date.now();
+            if (p._lastHeal && now - p._lastHeal < 3000) return; // cooldown 3s
+            p._lastHeal = now;
+            const amount = 20;
+            p.hp = Math.min(p.maxHp, p.hp + amount);
+            this.broadcast("combat_text", { x: p.x, y: p.y - 20, val: '+' + amount, color: '#3ddc3d' });
         });
 
         this.onMessage("attack", (c, data) => {
@@ -108,10 +166,13 @@ class MyRoom extends Room<GameState> {
             const m = this.state.monsters.get(targetId);
             if (!m) return;
 
-            // Validación de rango básica (anti-cheat mínimo: no atacar a
-            // distancia absurda). ~2.5 celdas de margen.
+            // Rango de ataque cuerpo a cuerpo. Antes era 90px, mayor al
+            // rango de contraataque de los monstruos (40px) - eso permitía
+            // golpear sin nunca recibir daño de vuelta (kiting gratuito),
+            // rompiendo el sentido de un combate de dos vías. Ajustado a
+            // un margen pequeño sobre el rango de los monstruos.
             const dist = Math.hypot(p.x - m.x, p.y - m.y);
-            if (dist > 90) return;
+            if (dist > 50) return;
 
             const dmg = 15;
             m.hp -= dmg;

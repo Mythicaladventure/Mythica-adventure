@@ -126,7 +126,7 @@
     <div class="console">
         <div id="chat-log"><div>Bienvenido al servidor de prueba.</div></div>
         <div class="chat-input">
-            <input type="text" id="chat-in" placeholder="Say...">
+            <input type="text" id="chat-in" placeholder="Say..." onkeydown="if(event.key==='Enter') chat()">
             <button onclick="chat()">Send</button>
         </div>
     </div>
@@ -188,7 +188,12 @@
         function chat() {
             const i = document.getElementById('chat-in');
             if(i.value) {
-                document.getElementById('chat-log').innerHTML += `<div>You: ${i.value}</div>`;
+                // FIX: antes esto solo escribía en el DOM local del propio
+                // navegador - nunca pasaba por el servidor, así que nadie
+                // más veía tus mensajes. Ahora se envía de verdad; el texto
+                // aparece en pantalla cuando el servidor lo retransmite
+                // (incluso a uno mismo), no antes.
+                window.dispatchEvent(new CustomEvent('game-chat-send', { detail: i.value }));
                 i.value='';
             }
         }
