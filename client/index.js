@@ -139,6 +139,18 @@ class GameScene extends Phaser.Scene {
         this.groups = { floor: null, walls: null, chars: null };
     }
 
+    create_keyboard() {
+        // Respaldo de teclado (flechas / WASD) independiente del joystick
+        // táctil - así el movimiento funciona en escritorio sin depender
+        // de que el plugin táctil esté disponible/funcionando.
+        this.keys = this.input.keyboard.addKeys({
+            up: Phaser.Input.Keyboard.KeyCodes.UP, down: Phaser.Input.Keyboard.KeyCodes.DOWN,
+            left: Phaser.Input.Keyboard.KeyCodes.LEFT, right: Phaser.Input.Keyboard.KeyCodes.RIGHT,
+            w: Phaser.Input.Keyboard.KeyCodes.W, a: Phaser.Input.Keyboard.KeyCodes.A,
+            s: Phaser.Input.Keyboard.KeyCodes.S, d: Phaser.Input.Keyboard.KeyCodes.D,
+        });
+    }
+
     // Los assets ya están cargados por BootScene - GameScene ya no necesita
     // preload() propio, evitando duplicar la lógica de carga.
 
@@ -153,6 +165,7 @@ class GameScene extends Phaser.Scene {
 
             this.createAnims();
             this.uiScene = this.scene.get('UIScene');
+            this.create_keyboard();
 
             window.addEventListener('start-game', (e) => this.connect(e.detail));
 
@@ -239,16 +252,29 @@ class GameScene extends Phaser.Scene {
     update() {
         if (!this.room || !this.players[this.mySessionId]) return;
         const me = this.players[this.mySessionId];
-        const cursors = this.uiScene.getCursorKeys();
 
-        if (cursors) {
-            let dx=0, dy=0, dir=0;
-            if (cursors.left.isDown) { dx=-1; dir=1; } else if (cursors.right.isDown) { dx=1; dir=2; }
-            if (cursors.up.isDown) { dy=-1; dir=3; } else if (cursors.down.isDown) { dy=1; dir=0; }
+        let dx=0, dy=0, dir=null;
 
-            if (dx!==0 || dy!==0) {
-                this.room.send("mover", { x: me.container.x + (dx*4), y: me.container.y + (dy*4), dir });
+        // Teclado primero (fuente confiable en escritorio, no depende de
+        // ningún plugin externo).
+        if (this.keys) {
+            if (this.keys.left.isDown || this.keys.a.isDown) { dx=-1; dir=1; }
+            else if (this.keys.right.isDown || this.keys.d.isDown) { dx=1; dir=2; }
+            if (this.keys.up.isDown || this.keys.w.isDown) { dy=-1; dir=3; }
+            else if (this.keys.down.isDown || this.keys.s.isDown) { dy=1; dir=0; }
+        }
+
+        // Si no hubo input de teclado, probar el joystick táctil (si existe)
+        if (dx===0 && dy===0) {
+            const cursors = this.uiScene.getCursorKeys();
+            if (cursors) {
+                if (cursors.left.isDown) { dx=-1; dir=1; } else if (cursors.right.isDown) { dx=1; dir=2; }
+                if (cursors.up.isDown) { dy=-1; dir=3; } else if (cursors.down.isDown) { dy=1; dir=0; }
             }
+        }
+
+        if (dx!==0 || dy!==0) {
+            this.room.send("mover", { x: me.container.x + (dx*4), y: me.container.y + (dy*4), dir });
         }
     }
 
@@ -367,5 +393,20 @@ class GameScene extends Phaser.Scene {
 }
 const config = { type:Phaser.AUTO, parent:'game-view', backgroundColor:'#000', 
     scale:{ mode:Phaser.Scale.RESIZE, autoCenter:Phaser.Scale.CENTER_BOTH },
-    render:{ pixelArt:true, roundPixels:true }, scene:[BootScene, UIScene, GameScene] };
+    render:{ pixelArt:true, roundPixels:true }, scene:[BootScene, UIScene, GameScene],
+    // FIX: el plugin se cargaba via <script> pero NUNCA se registraba en
+    // Phaser - this.plugins.get('rexVirtualJoystickPlugin') devolvía
+    // siempre null/undefined, así que this.joystick jamás se creaba y
+    // getCursorKeys() siempre devolvía null. El movimiento nunca funcionó,
+    // ni antes de esta sesión - simplemente nunca llegamos a probarlo a
+    // fondo (estábamos atascados en el login). El nombre global exacto
+    // que expone el archivo vendor es 'rexvirtualjoystickplugin' (minúsc).
+    plugins: {
+        scene: [{
+            key: 'rexVirtualJoystickPlugin',
+            plugin: window.rexvirtualjoystickplugin,
+            mapping: 'rexVirtualJoystick'
+        }]
+    }
+};
 const game = new Phaser.Game(config);
