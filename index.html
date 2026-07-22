@@ -136,8 +136,16 @@
     <script src="client/vendor/phaser.min.js"></script>
     <script src="client/vendor/colyseus.js"></script>
     <script src="client/vendor/rexvirtualjoystickplugin.min.js"></script>
-    
-    <script src="client/index.js?v=FINAL_PROTOTYPE"></script>
+
+    <!-- Cliente propio, dividido en módulos claros (antes era un solo
+         archivo de 440 líneas). El orden importa: config primero (define
+         constantes globales), luego las escenas (que las usan dentro de
+         sus métodos), y game.js al final (arma todo y arranca Phaser). -->
+    <script src="client/src/config.js"></script>
+    <script src="client/src/scenes/BootScene.js"></script>
+    <script src="client/src/scenes/UIScene.js"></script>
+    <script src="client/src/scenes/GameScene.js"></script>
+    <script src="client/src/game.js"></script>
 
     <script>
         function enterGame() {
@@ -203,7 +211,7 @@
         // la escena (preload + create) en segundo plano después de eso, y el
         // listener de 'start-game' recién existe cuando GameScene.create()
         // termina. Ahora esperamos la señal real 'game-ready' que dispara
-        // client/index.js justo cuando ese listener ya está registrado.
+        // client/src/scenes/GameScene.js justo cuando ese listener ya está registrado.
         //
         // Revisamos primero la bandera window._gameReady (por si el evento
         // ya se disparó ANTES de llegar a este punto) y si no, escuchamos
