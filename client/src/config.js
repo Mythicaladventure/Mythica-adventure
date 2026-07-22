@@ -16,6 +16,12 @@ const ASSET_BASE = 'client/';
 // porque apunta a un servicio externo (Render), no a un archivo propio.
 const SERVER_URL = 'wss://mythica-adventure.onrender.com';
 
+// Dimensiones del mapa actual ("Temple City", 20x20 tiles de 32px) en
+// píxeles reales. Usado para limitar la cámara y que nunca muestre el
+// vacío más allá del borde del mapa (ver GameScene.addPlayer).
+const MAP_PIXEL_WIDTH = 20 * 32;
+const MAP_PIXEL_HEIGHT = 20 * 32;
+
 // ------------------------------------------------------------
 // FASE 2: DECORACIÓN (árboles/flores del bioma "bosque")
 // IDs de sprite (ver client/assets/sprites/nature_biomas/bosque/) y

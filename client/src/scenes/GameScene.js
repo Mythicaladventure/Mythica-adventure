@@ -207,6 +207,12 @@ class GameScene extends Phaser.Scene {
         this.players[id] = { container, sprite, barFg };
 
         if (id === this.mySessionId) {
+            // FIX: sin límites, la cámara sigue al jugador libremente y con
+            // zoom 2x en una ventana ancha, termina mostrando el "vacío"
+            // más allá del borde del mapa (640x640px reales) como una gran
+            // zona negra - no era un fallo de renderizado, faltaba decirle
+            // a la cámara dónde termina el mundo.
+            this.cameras.main.setBounds(0, 0, MAP_PIXEL_WIDTH, MAP_PIXEL_HEIGHT);
             this.cameras.main.startFollow(container, true, 0.1, 0.1);
             this.cameras.main.setZoom(2.0); // ZOOM TIPO TIBIA
         }
