@@ -38,3 +38,47 @@ export const HEAL_COOLDOWN_MS = 3000;
 
 /** Longitud máxima de un mensaje de chat. */
 export const CHAT_MAX_LENGTH = 140;
+
+/** ============================================================
+ * SISTEMA DE PROGRESIÓN (nivel/XP) - base para un MMORPG real.
+ * ============================================================ */
+
+/** XP necesaria para subir del nivel N al N+1. Curva lineal simple
+ * (100 * nivel) - suficiente para un MVP jugable; si más adelante se
+ * quiere una curva exponencial tipo Tibia, solo hay que cambiar esta
+ * función, todo lo demás (level-up, guardado) ya la usa como fuente
+ * única de verdad. */
+export function xpForLevel(level: number): number {
+    return level * 100;
+}
+
+/** Cuánta vida máxima (y curación completa) gana el jugador por cada
+ * nivel que sube. */
+export const HP_PER_LEVEL = 15;
+
+/** XP que otorga cada tipo de monstruo al morir. Si aparece un tipo
+ * nuevo sin entrada acá, se usa MONSTER_XP_REWARD_DEFAULT. */
+export const MONSTER_XP_REWARD: Record<string, number> = {
+    slime_green: 15,
+    slime_red: 25,
+};
+export const MONSTER_XP_REWARD_DEFAULT = 10;
+
+/** ============================================================
+ * SISTEMA DE ITEMS/DROPS - base para el futuro inventario real.
+ * ============================================================ */
+
+/** Probabilidad (0-1) de que un monstruo suelte un item al morir. */
+export const ITEM_DROP_CHANCE = 0.35;
+
+/** Tabla de items que pueden dropear. Genérica por ahora (no varía
+ * según tipo de monstruo) - mejora obvia para cuando existan más
+ * tipos de enemigos con drops propios. */
+export const ITEM_DROP_TABLE: { itemId: string; nombre: string }[] = [
+    { itemId: "gel_slime", nombre: "Gel de Slime" },
+    { itemId: "moneda_oro", nombre: "Moneda de Oro" },
+];
+
+/** Máximo de slots distintos de inventario (no de cantidad total -
+ * items iguales se apilan en un mismo slot vía `qty`). */
+export const INVENTORY_MAX_SLOTS = 20;

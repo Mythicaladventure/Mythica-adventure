@@ -5,6 +5,13 @@ export class TileStack extends Schema {
     @type(["number"]) items = new ArraySchema<number>();
 }
 
+/** Un slot de inventario. Por ahora sin equipar/usar, solo "tener". */
+export class InventoryItem extends Schema {
+    @type("string") itemId: string = "";
+    @type("string") nombre: string = "";
+    @type("number") qty: number = 1;
+}
+
 export class Player extends Schema {
     @type("number") x: number = 0;
     @type("number") y: number = 0;
@@ -15,8 +22,18 @@ export class Player extends Schema {
     @type("number") direction: number = 0;
     @type("boolean") isMoving: boolean = false;
 
+    /** Progresión: nivel, xp acumulada en el nivel actual, y xp
+     * necesaria para el próximo (se resincroniza cada level-up). */
+    @type("number") level: number = 1;
+    @type("number") xp: number = 0;
+    @type("number") xpToNext: number = 100;
+    @type([InventoryItem]) inventory = new ArraySchema<InventoryItem>();
+
     /** Cooldown interno de curación - NO se sincroniza al cliente (sin @type). */
     _lastHeal: number = 0;
+    /** Nombre de cuenta asociado (para guardar/cargar de Mongo) - NO
+     * sincronizado, solo uso interno del servidor. */
+    _accountName: string = "";
 }
 
 export class Monster extends Schema {

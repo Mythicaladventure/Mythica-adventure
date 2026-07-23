@@ -1,11 +1,21 @@
 import { Room, Client } from "colyseus";
-import { GameState, TileStack, Player, Monster } from "./schema";
+import { GameState, TileStack, Player, Monster, InventoryItem } from "./schema";
 import { TEMPLE_CITY_MAP, MAP_WIDTH, MAP_HEIGHT, MONSTER_SPAWNS } from "./mapData";
 import {
     MONSTER_ATTACK_INTERVAL_MS, MONSTER_ATTACK_RANGE_PX, MONSTER_ATTACK_DAMAGE,
     PLAYER_ATTACK_RANGE_PX, PLAYER_ATTACK_DAMAGE, MONSTER_RESPAWN_MS,
     PLAYER_RESPAWN_MS, HEAL_AMOUNT, HEAL_COOLDOWN_MS, CHAT_MAX_LENGTH,
+    xpForLevel, HP_PER_LEVEL, MONSTER_XP_REWARD, MONSTER_XP_REWARD_DEFAULT,
+    ITEM_DROP_CHANCE, ITEM_DROP_TABLE, INVENTORY_MAX_SLOTS,
 } from "./balance";
+import { isDBConnected } from "./db";
+import { AccountModel } from "./models/Account";
+import { hashPassword, verifyPassword } from "./auth";
+
+/** Cada cuánto se auto-guarda el estado de todos los jugadores
+ * conectados (red de seguridad ante caídas/reinicios de Render, sin
+ * depender solo de onLeave). */
+const AUTOSAVE_INTERVAL_MS = 60_000;
 
 export class MundoMythicaRoom extends Room<GameState> {
 
@@ -19,6 +29,7 @@ export class MundoMythicaRoom extends Room<GameState> {
         this.spawnMonsters();
         this.startMonsterAI();
         this.registerMessageHandlers();
+        this.startAutosave();
     }
 
     /** Construye el mapa de tiles a partir del diseño de mapData.ts. */
@@ -69,6 +80,17 @@ export class MundoMythicaRoom extends Room<GameState> {
                 });
             });
         }, MONSTER_ATTACK_INTERVAL_MS);
+    }
+
+    /** Auto-guardado periódico de todas las cuentas conectadas. Si Mongo
+     * no está disponible esto simplemente no hace nada (isDBConnected
+     * en false) - no hay branching especial que mantener en otros
+     * lados del código por esto. */
+    private startAutosave() {
+        this.clock.setInterval(() => {
+            if (!isDBConnected()) return;
+            this.state.players.forEach((p) => this.saveAccount(p));
+        }, AUTOSAVE_INTERVAL_MS);
     }
 
     private handlePlayerDeath(p: Player) {
@@ -136,10 +158,10 @@ export class MundoMythicaRoom extends Room<GameState> {
         m.hp -= PLAYER_ATTACK_DAMAGE;
         this.broadcast("combat_text", { x: m.x, y: m.y - 20, val: String(PLAYER_ATTACK_DAMAGE) });
 
-        if (m.hp <= 0) this.handleMonsterDeath(targetId, m);
+        if (m.hp <= 0) this.handleMonsterDeath(targetId, m, p);
     }
 
-    private handleMonsterDeath(targetId: string, m: Monster) {
+    private handleMonsterDeath(targetId: string, m: Monster, killer: Player) {
         const { tipo, x, y, maxHp } = m;
         this.state.monsters.delete(targetId);
         this.clock.setTimeout(() => {
@@ -148,6 +170,44 @@ export class MundoMythicaRoom extends Room<GameState> {
             respawn.x = x; respawn.y = y;
             this.state.monsters.set(targetId, respawn);
         }, MONSTER_RESPAWN_MS);
+
+        this.awardXP(killer, MONSTER_XP_REWARD[tipo] ?? MONSTER_XP_REWARD_DEFAULT);
+        this.rollItemDrop(killer);
+    }
+
+    /** Otorga XP y procesa tantos level-ups como correspondan (por si
+     * una sola muerte alcanza para subir más de un nivel de golpe). */
+    private awardXP(p: Player, amount: number) {
+        p.xp += amount;
+        this.broadcast("combat_text", { x: p.x, y: p.y - 35, val: '+' + amount + ' XP', color: '#66d9ff' });
+
+        while (p.xp >= p.xpToNext) {
+            p.xp -= p.xpToNext;
+            p.level += 1;
+            p.xpToNext = xpForLevel(p.level);
+            p.maxHp += HP_PER_LEVEL;
+            p.hp = p.maxHp; // subir de nivel también cura del todo, como en la mayoría de MMOs
+            this.broadcast("combat_text", { x: p.x, y: p.y - 55, val: '¡Nivel ' + p.level + '!', color: '#ffd700' });
+        }
+    }
+
+    /** Tirada simple de drop: probabilidad fija, item al azar de la
+     * tabla genérica. Si el jugador ya tiene ese item, se apila en vez
+     * de ocupar un slot nuevo. */
+    private rollItemDrop(p: Player) {
+        if (Math.random() > ITEM_DROP_CHANCE) return;
+        const drop = ITEM_DROP_TABLE[Math.floor(Math.random() * ITEM_DROP_TABLE.length)];
+
+        const existing = p.inventory.find((it) => it.itemId === drop.itemId);
+        if (existing) {
+            existing.qty += 1;
+        } else {
+            if (p.inventory.length >= INVENTORY_MAX_SLOTS) return; // inventario lleno, se pierde el drop (mejora futura: aviso al jugador)
+            const item = new InventoryItem();
+            item.itemId = drop.itemId; item.nombre = drop.nombre; item.qty = 1;
+            p.inventory.push(item);
+        }
+        this.broadcast("combat_text", { x: p.x, y: p.y - 45, val: '+ ' + drop.nombre, color: '#c9a0ff' });
     }
 
     isWalkable(px: number, py: number): boolean {
@@ -163,10 +223,74 @@ export class MundoMythicaRoom extends Room<GameState> {
         return true;
     }
 
-    onJoin(client: Client, options: any) {
+    /**
+     * Login/registro real contra MongoDB.
+     *
+     * - Si Mongo no está conectado (modo degradado, ver db.ts): se
+     *   acepta cualquier nombre sin contraseña, igual que el
+     *   comportamiento anterior a este cambio (fallback total).
+     * - Si Mongo SÍ está conectado: nombre+contraseña son obligatorios.
+     *   Cuenta nueva -> se crea. Cuenta existente -> se valida la
+     *   contraseña; si no coincide, se rechaza el join (el cliente ve
+     *   el mensaje de error vía el catch de joinOrCreate).
+     */
+    async onJoin(client: Client, options: any) {
         const p = new Player();
-        p.x = 10 * 32; p.y = 10 * 32; // Spawn en el centro (Plaza)
-        p.nombre = options.name || "Player";
+        const nombreCrudo = (options && options.name || "").toString().trim().slice(0, 16);
+        const password = (options && options.password || "").toString();
+
+        if (!nombreCrudo) throw new Error("Nombre inválido.");
+
+        if (!isDBConnected()) {
+            // Modo degradado: comportamiento original, sin cuentas reales.
+            p.nombre = nombreCrudo;
+            p.x = 10 * 32; p.y = 10 * 32;
+        } else {
+            if (password.length < 4) throw new Error("La contraseña debe tener al menos 4 caracteres.");
+
+            let account = await AccountModel.findOne({ nombre: nombreCrudo });
+
+            if (!account) {
+                const { hash, salt } = await hashPassword(password);
+                try {
+                    account = await AccountModel.create({
+                        nombre: nombreCrudo,
+                        passwordHash: hash,
+                        passwordSalt: salt,
+                    });
+                } catch (err: any) {
+                    // Carrera: dos clientes registrando el mismo nombre al
+                    // mismo tiempo. El índice unique de Mongo rechaza el
+                    // segundo insert - se lo tratamos como "nombre en uso".
+                    if (err && err.code === 11000) {
+                        throw new Error("Ese nombre ya está en uso.");
+                    }
+                    throw err;
+                }
+            } else {
+                const ok = await verifyPassword(password, account.passwordHash, account.passwordSalt);
+                if (!ok) throw new Error("Contraseña incorrecta.");
+            }
+
+            account.lastLogin = new Date();
+            await account.save();
+
+            p.nombre = account.nombre;
+            p.level = account.level;
+            p.xp = account.xp;
+            p.xpToNext = xpForLevel(account.level);
+            p.maxHp = account.maxHp;
+            p.hp = account.maxHp; // siempre entra con vida llena, evita respawns "muerto" raros
+            p.x = account.x;
+            p.y = account.y;
+            account.inventory.forEach((it: any) => {
+                const item = new InventoryItem();
+                item.itemId = it.itemId; item.nombre = it.nombre; item.qty = it.qty;
+                p.inventory.push(item);
+            });
+            p._accountName = account.nombre;
+        }
+
         this.state.players.set(client.sessionId, p);
 
         const mapData: any[] = [];
@@ -174,7 +298,33 @@ export class MundoMythicaRoom extends Room<GameState> {
         client.send("map_chunk", mapData);
     }
 
-    onLeave(client: Client) {
+    async onLeave(client: Client) {
+        const p = this.state.players.get(client.sessionId);
+        if (p) await this.saveAccount(p);
         this.state.players.delete(client.sessionId);
+    }
+
+    /** Guarda el estado actual de un Player en su cuenta de Mongo. No
+     * hace nada si el jugador es de una sesión sin cuenta real (modo
+     * degradado, o por algún motivo _accountName vacío) para no crear
+     * documentos basura. Los errores se registran pero NUNCA tumban el
+     * servidor - guardar es "best effort". */
+    private async saveAccount(p: Player) {
+        if (!isDBConnected() || !p._accountName) return;
+        try {
+            await AccountModel.updateOne(
+                { nombre: p._accountName },
+                {
+                    level: p.level,
+                    xp: p.xp,
+                    maxHp: p.maxHp,
+                    x: p.x,
+                    y: p.y,
+                    inventory: p.inventory.map((it) => ({ itemId: it.itemId, nombre: it.nombre, qty: it.qty })),
+                }
+            );
+        } catch (err) {
+            console.error(`❌ Error guardando cuenta '${p._accountName}':`, (err as Error).message);
+        }
     }
 }

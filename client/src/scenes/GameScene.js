@@ -215,6 +215,8 @@ class GameScene extends Phaser.Scene {
             this.cameras.main.setBounds(0, 0, MAP_PIXEL_WIDTH, MAP_PIXEL_HEIGHT);
             this.cameras.main.startFollow(container, true, 0.1, 0.1);
             this.cameras.main.setZoom(2.0); // ZOOM TIPO TIBIA
+
+            this.setupOwnHud(p);
         }
 
         p.onChange(() => {
@@ -230,7 +232,41 @@ class GameScene extends Phaser.Scene {
             const ratio = Math.max(0, p.hp / p.maxHp);
             barFg.width = 32 * ratio;
             barFg.fillColor = ratio > 0.5 ? 0x3ddc3d : (ratio > 0.2 ? 0xd4af37 : 0xe23b3b);
+
+            if (id === this.mySessionId) this.renderHudLevel(p);
         });
+    }
+
+    /** Nivel/XP e inventario: enganchados al estado sincronizado del
+     * propio jugador (Player.level/xp/xpToNext/inventory en schema.ts).
+     * El HUD de nivel se actualiza vía p.onChange (arriba) porque son
+     * campos directos del Player; el inventario necesita sus propios
+     * listeners porque es una lista anidada (los cambios ahí no
+     * disparan el onChange del Player contenedor). */
+    setupOwnHud(p) {
+        this.renderHudLevel(p);
+        this.renderInventory(p);
+
+        p.inventory.onAdd((item) => {
+            item.onChange(() => this.renderInventory(p));
+            this.renderInventory(p);
+        });
+        p.inventory.onRemove(() => this.renderInventory(p));
+        p.inventory.forEach((item) => item.onChange(() => this.renderInventory(p)));
+    }
+
+    renderHudLevel(p) {
+        const hud = document.getElementById('hud-level');
+        if (hud) hud.textContent = `Nv. ${p.level}   XP ${p.xp}/${p.xpToNext}`;
+    }
+
+    renderInventory(p) {
+        for (let i = 0; i < 4; i++) {
+            const slot = document.getElementById('inv-slot-' + i);
+            if (!slot) continue;
+            const item = p.inventory[i];
+            slot.innerHTML = item ? `${item.nombre}<br><span class="qty">x${item.qty}</span>` : '';
+        }
     }
     removePlayer(i) { if (this.players[i]) { this.players[i].container.destroy(); delete this.players[i]; } }
 

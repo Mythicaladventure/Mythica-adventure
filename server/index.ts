@@ -13,6 +13,7 @@ import express from "express";
 import cors from "cors";
 import { Server } from "colyseus";
 import { MundoMythicaRoom } from "./src/MundoMythicaRoom";
+import { connectDB } from "./src/db";
 
 const app = express();
 app.use(cors());
@@ -24,4 +25,12 @@ const gameServer = new Server({ server });
 gameServer.define("mundo_mythica", MundoMythicaRoom);
 
 const PORT = Number(process.env.PORT || 3000);
-server.listen(PORT, () => console.log("ONLINE"));
+
+(async () => {
+    // Se intenta conectar a Mongo ANTES de aceptar conexiones, para que
+    // el primer jugador que entre ya tenga persistencia disponible (o
+    // ya se sepa con certeza, desde el log, que se está corriendo en
+    // modo degradado sin ella).
+    await connectDB();
+    server.listen(PORT, () => console.log("ONLINE"));
+})();

@@ -161,19 +161,7 @@ server/src/balance.ts             Constantes de combate (daño, rangos, cooldown
 server/src/MundoMythicaRoom.ts    Toda la lógica de la sala/juego
 ```
 
-## 7. Qué falta (fuera del alcance hasta ahora, según el GDD original)
-
-- Sistema de razas/clases (el GDD original menciona 6 razas, 6 clases)
-- Inventario / items reales
-- Más de un mapa (todo vive hardcodeado en `mapData.ts` para un solo
-  mapa de prueba, "Temple City")
-- Persistencia de cuenta real (hoy solo se pide un nombre, sin
-  contraseña ni guardado entre sesiones - mongoose instalado pero sin usar)
-- Niveles / experiencia
-- Más tipos de monstruos con arte propio (hoy solo 2 variantes de slime)
-- Arreglar el joystick táctil (bug abierto, sección 5)
-
-## 8. Contexto de decisiones importantes (para no deshacerlas sin querer)
+## 7. Contexto de decisiones importantes (para no deshacerlas sin querer)
 
 - **Arte generado por código, no packs externos:** se decidió esto tras
   fricción real descargando/verificando packs de itch.io. Paredes, agua,
@@ -194,3 +182,93 @@ server/src/MundoMythicaRoom.ts    Toda la lógica de la sala/juego
   `webpack.config.js` en el repo pero nunca se conectó. Se decidió no
   agregar esa complejidad ahora; el cliente son `<script>` planos en
   `client/src/`. Ver ARCHITECTURE.md sección correspondiente.
+## 8. Sistemas de MMORPG agregados (persistencia, niveles, inventario)
+
+Tras resolver el joystick, se sentaron bases reales de MMORPG que antes
+NO existían (ver sección 9, "Qué falta" - esto cubre varios puntos de
+esa lista):
+
+**Persistencia de cuentas (MongoDB vía mongoose):**
+- `server/src/db.ts`: conecta usando `MONGO_URI`. Si no está
+  configurada o falla, el servidor sigue corriendo en "modo degradado"
+  (sin persistencia, comportamiento efímero de antes) en vez de
+  caerse - se decidió así a propósito.
+- `server/src/models/Account.ts`: esquema de Mongo (nombre único,
+  passwordHash+salt, level, xp, maxHp, x/y, inventory).
+- `server/src/auth.ts`: hash de contraseñas con `scrypt` nativo de
+  Node (sin agregar bcrypt como dependencia nueva).
+- `onJoin` en `MundoMythicaRoom.ts` ahora es async: valida
+  nombre+contraseña contra Mongo (crea cuenta nueva si no existe,
+  rechaza el join con un error legible si la contraseña no coincide),
+  y carga level/xp/maxHp/posición/inventario guardados.
+- `onLeave` guarda el estado actual a Mongo. Además hay un autosave
+  cada 60s (`AUTOSAVE_INTERVAL_MS` en la sala) como red de seguridad.
+- El cliente ahora pide contraseña en el login (`index.html`,
+  `#char-pass`) y la manda en `start-game` → `userData.password`.
+
+**Sistema de niveles/XP:**
+- `server/src/balance.ts`: `xpForLevel()` (curva lineal, 100×nivel),
+  `HP_PER_LEVEL`, `MONSTER_XP_REWARD` por tipo de monstruo.
+- Al morir un monstruo, el jugador que dio el golpe final gana XP
+  (`awardXP` en la sala), sube de nivel automáticamente (incluso
+  varios niveles de golpe si la XP alcanza), gana `HP_PER_LEVEL` de
+  vida máxima y se cura del todo al subir.
+- HUD nuevo en `index.html`/`GameScene.js`: `#hud-level` muestra
+  "Nv. X   XP Y/Z" en la esquina del header, actualizado en tiempo
+  real vía `Player.onChange`.
+
+**Inventario básico:**
+- `schema.ts`: `InventoryItem` (itemId, nombre, qty) y
+  `Player.inventory` (ArraySchema).
+- `balance.ts`: `ITEM_DROP_CHANCE`, `ITEM_DROP_TABLE` (genérica por
+  ahora), `INVENTORY_MAX_SLOTS`.
+- Al morir un monstruo hay una tirada de drop (`rollItemDrop`); si el
+  jugador ya tiene ese item se apila (`qty++`), si no ocupa un slot
+  nuevo (hasta el máximo).
+- Panel "EQUIPO" del sidebar (`index.html`) ahora tiene 4 slots con
+  ID (`inv-slot-0..3`) que se renderizan desde el inventario real del
+  jugador (`GameScene.js` → `renderInventory`), con listeners tanto en
+  altas/bajas del array (`onAdd`/`onRemove`) como en cambios de
+  cantidad de un item ya existente (`item.onChange`).
+
+**IMPORTANTE - pendiente de verificar en vivo:**
+No fue posible probar la conexión real a MongoDB Atlas desde el
+sandbox (el dominio `*.mongodb.net` no está en la lista de red
+permitida de las herramientas, igual que pasa con `render.com` - ver
+sección 2). Lo que SÍ se verificó:
+- `npx tsc --noEmit` sin errores nuevos (solo los warnings de
+  deprecación de `tsconfig.json` que ya existían antes).
+- `npm install && timeout 5 npx ts-node --transpile-only server/index.ts`
+  arranca limpio en modo degradado (sin `MONGO_URI`), llega a "ONLINE"
+  y muestra el warning correcto de "sin persistencia".
+- Sintaxis de todos los archivos `.js` del cliente tocados
+  (`node -c`).
+
+**Falta que el usuario confirme, con `MONGO_URI` real configurada en
+Render:**
+1. Que un jugador nuevo pueda registrarse (nombre+contraseña) y que la
+   cuenta aparezca en MongoDB Atlas.
+2. Que cerrar el navegador y volver a entrar con el mismo
+   nombre/contraseña restaure nivel, XP, posición e inventario.
+3. Que subir de nivel y recibir un drop se vean reflejados en el HUD y
+   en el panel EQUIPO en tiempo real.
+4. Si la `MONGO_URI` que ya estaba expuesta en el repo (ver sección 2)
+   nunca se rotó, sigue siendo buena idea rotarla ahora que hay datos
+   reales de cuentas de por medio.
+
+## 9. Qué falta ahora (actualizado)
+
+- Sistema de razas/clases (el GDD original menciona 6 razas, 6 clases)
+  - el campo `role: 'knight'` ya se manda desde el login pero el
+    servidor todavía no lo usa para nada.
+- Usar/equipar items del inventario (hoy solo se acumulan, no hacen
+  nada al usarlos).
+- Drops específicos por tipo de monstruo (hoy la tabla de drops es
+  genérica, no varía si matas un slime verde o uno rojo).
+- Más de un mapa (sigue igual, todo hardcodeado en `mapData.ts`).
+- Curva de XP más interesante que lineal (fácil de cambiar,
+  `xpForLevel()` en `balance.ts` es la única fuente de verdad).
+- Más tipos de monstruos con arte propio (hoy solo 2 variantes de slime).
+- Arreglar el joystick táctil - aplicado el fix, pendiente de
+  verificación real en navegador (ver sección 5).
+
