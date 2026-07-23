@@ -11,19 +11,23 @@ const config = {
     render: { pixelArt: true, roundPixels: true },
     scene: [BootScene, UIScene, GameScene],
 
-    // FIX: el plugin se cargaba via <script> pero NUNCA se registraba en
-    // Phaser - this.plugins.get('rexVirtualJoystickPlugin') devolvía
-    // siempre null/undefined, así que this.joystick jamás se creaba y
-    // getCursorKeys() siempre devolvía null. El movimiento nunca funcionó
-    // hasta que se detectó y corrigió este registro faltante. El nombre
-    // global exacto que expone el archivo vendor es
-    // 'rexvirtualjoystickplugin' (minúsculas, confirmado inspeccionando
-    // el UMD export del propio archivo).
+    // FIX (root cause encontrada leyendo la documentación oficial y el
+    // .d.ts del paquete phaser3-rex-plugins): rexvirtualjoystickplugin
+    // extiende Phaser.Plugins.BasePlugin, NO Phaser.Plugins.ScenePlugin.
+    // Los BasePlugin se registran en `plugins.global`, no en
+    // `plugins.scene` (ese bucket es solo para ScenePlugin reales, como
+    // rexUI). Estaba registrado bajo `scene:` con `mapping`, que es el
+    // patrón correcto para OTRO tipo de plugin - por eso
+    // this.plugins.get('rexVirtualJoystickPlugin') devolvía siempre
+    // undefined pese a que el script cargaba bien y el nombre global
+    // 'rexvirtualjoystickplugin' era correcto. Con `global:` + `start:
+    // true`, this.plugins.get(key) sí lo encuentra y .add(scene, config)
+    // funciona como documenta rexrainbow.github.io/phaser3-rex-notes.
     plugins: {
-        scene: [{
+        global: [{
             key: 'rexVirtualJoystickPlugin',
             plugin: window.rexvirtualjoystickplugin,
-            mapping: 'rexVirtualJoystick'
+            start: true
         }]
     }
 };

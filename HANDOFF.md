@@ -83,71 +83,61 @@ caché del navegador.
 - Cámara con límites correctos (ya no muestra vacío negro fuera del
   mapa - fix reciente, commit `6ece564`)
 
-## 5. BUG ABIERTO - sin resolver, este es el estado exacto donde quedamos
+## 5. BUG DEL JOYSTICK - RESUELTO (commit pendiente de verificar en vivo)
 
-**Síntoma:** la consola del navegador muestra repetidamente:
+**Síntoma que teníamos:** la consola del navegador mostraba repetidamente:
 ```
 rexVirtualJoystickPlugin no disponible - solo funcionará el teclado.
 ```
-Este es un `console.warn` que nosotros mismos agregamos en
-`client/src/scenes/UIScene.js` cuando `this.plugins.get('rexVirtualJoystickPlugin')`
-devuelve falsy. El registro del plugin está en `client/src/game.js`:
 
+**Causa raíz encontrada:** `rexvirtualjoystickplugin` extiende
+`Phaser.Plugins.BasePlugin`, NO `Phaser.Plugins.ScenePlugin` (confirmado
+en el `.d.ts` oficial del paquete `phaser3-rex-plugins` y en la
+documentación oficial de rexrainbow.github.io/phaser3-rex-notes). Los
+plugins tipo `BasePlugin` deben registrarse en `plugins.global` en la
+config de Phaser.Game - el bucket `plugins.scene` es exclusivamente para
+`ScenePlugin` reales (como `rexUI`, que sí usa `mapping`). El código
+tenía el plugin registrado bajo `scene:` con `mapping`, que es el
+patrón equivocado para este tipo de plugin - por eso
+`this.plugins.get('rexVirtualJoystickPlugin')` devolvía siempre
+`undefined` pese a que el archivo vendor cargaba bien y el nombre
+global `window.rexvirtualjoystickplugin` era correcto (todas las
+verificaciones previas de la sesión anterior seguían siendo válidas,
+solo faltaba esta pieza).
+
+**Fix aplicado en `client/src/game.js`:**
 ```js
 plugins: {
-    scene: [{
+    global: [{
         key: 'rexVirtualJoystickPlugin',
         plugin: window.rexvirtualjoystickplugin,
-        mapping: 'rexVirtualJoystick'
+        start: true
     }]
 }
 ```
+(antes estaba `scene: [{ key: ..., plugin: ..., mapping: 'rexVirtualJoystick' }]`)
 
-**Lo que YA se verificó y descartó como causa:**
-- El archivo `client/vendor/rexvirtualjoystickplugin.min.js` SÍ está
-  correctamente publicado en GitHub (13965 bytes, idéntico local vs
-  remoto, contenido correcto confirmado byte a byte vía
-  `raw.githubusercontent.com`).
-- El orden de los `<script>` en `index.html` es correcto (vendor libs
-  ANTES de `client/src/*`, confirmado en el HTML publicado).
-- El nombre global exportado por el UMD del archivo vendor es
-  `rexvirtualjoystickplugin` (todo minúsculas) - confirmado inspeccionando
-  el propio archivo: `(t=...).rexvirtualjoystickplugin=e()`.
+`client/src/scenes/UIScene.js` NO necesitó cambios - ya usaba el patrón
+correcto `this.plugins.get(key).add(this, {...})`, que es exactamente
+el que documenta rexrainbow para plugins globales.
 
-**Lo que NO se pudo verificar:** no se logró instalar Puppeteer en el
-sandbox (descarga de Chrome headless bloqueada por la red restringida
-del entorno - error 403 en `storage.googleapis.com`), así que no se pudo
-correr un navegador real controlado por código para ver el estado
-EXACTO de `window.rexvirtualjoystickplugin` en tiempo de ejecución.
+**Cómo se diagnosticó:** sin poder correr un navegador real (Puppeteer
+sigue bloqueado en el sandbox, ver nota abajo), se comparó el código
+directamente contra la documentación oficial y el `.d.ts` del paquete,
+encontrando la discrepancia scene vs. global.
 
-**Impacto real:** BAJO. El teclado (flechas/WASD) funciona de forma
-independiente y confirmada - el juego es jugable sin el joystick. Esto
-solo afecta la UX en dispositivos móviles/táctiles (sin joystick
-visible, no hay forma de moverse en celular). Arreglar esto es
-importante antes de anunciar el juego como "listo para móvil", pero no
-bloquea seguir desarrollando en escritorio.
-
-**Próximos pasos sugeridos para atacarlo:**
-1. Pedirle al usuario que en la consola del navegador (F12 → Console)
-   escriba directamente `typeof window.rexvirtualjoystickplugin` y
-   `window.rexvirtualjoystickplugin` (Enter) DESPUÉS de que cargue la
-   página, y mande captura del resultado - esto dice de una vez si el
-   problema es que la variable global nunca existe, o si existe pero
-   Phaser no la está aceptando en el `plugins.scene` config.
-2. Si la variable SÍ existe: revisar la versión exacta de la API de
-   `phaser3-rex-plugins` 1.1.84 - es posible que el patrón de
-   registro correcto sea distinto (algunas versiones de plugins rex
-   esperan `plugin: window.rexvirtualjoystickplugin.default` si el
-   UMD envuelve un default export, o directamente instanciarlo distinto).
-   Revisar la documentación oficial: https://rexrainbow.github.io/phaser3-rex-notes/docs/site/virtualjoystick/
-3. Si la variable NO existe: puede ser un problema de timing real (poco
-   probable dado que son `<script>` bloqueantes en orden, pero
-   verificable agregando un `console.log(typeof window.rexvirtualjoystickplugin)`
-   justo al inicio de `client/src/game.js`, antes de construir `config`).
-4. Alternativa pragmática si esto sigue sin resolverse rápido: dejar el
-   joystick como "mejora futura" y enfocar el desarrollo en
-   funcionalidades de escritorio/teclado, ya que el juego es completamente
-   jugable sin él.
+**Pendiente de verificar:** el fix se validó con `node -c` (sintaxis) y
+razonamiento contra la documentación oficial, pero NO se pudo confirmar
+en un navegador real corriendo (Puppeteer bloqueado por red
+restringida del sandbox - error 403 en `storage.googleapis.com` al
+descargar Chrome headless). **Después de este push, pedirle al usuario
+que pruebe en el cliente en vivo (Ctrl+Shift+R) y confirme que ya NO
+aparece el warning en consola y que el joystick es visible/funcional en
+móvil o simulando touch en desktop (F12 → toggle device toolbar).**
+Si el warning persiste, revisar si `start: true` necesita además algo
+en el orden de arranque, o probar cargando el plugin vía
+`this.load.plugin(...)` en `BootScene.js` en vez de vía config
+(alternativa documentada oficialmente, sección "Load minify file").
 
 ## 6. Estructura de archivos (resumen rápido, ver ARCHITECTURE.md para detalle)
 

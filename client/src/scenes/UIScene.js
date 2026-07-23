@@ -1,8 +1,10 @@
 /* ============================================================
  * UI SCENE: joystick virtual táctil. Ver game.js para el registro
- * del plugin rexVirtualJoystickPlugin en la config de Phaser - sin
- * ese registro, this.plugins.get(...) siempre devuelve undefined y
- * el joystick nunca se crea (bug real que tuvimos y corregimos).
+ * del plugin rexVirtualJoystickPlugin en la config de Phaser
+ * (plugins.global, no plugins.scene - es un BasePlugin). Sin ese
+ * registro correcto, this.plugins.get(...) siempre devuelve
+ * undefined y el joystick nunca se crea (bug real que tuvimos y
+ * corregimos - ver HANDOFF.md sección 5 para el diagnóstico completo).
  * ============================================================ */
 class UIScene extends Phaser.Scene {
     constructor() { super({ key: 'UIScene', active: true }); }
